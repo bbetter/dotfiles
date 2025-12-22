@@ -1,13 +1,13 @@
-# Тимчасові файли
+# Temporary files
 *~
 *.swp
 *.tmp
 .DS_Store
 
-# Логи
+# Logs
 *.log
 
-# Чутливі дані
+# Sensitive data
 **/secrets*
 **/*secret*
 **/*password*
@@ -16,6 +16,9 @@
 # Cache
 **/.cache/
 
-# History файли
+# History files
 **/*history*
 **/.*_history
+
+# Backup directories
+config-backup*/

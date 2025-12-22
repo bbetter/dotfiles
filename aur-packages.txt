@@ -1,0 +1,15 @@
+cnijfilter2
+gtk2
+heroic-games-launcher-bin
+jetbrains-toolbox
+neofetch
+postman-bin
+protonup-qt
+python-inputs
+python-steam
+python-vdf
+scangearmp2
+vesktop
+visual-studio-code-bin
+xpadneo-dkms
+zsh-theme-powerlevel10k-git
