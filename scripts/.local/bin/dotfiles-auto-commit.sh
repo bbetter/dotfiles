@@ -1,3 +1,5 @@
+#!/bin/bash
+
 cd ~/.dotfiles || exit 1
 
 if [[ -n $(git status --porcelain) ]]; then
