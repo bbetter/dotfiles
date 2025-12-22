@@ -8,7 +8,7 @@ if [[ -n $(git status --porcelain) ]]; then
     echo "✅ Changes committed"
 
     # PUSH
-    git push origin main && echo "📤 Pushed to GitHub" || echo "❌ Push failed"
+    git push origin master && echo "📤 Pushed to GitHub" || echo "❌ Push failed"
 else
     echo "ℹ️  No changes to commit"
 fi
