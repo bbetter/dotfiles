@@ -1,0 +1,131 @@
+* {
+  font-family: "JetBrainsMono Nerd Font", sans-serif;
+}
+
+.notification-row {
+  outline: none;
+}
+
+.notification {
+  border-radius: 10px;
+  margin: 6px 12px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.7);
+  padding: 0;
+}
+
+.notification-content {
+  background: rgba(30, 30, 46, 0.95);
+  padding: 6px;
+  border-radius: 10px;
+}
+
+.close-button {
+  background: #f38ba8;
+  color: #1e1e2e;
+  text-shadow: none;
+  padding: 0;
+  border-radius: 100%;
+  margin-top: 10px;
+  margin-right: 10px;
+}
+
+.notification-default-action,
+.notification-action {
+  padding: 4px;
+  margin: 0;
+  box-shadow: none;
+  background: rgba(137, 180, 250, 0.1);
+  border: 1px solid rgba(137, 180, 250, 0.3);
+  color: #cdd6f4;
+  transition: all 0.15s ease-in-out;
+}
+
+.notification-default-action:hover,
+.notification-action:hover {
+  -gtk-icon-effect: none;
+  background: rgba(137, 180, 250, 0.2);
+}
+
+.summary {
+  font-size: 14px;
+  font-weight: bold;
+  background: transparent;
+  color: #89b4fa;
+  text-shadow: none;
+}
+
+.time {
+  font-size: 11px;
+  font-weight: bold;
+  background: transparent;
+  color: #6c7086;
+  text-shadow: none;
+  margin-right: 18px;
+}
+
+.body {
+  font-size: 13px;
+  font-weight: 400;
+  background: transparent;
+  color: #cdd6f4;
+  text-shadow: none;
+}
+
+.control-center {
+  background: rgba(30, 30, 46, 0.95);
+  border: 2px solid rgba(137, 180, 250, 0.5);
+  border-radius: 10px;
+}
+
+.control-center-list {
+  background: transparent;
+}
+
+.control-center-list-placeholder {
+  opacity: 0.5;
+}
+
+.floating-notifications {
+  background: transparent;
+}
+
+.blank-window {
+  background: alpha(black, 0.3);
+}
+
+.widget-title {
+  color: #89b4fa;
+  background: rgba(137, 180, 250, 0.1);
+  padding: 5px 10px;
+  margin: 10px 10px 5px 10px;
+  font-size: 1.2rem;
+  border-radius: 8px;
+}
+
+.widget-dnd {
+  background: rgba(137, 180, 250, 0.1);
+  padding: 5px 10px;
+  margin: 10px 10px 5px 10px;
+  border-radius: 8px;
+  font-size: large;
+  color: #89b4fa;
+}
+
+.widget-label {
+  margin: 10px 10px 5px 10px;
+}
+
+.widget-label > label {
+  font-size: 1.2rem;
+  color: #cdd6f4;
+}
+
+.widget-menubar > box > .menu-button-bar > button {
+  border: none;
+  background: transparent;
+}
+
+/* Іконки */
+.notification-row .notification .notification-content .notification-body .notification-icon {
+  margin-right: 10px;
+}

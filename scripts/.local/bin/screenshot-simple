@@ -1,0 +1,25 @@
+#!/bin/bash
+
+SAVE_DIR=~/Картинки/Screenshots
+mkdir -p "$SAVE_DIR"
+
+case "$1" in
+    area-clip)
+        grim -g "$(slurp)" - | wl-copy
+        notify-send "📋 Screenshot" "Area copied to clipboard"
+        ;;
+    area-file)
+        FILE="$SAVE_DIR/$(date +'screenshot_%Y-%m-%d_%H-%M-%S.png')"
+        grim -g "$(slurp)" "$FILE"
+        notify-send "💾 Screenshot" "Saved to:\n$FILE"
+        ;;
+    full-clip)
+        grim - | wl-copy
+        notify-send "📋 Screenshot" "Screen copied to clipboard"
+        ;;
+    full-file)
+        FILE="$SAVE_DIR/$(date +'screenshot_%Y-%m-%d_%H-%M-%S.png')"
+        grim "$FILE"
+        notify-send "💾 Screenshot" "Saved to:\n$FILE"
+        ;;
+esac

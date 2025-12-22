@@ -1,0 +1,209 @@
+* {
+    font-family: "JetBrainsMono Nerd Font", "Noto Sans", sans-serif;
+    font-size: 13px;
+    min-height: 0;
+    font-weight: 500;
+}
+
+window#waybar {
+    background: rgba(20, 20, 30, 0.95);
+    color: #e0e0e0;
+    border-bottom: 2px solid rgba(100, 150, 255, 0.3);
+}
+
+/* Воркспейси */
+#workspaces {
+    margin: 0 5px;
+}
+
+#workspaces button {
+    padding: 0 10px;
+    color: #888;
+    background: transparent;
+    border: none;
+    transition: all 0.3s;
+}
+
+#workspaces button.active {
+    color: #6495ed;
+    background: rgba(100, 149, 237, 0.15);
+    border-radius: 6px;
+}
+
+#workspaces button:hover {
+    background: rgba(100, 149, 237, 0.1);
+    border-radius: 6px;
+    color: #aaa;
+}
+
+/* Таскбар */
+#taskbar {
+    padding: 0;
+    margin: 0 5px;
+}
+
+#taskbar button {
+    padding: 2px 8px;
+    margin: 0 2px;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+#taskbar button.active {
+    background: rgba(100, 149, 237, 0.2);
+}
+
+#taskbar button:hover {
+    background: rgba(100, 149, 237, 0.15);
+}
+
+/* Годинник */
+#clock {
+    padding: 4px 15px;
+    color: #6495ed;
+    background: rgba(100, 149, 237, 0.1);
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+/* Tray */
+#tray {
+    padding: 0 8px;
+}
+
+#tray > .passive {
+    opacity: 0.7;
+}
+
+#tray > .active {
+    opacity: 1;
+}
+
+#tray menu {
+    background: rgba(20, 20, 30, 0.95);
+    border: 1px solid rgba(100, 150, 255, 0.3);
+    border-radius: 6px;
+    padding: 4px;
+}
+
+/* Notification */
+#custom-notification {
+    padding: 4px 12px;
+    color: #fab387;
+    background: rgba(250, 179, 135, 0.1);
+    border-radius: 6px;
+    margin-right: 5px;
+    min-width: 30px;
+}
+
+#custom-notification.notification {
+    color: #f38ba8;
+    background: rgba(243, 139, 168, 0.2);
+}
+
+/* Bluetooth */
+#bluetooth {
+    padding: 4px 12px;
+    color: #89dceb;
+    background: rgba(137, 220, 235, 0.1);
+    border-radius: 6px;
+    margin-right: 5px;
+}
+
+#bluetooth.disabled,
+#bluetooth.off {
+    color: #6c7086;
+    background: rgba(108, 112, 134, 0.1);
+}
+
+#bluetooth.connected {
+    color: #a6e3a1;
+    background: rgba(166, 227, 161, 0.1);
+}
+
+/* Погода */
+#custom-weather {
+    padding: 4px 12px;
+    color: #87ceeb;
+    background: rgba(135, 206, 235, 0.1);
+    border-radius: 6px;
+    margin-right: 5px;
+}
+
+/* Звук */
+#pulseaudio {
+    padding: 4px 12px;
+    color: #98fb98;
+    background: rgba(152, 251, 152, 0.1);
+    border-radius: 6px;
+    margin-right: 5px;
+}
+
+#pulseaudio:hover {
+    background: rgba(152, 251, 152, 0.15);
+}
+
+/* Розкладка */
+#language {
+    padding: 4px 12px;
+    color: #dda0dd;
+    background: rgba(221, 160, 221, 0.1);
+    border-radius: 6px;
+    min-width: 35px;
+    font-family: "Noto Color Emoji", "JetBrainsMono Nerd Font", sans-serif;
+}
+
+/* Media player (якщо додаси) */
+#custom-media {
+    padding: 0 10px 0 10px;
+    background: linear-gradient(90deg, #1e1e2e, #313244);
+    border-radius: 8px 0 0 8px;
+    margin: 0;
+}
+
+#custom-media.playing {
+    color: #a6e3a1;
+    background: rgba(166, 227, 161, 0.1);
+}
+
+#custom-media.paused {
+    color: #f9e2af;
+    background: rgba(249, 226, 175, 0.1);
+}
+/* Кава візуалізація */
+#custom-cava {
+    padding: 0 10px 0 5px;
+    background: linear-gradient(90deg, #313244, #1e1e2e);
+    border-radius: 0 8px 8px 0;
+    margin: 0 4px 0 0;
+    color: #89dceb;
+}
+
+/* Tooltip */
+tooltip {
+    background: rgba(20, 20, 30, 0.95);
+    border: 1px solid rgba(100, 150, 255, 0.3);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+tooltip label {
+    color: #e0e0e0;
+}
+
+#custom-recording.recording {
+    color: #f38ba8;
+    background: rgba(243, 139, 168, 0.2);
+    animation: blink-recording 1s ease-in-out infinite;
+    padding: 4px 12px;
+    margin-right: 5px;
+    border-radius: 6px;
+}
+
+#custom-recording.idle {
+    /* Нічого не показує */
+}
+
+

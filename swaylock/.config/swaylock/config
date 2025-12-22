@@ -1,0 +1,36 @@
+# Загальні
+ignore-empty-password
+show-failed-attempts
+
+# Зображення
+image=~/Картинки/z9xEMao.jpg
+scaling=fill
+
+# Індикатор
+indicator
+indicator-radius=100
+indicator-thickness=10
+
+# Кольори індикатора
+inside-color=1e1e2e99
+ring-color=89b4fa
+line-color=00000000
+key-hl-color=a6e3a1
+bs-hl-color=f38ba8
+separator-color=00000000
+
+# При перевірці
+inside-ver-color=89b4fa99
+ring-ver-color=89b4fa
+
+# При помилці
+inside-wrong-color=f38ba899
+ring-wrong-color=f38ba8
+
+# Текст
+text-color=cdd6f4
+text-ver-color=cdd6f4
+text-wrong-color=1e1e2e
+
+# Шрифт
+font="JetBrainsMono Nerd Font"

@@ -1,0 +1,131 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 32,
+    "spacing": 8,
+    
+    "modules-left": ["hyprland/workspaces", "wlr/taskbar"],
+    "modules-center": ["clock"],
+    "modules-right": [
+        "tray",
+        "bluetooth",
+        "pulseaudio",
+	"custom/media",
+	"custom/cava",
+	"custom/recording",
+        "hyprland/language"
+    ],
+    
+    "hyprland/workspaces": {
+        "format": "{id}",
+        "on-click": "activate",
+        "active-only": false,
+        "all-outputs": true
+    },
+    
+    "wlr/taskbar": {
+        "format": "{icon}",
+        "icon-size": 20,
+        "icon-theme": "Papirus-Dark",
+        "tooltip-format": "{title}",
+        "on-click": "activate",
+        "on-click-middle": "close",
+        "on-click-right": "close"
+    },
+    
+    "clock": {
+        "format": "{:%H:%M  %d.%m.%Y}",
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "calendar": {
+            "mode": "month",
+            "format": {
+                "months": "<span color='#ffead3'><b>{}</b></span>",
+                "days": "<span color='#ecc6d9'><b>{}</b></span>",
+                "today": "<span color='#ff6699'><b><u>{}</u></b></span>"
+            }
+        }
+    },
+
+    "custom/cava": {
+    	"exec": "~/.config/waybar/cava.sh",
+        "format": "♪ {}",
+    	"tooltip": false
+    },
+    
+    "tray": {
+        "icon-size": 18,
+        "spacing": 8,
+        "show-passive-items": true
+    },
+    
+    "custom/media": {
+        "format": "{icon} {text}",
+        "return-type": "json",
+        "max-length": 15,
+        "format-icons": {
+            "spotify": " ",
+            "firefox": " ",
+            "default": ""
+        },
+        "escape": true,
+        "exec": "$HOME/.config/waybar/mediaplayer.py 2> /dev/null",
+        "on-click": "playerctl play-pause",
+        "on-scroll-up": "playerctl next",
+        "on-scroll-down": "playerctl previous"
+    },
+    
+    "bluetooth": {
+        "format": "ᛒ",
+        "format-disabled": "",
+        "format-off": "",
+        "format-connected": " {device_alias}",
+        "format-connected-battery": " {device_alias} {device_battery_percentage}%",
+        "tooltip-format": "{controller_alias}\t{controller_address}\n{num_connections} connected",
+        "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
+        "tooltip-format-enumerate-connected-battery": "{device_alias}\t{device_address}\t{device_battery_percentage}%",
+        "on-click": "blueman-manager"
+    },
+    
+    "custom/notification": {
+    	"format": "{}",
+    	"return-type": "json",
+    	"exec": "~/.config/waybar/swaync-count.sh",
+    	"interval": 1,
+    	"on-click": "swaync-client -t -sw",
+    	"on-click-right": "swaync-client -d -sw",
+    	"escape": true
+    },
+
+    "pulseaudio": {
+    	"format": "🔊 {volume}%",
+    	"format-muted": "󰖁 Muted",
+    	"format-icons": {
+        	"headphone": "",
+        	"hands-free": "",
+        	"headset": "",
+        	"phone": "",
+        	"portable": "",
+        	"car": "",
+        	"default": ["", "", ""]
+	},
+    	"on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    	"on-click-right": "pavucontrol",
+        "scroll-step": 5,
+    	"tooltip-format": "{desc}: {volume}%"
+    },
+
+    "custom/recording": {
+    	"format": "{}",
+    	"return-type": "json",
+    	"interval": 1,
+    	"exec": "~/.config/waybar/recording-status.sh",
+    	"on-click": "~/.config/waybar/stop-recording.sh"
+    },
+    
+    "hyprland/language": {
+        "format": "{}",
+        "format-en": "🇺🇸",
+        "format-uk": "🇺🇦"
+    }
+}

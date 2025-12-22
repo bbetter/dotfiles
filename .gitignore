@@ -1,0 +1,21 @@
+# Тимчасові файли
+*~
+*.swp
+*.tmp
+.DS_Store
+
+# Логи
+*.log
+
+# Чутливі дані
+**/secrets*
+**/*secret*
+**/*password*
+**/*token*
+
+# Cache
+**/.cache/
+
+# History файли
+**/*history*
+**/.*_history

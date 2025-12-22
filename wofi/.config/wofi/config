@@ -1,0 +1,29 @@
+# Розміри і позиція
+width=600
+height=400
+location=center
+orientation=vertical
+
+# Поведінка
+show=drun
+prompt=Search...
+filter_rate=100
+allow_markup=true
+no_actions=true
+halign=fill
+content_halign=fill
+insensitive=true
+key_expand=Tab
+
+# Зовнішній вигляд
+allow_images=true
+image_size=32
+columns=1
+hide_scroll=true
+dynamic_lines=false
+matching=contains
+
+# Режим
+term=kitty
+hide_search=false
+parse_search=false

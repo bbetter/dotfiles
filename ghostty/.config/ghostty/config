@@ -1,0 +1,24 @@
+# Шрифт
+font-family = JetBrainsMono Nerd Font
+font-size = 12
+
+# Розкладка
+keybind = ctrl+shift+c=copy_to_clipboard
+keybind = ctrl+shift+v=paste_from_clipboard
+
+# Поведінка
+shell-integration = none
+confirm-close-surface = false
+
+# Курсор
+cursor-style = block
+cursor-style-blink = true
+
+# Padding
+window-padding-x = 8
+window-padding-y = 8
+
+# Background
+background-opacity = 0.95
+
+term = xterm-256color
