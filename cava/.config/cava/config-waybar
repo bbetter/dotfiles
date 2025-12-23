@@ -4,7 +4,7 @@ bars = 12
 bar_width = 1
 
 [input]
-method = pulse
+method = pipewire
 
 [output]
 method = raw

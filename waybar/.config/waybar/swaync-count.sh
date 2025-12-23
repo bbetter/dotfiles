@@ -1,7 +1,5 @@
-#!/bin/bash
-count=$(swaync-client -c 2>/dev/null || echo "0")
-if [ "$count" -gt 0 ]; then
-    echo "{\"text\":\" $count\", \"class\":\"notification\"}"
-else
-    echo "{\"text\":\"\", \"class\":\"none\"}"
-fi
+#!/bin/sh
+count=$(swaync-client -c)
+[ "$count" -eq 0 ] && exit 0
+echo "{\"text\": \"🔔 $count\"}"
+

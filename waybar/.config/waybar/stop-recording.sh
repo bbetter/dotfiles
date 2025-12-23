@@ -1,18 +1,18 @@
 #!/bin/bash
 
-STATE_FILE="/tmp/wf-recorder-state"
+START_FILE="/tmp/wf-recorder-start"
+FILE_FILE="/tmp/wf-recorder-file"
 
-if pgrep -x wf-recorder > /dev/null; then
-    killall -INT wf-recorder
-    sleep 1
-    
-    if [ -f "$STATE_FILE" ]; then
-        FILE=$(cat "$STATE_FILE")
-        notify-send "🎥 Recording stopped" "Saved to:\n$FILE" -i video-x-generic
-        rm "$STATE_FILE"
-    else
-        notify-send "🎥 Recording stopped" -i video-x-generic
-    fi
-else
-    notify-send "🎥 No recording" "Nothing to stop" -i dialog-information
+if ! pgrep -x wf-recorder > /dev/null; then
+    notify-send "🎥 Recording" "Not recording" -i dialog-information
+    exit 0
 fi
+
+pkill -INT wf-recorder
+
+sleep 0.3
+
+[ -f "$FILE_FILE" ] && notify-send "🎥 Recording saved" "$(cat "$FILE_FILE")"
+
+rm -f "$START_FILE" "$FILE_FILE"
+

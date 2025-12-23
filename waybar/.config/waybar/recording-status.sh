@@ -1,23 +1,26 @@
 #!/bin/bash
 
-STATE_FILE="/tmp/wf-recorder-state"
+START_FILE="/tmp/wf-recorder-start"
 
-if pgrep -x wf-recorder > /dev/null; then
-    START_TIME=$(stat -c %Y "$STATE_FILE" 2>/dev/null || date +%s)
-    CURRENT_TIME=$(date +%s)
-    ELAPSED=$((CURRENT_TIME - START_TIME))
-    
-    HOURS=$((ELAPSED / 3600))
-    MINUTES=$(((ELAPSED % 3600) / 60))
-    SECONDS=$((ELAPSED % 60))
-    
-    if [ $HOURS -gt 0 ]; then
-        TIME_STR=$(printf "%02d:%02d:%02d" $HOURS $MINUTES $SECONDS)
-    else
-        TIME_STR=$(printf "%02d:%02d" $MINUTES $SECONDS)
-    fi
-    
-    echo "{\"text\":\"🔴 $TIME_STR\", \"class\":\"recording\", \"tooltip\":\"Click to stop recording\"}"
-else
-    echo "{\"text\":\"\", \"class\":\"idle\"}"
+if ! pgrep -x wf-recorder > /dev/null; then
+    exit 0
 fi
+
+[ ! -f "$START_FILE" ] && date +%s > "$START_FILE"
+
+START_TIME=$(cat "$START_FILE")
+NOW=$(date +%s)
+ELAPSED=$((NOW - START_TIME))
+
+H=$((ELAPSED / 3600))
+M=$(((ELAPSED % 3600) / 60))
+S=$((ELAPSED % 60))
+
+if [ $H -gt 0 ]; then
+    TIME=$(printf "%02d:%02d:%02d" $H $M $S)
+else
+    TIME=$(printf "%02d:%02d" $M $S)
+fi
+
+echo "{\"text\":\"🔴 $TIME\", \"class\":\"recording\", \"tooltip\":\"Click to stop recording\"}"
+

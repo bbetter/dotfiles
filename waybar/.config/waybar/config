@@ -9,10 +9,12 @@
     "modules-right": [
         "tray",
         "bluetooth",
+	"custom/mic",
         "pulseaudio",
 	"custom/media",
 	"custom/cava",
 	"custom/recording",
+	"custom/notification",
         "hyprland/language"
     ],
     
@@ -54,26 +56,25 @@
     
     "tray": {
         "icon-size": 18,
-        "spacing": 8,
-        "show-passive-items": true
+	"padding": 8,
+	"show-passive-items": true
     },
-    
+   
     "custom/media": {
-        "format": "{icon} {text}",
-        "return-type": "json",
-        "max-length": 15,
-        "format-icons": {
-            "spotify": " ",
-            "firefox": " ",
-            "default": ""
-        },
-        "escape": true,
-        "exec": "$HOME/.config/waybar/mediaplayer.py 2> /dev/null",
-        "on-click": "playerctl play-pause",
-        "on-scroll-up": "playerctl next",
-        "on-scroll-down": "playerctl previous"
+    	"exec": "~/.config/waybar/mediaplayer.py",
+    	"interval": 1,
+    	"return-type": "json",
+    	"on-click": "playerctl play-pause",
+    	"on-scroll-up": "playerctl next",
+    	"on-scroll-down": "playerctl previous",
+    	"escape": true
     },
-    
+
+    "custom/mic": {
+  	"exec": "~/.config/waybar/mic-status.sh",
+  	"interval": 2,
+  	"on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+    },   
     "bluetooth": {
         "format": "ᛒ",
         "format-disabled": "",
@@ -116,11 +117,18 @@
     },
 
     "custom/recording": {
-    	"format": "{}",
     	"return-type": "json",
     	"interval": 1,
+	"tooltip": true,
     	"exec": "~/.config/waybar/recording-status.sh",
     	"on-click": "~/.config/waybar/stop-recording.sh"
+    },
+
+    "custom/mic": {
+  	"exec": "~/.config/waybar/mic-status.sh",
+  	"return-type": "json",
+  	"interval": 1,
+  	"on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
     },
     
     "hyprland/language": {
