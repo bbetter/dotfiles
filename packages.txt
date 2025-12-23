@@ -122,6 +122,7 @@ lsb-release
 lshw
 lsscsi
 lvm2
+ly
 man-db
 man-pages
 mangohud
@@ -178,7 +179,6 @@ rtkit
 s-nail
 sane
 sane-airscan
-sddm
 sg3_utils
 slurp
 smartmontools
@@ -195,6 +195,7 @@ sysfsutils
 system-config-printer
 systemd-sysvcompat
 telegram-desktop
+terminus-font
 texinfo
 thunar
 thunar-archive-plugin
