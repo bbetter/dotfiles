@@ -1,0 +1,61 @@
+#!/bin/bash
+
+DOTFILES_DIR="$HOME/.dotfiles"
+
+echo "📦 Updating package lists..."
+
+cd "$DOTFILES_DIR" || exit 1
+
+# Backup старих списків
+cp packages.txt packages.txt.old 2>/dev/null || true
+cp aur-packages.txt aur-packages.txt.old 2>/dev/null || true
+
+# Оновити списки
+pacman -Qqe | grep -v "$(pacman -Qqm)" > packages.txt
+pacman -Qqm > aur-packages.txt
+
+# Перевірити чи є зміни
+if ! diff -q packages.txt packages.txt.old &>/dev/null || \
+   ! diff -q aur-packages.txt aur-packages.txt.old &>/dev/null; then
+    
+    echo ""
+    echo "✅ Package lists updated!"
+    echo ""
+    echo "📝 Changes:"
+    
+    # Показати що додалось/видалилось
+    if [ -f packages.txt.old ]; then
+        echo ""
+        echo "Official packages:"
+        diff -u packages.txt.old packages.txt | grep "^[+-]" | grep -v "^[+-][+-]" || echo "  No changes"
+    fi
+    
+    if [ -f aur-packages.txt.old ]; then
+        echo ""
+        echo "AUR packages:"
+        diff -u aur-packages.txt.old aur-packages.txt | grep "^[+-]" | grep -v "^[+-][+-]" || echo "  No changes"
+    fi
+    
+    # Видалити backup
+    rm -f packages.txt.old aur-packages.txt.old
+    
+    echo ""
+    read -p "Commit changes? (y/N) " -n 1 -r
+    echo
+    
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        git add packages.txt aur-packages.txt
+        git commit -m "Update package lists: $(date +'%Y-%m-%d')"
+        echo "✅ Committed!"
+        
+        read -p "Push to GitHub? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            git push
+            echo "📤 Pushed!"
+        fi
+    fi
+else
+    echo "ℹ️  No changes in package lists"
+    rm -f packages.txt.old aur-packages.txt.old
+fi
