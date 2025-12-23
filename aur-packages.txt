@@ -1,3 +1,4 @@
+birdtray
 cnijfilter2
 gtk2
 heroic-games-launcher-bin

@@ -200,6 +200,7 @@ texinfo
 thunar
 thunar-archive-plugin
 thunar-volman
+thunderbird
 tldr
 tree
 ttf-bitstream-vera
