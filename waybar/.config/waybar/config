@@ -17,14 +17,17 @@
 	"custom/notification",
         "hyprland/language"
     ],
-    
+
     "hyprland/workspaces": {
-        "format": "{id}",
-        "on-click": "activate",
-        "active-only": false,
-        "all-outputs": true
+    	"format": "{id}",
+    	"on-click": "activate",
+    	"sort-by-number": true,
+    	"all-outputs": true,
+    	"persistent-workspaces": {
+        	"*": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    	}
     },
-    
+           
     "wlr/taskbar": {
         "format": "{icon}",
         "icon-size": 20,
