@@ -4,13 +4,11 @@
     "height": 32,
     "spacing": 8,
     
-    "modules-left": ["hyprland/workspaces", "wlr/taskbar"],
+    "modules-left": ["hyprland/workspaces", "tray"],
     "modules-center": ["clock"],
     "modules-right": [
-        "tray",
-        "bluetooth",
-	"custom/mic",
-        "pulseaudio",
+	"custom/peripherals",
+	"custom/audio",
 	"custom/media",
 	"custom/cava",
 	"custom/recording",
@@ -78,19 +76,7 @@
   	"interval": 2,
   	"on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
     },   
-    "bluetooth": {
-        "format": "ᛒ",
-        "format-disabled": "",
-        "format-off": "",
-        "format-connected": " {device_alias}",
-        "format-connected-battery": " {device_alias} {device_battery_percentage}%",
-        "tooltip-format": "{controller_alias}\t{controller_address}\n{num_connections} connected",
-        "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
-        "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
-        "tooltip-format-enumerate-connected-battery": "{device_alias}\t{device_address}\t{device_battery_percentage}%",
-        "on-click": "blueman-manager"
-    },
-    
+   
     "custom/notification": {
     	"format": "{}",
     	"return-type": "json",
@@ -101,24 +87,6 @@
     	"escape": true
     },
 
-    "pulseaudio": {
-    	"format": "🔊 {volume}%",
-    	"format-muted": "󰖁 Muted",
-    	"format-icons": {
-        	"headphone": "",
-        	"hands-free": "",
-        	"headset": "",
-        	"phone": "",
-        	"portable": "",
-        	"car": "",
-        	"default": ["", "", ""]
-	},
-    	"on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
-    	"on-click-right": "pavucontrol",
-        "scroll-step": 5,
-    	"tooltip-format": "{desc}: {volume}%"
-    },
-
     "custom/recording": {
     	"return-type": "json",
     	"interval": 1,
@@ -127,16 +95,28 @@
     	"on-click": "~/.config/waybar/stop-recording.sh"
     },
 
-    "custom/mic": {
-  	"exec": "~/.config/waybar/mic-status.sh",
-  	"return-type": "json",
-  	"interval": 1,
-  	"on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
-    },
-    
+    "custom/audio": {
+    	"exec": "~/.config/waybar/audio-control.sh",
+    	"return-type": "json",
+    	"interval": 1,
+    	"format": "{}",
+    	"tooltip": true,
+    	"on-click": "pavucontrol",
+    	"on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+   	"on-scroll-up": "~/.config/waybar/audio-scroll.sh speaker up",
+    	"on-scroll-down": "~/.config/waybar/audio-scroll.sh speaker down"
+    }, 
+       
     "hyprland/language": {
         "format": "{}",
         "format-en": "🇺🇸",
         "format-uk": "🇺🇦"
+    },
+    "custom/peripherals": {
+    	"exec": "~/.config/waybar/peripherals.sh",
+    	"return-type": "json",
+    	"interval": 10,
+    	"format": "{}",
+    	"tooltip": true
     }
 }

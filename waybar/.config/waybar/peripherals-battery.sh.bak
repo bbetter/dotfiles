@@ -1,0 +1,151 @@
+#!/bin/bash
+
+HTML=""
+TOOLTIP=""
+SEP="<span foreground='#6c7086'>│</span>"
+
+# Кольори батареї
+COLOR_GOOD="#a6e3a1"
+COLOR_MEDIUM="#f9e2af"
+COLOR_LOW="#fab387"
+COLOR_CRITICAL="#f38ba8"
+
+# === КЛАВІАТУРА ===
+if lsusb | grep -q "379a:0300"; then
+    HTML="⌨️"
+    TOOLTIP="Rockfall 3 Wireless: Connected\nUSB Dongle (379a:0300)"
+fi
+
+# === МИША ===
+MOUSE_PATH=$(ls /sys/bus/hid/drivers/razermouse/*/charge_level 2>/dev/null | head -1)
+
+if [ -n "$MOUSE_PATH" ]; then
+    MOUSE_DIR=$(dirname "$MOUSE_PATH")
+    CHARGE=$(cat "$MOUSE_DIR/charge_level")
+    SERIAL=$(cat "$MOUSE_DIR/device_serial" 2>/dev/null || echo "N/A")
+    PCT=$((CHARGE * 100 / 255))
+    
+    # Вибір кольору
+    if [ $PCT -gt 80 ]; then
+        COLOR="$COLOR_GOOD"
+    elif [ $PCT -gt 50 ]; then
+        COLOR="$COLOR_MEDIUM"
+    elif [ $PCT -gt 20 ]; then
+        COLOR="$COLOR_LOW"
+    else
+        COLOR="$COLOR_CRITICAL"
+    fi
+    
+    # Додаємо секцію
+    [ -n "$HTML" ] && HTML="$HTML $SEP "
+    HTML="$HTML🖱️ <span foreground='$COLOR'>${PCT}%</span>"
+    
+    [ -n "$TOOLTIP" ] && TOOLTIP="$TOOLTIP\n\n"
+    TOOLTIP="${TOOLTIP}Razer Orochi V2\nBattery: ${PCT}%\nSerial: $SERIAL"
+fi
+
+# === BLUETOOTH НАВУШНИКИ ===
+BT_DEVICES=$(bluetoothctl devices Connected 2>/dev/null | awk '{print $2}')
+
+for MAC in $BT_DEVICES; do
+    BT_INFO=$(bluetoothctl info "$MAC" 2>/dev/null)
+    
+    # Audio пристрої
+    if echo "$BT_INFO" | grep -q "audio-headset\|audio-headphones"; then
+        BT_NAME=$(echo "$BT_INFO" | grep "Name:" | cut -d':' -f2 | xargs)
+        BT_BATTERY=$(echo "$BT_INFO" | grep "Battery Percentage:" | grep -oP '\(\K[0-9]+(?=\))')
+        
+        if [ -n "$BT_BATTERY" ]; then
+            if [ $BT_BATTERY -gt 80 ]; then
+                COLOR="$COLOR_GOOD"
+            elif [ $BT_BATTERY -gt 50 ]; then
+                COLOR="$COLOR_MEDIUM"
+            elif [ $BT_BATTERY -gt 20 ]; then
+                COLOR="$COLOR_LOW"
+            else
+                COLOR="$COLOR_CRITICAL"
+            fi
+            
+            [ -n "$HTML" ] && HTML="$HTML $SEP "
+            HTML="$HTML🎧 <span foreground='$COLOR'>${BT_BATTERY}%</span>"
+        else
+            [ -n "$HTML" ] && HTML="$HTML $SEP "
+            HTML="$HTML🎧"
+        fi
+        
+        [ -n "$TOOLTIP" ] && TOOLTIP="$TOOLTIP\n\n"
+        TOOLTIP="${TOOLTIP}$BT_NAME\n"
+        [ -n "$BT_BATTERY" ] && TOOLTIP="${TOOLTIP}Battery: ${BT_BATTERY}%\n"
+        TOOLTIP="${TOOLTIP}MAC: $MAC"
+    fi
+    
+    # Геймпади
+    if echo "$BT_INFO" | grep -qi "xbox\|controller\|gamepad"; then
+        BT_NAME=$(echo "$BT_INFO" | grep "Name:" | cut -d':' -f2 | xargs)
+        BT_BATTERY=$(echo "$BT_INFO" | grep "Battery Percentage:" | grep -oP '\(\K[0-9]+(?=\))')
+        
+        if [ -n "$BT_BATTERY" ]; then
+            if [ $BT_BATTERY -gt 80 ]; then
+                COLOR="$COLOR_GOOD"
+            elif [ $BT_BATTERY -gt 50 ]; then
+                COLOR="$COLOR_MEDIUM"
+            elif [ $BT_BATTERY -gt 20 ]; then
+                COLOR="$COLOR_LOW"
+            else
+                COLOR="$COLOR_CRITICAL"
+            fi
+            
+            [ -n "$HTML" ] && HTML="$HTML $SEP "
+            HTML="$HTML🎮 <span foreground='$COLOR'>${BT_BATTERY}%</span>"
+        else
+            [ -n "$HTML" ] && HTML="$HTML $SEP "
+            HTML="$HTML🎮"
+        fi
+        
+        [ -n "$TOOLTIP" ] && TOOLTIP="$TOOLTIP\n\n"
+        TOOLTIP="${TOOLTIP}$BT_NAME\n"
+        [ -n "$BT_BATTERY" ] && TOOLTIP="${TOOLTIP}Battery: ${BT_BATTERY}%\n"
+        TOOLTIP="${TOOLTIP}MAC: $MAC"
+    fi
+done
+
+# === НЕВІДОМІ BLUETOOTH ПРИСТРОЇ ===
+KNOWN_MACS="80:C3:BA:3F:FB:12"
+
+for MAC in $BT_DEVICES; do
+    echo "$KNOWN_MACS" | grep -q "$MAC" && continue
+    
+    BT_INFO=$(bluetoothctl info "$MAC" 2>/dev/null)
+    echo "$BT_INFO" | grep -q "audio-headset\|audio-headphones\|xbox\|controller\|gamepad" && continue
+    
+    BT_NAME=$(echo "$BT_INFO" | grep "Name:" | cut -d':' -f2 | xargs)
+    BT_BATTERY=$(echo "$BT_INFO" | grep "Battery Percentage:" | grep -oP '\(\K[0-9]+(?=\))')
+    
+    if [ -n "$BT_BATTERY" ]; then
+        if [ $BT_BATTERY -gt 50 ]; then
+            COLOR="$COLOR_MEDIUM"
+        elif [ $BT_BATTERY -gt 20 ]; then
+            COLOR="$COLOR_LOW"
+        else
+            COLOR="$COLOR_CRITICAL"
+        fi
+        
+        [ -n "$HTML" ] && HTML="$HTML $SEP "
+        HTML="$HTML❓ <span foreground='$COLOR'>${BT_BATTERY}%</span>"
+    else
+        [ -n "$HTML" ] && HTML="$HTML $SEP "
+        HTML="$HTML❓"
+    fi
+    
+    [ -n "$TOOLTIP" ] && TOOLTIP="$TOOLTIP\n\n"
+    TOOLTIP="${TOOLTIP}Unknown Device\n$BT_NAME\n"
+    [ -n "$BT_BATTERY" ] && TOOLTIP="${TOOLTIP}Battery: ${BT_BATTERY}%\n"
+    TOOLTIP="${TOOLTIP}MAC: $MAC"
+done
+
+# JSON output
+if [ -n "$HTML" ]; then
+    echo "{\"text\":\"$HTML\",\"tooltip\":\"$TOOLTIP\"}"
+else
+    echo ""
+fi

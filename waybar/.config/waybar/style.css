@@ -78,7 +78,7 @@ window#waybar {
    TRAY
    ================================================== */
 #tray {
-    padding: 0 8px;
+    padding: 8px 8px;
 }
 
 #tray > .passive {
@@ -114,63 +114,19 @@ window#waybar {
 }
 
 /* ==================================================
-   BLUETOOTH
+   AUDIO (UNIFIED)
    ================================================== */
-#bluetooth {
+#custom-audio {
     padding: 4px 12px;
     margin-right: 6px;
-    border-radius: 6px;
-    color: #89dceb;
+    border-radius: 8px;
     background: rgba(137, 220, 235, 0.12);
-}
-
-#bluetooth.disabled,
-#bluetooth.off {
-    color: #6c7086;
-    background: rgba(108, 112, 134, 0.12);
-}
-
-#bluetooth.connected {
-    color: #a6e3a1;
-    background: rgba(166, 227, 161, 0.14);
-}
-
-/* ==================================================
-   AUDIO OUTPUT
-   ================================================== */
-#pulseaudio {
-    padding: 4px 12px;
-    margin-right: 6px;
-    border-radius: 6px;
-    color: #98fb98;
-    background: rgba(152, 251, 152, 0.12);
-    transition: background 0.2s ease;
-}
-
-#pulseaudio:hover {
-    background: rgba(152, 251, 152, 0.18);
-}
-
-/* ==================================================
-   MICROPHONE
-   ================================================== */
-#custom-mic {
-    padding: 4px 12px;
-    margin-right: 6px;
-    border-radius: 6px;
-    background: rgba(140, 170, 238, 0.1);
     color: #cdd6f4;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: all 0.2s ease;
 }
 
-#custom-mic.active {
-    background: rgba(137, 220, 235, 0.14);
-    color: #89dceb;
-}
-
-#custom-mic.muted {
-    background: rgba(243, 139, 168, 0.22);
-    color: #f38ba8;
+#custom-audio:hover {
+    background: rgba(137, 220, 235, 0.18);
 }
 
 /* ==================================================
@@ -264,4 +220,46 @@ window#waybar.focus #custom-media,
 window#waybar.focus #custom-cava {
     opacity: 0.25;
 }
+
+/* ==================================================
+   PERIPHERALS (UNIFIED WIDGET)
+   ================================================== */
+#custom-peripherals {
+    padding: 4px 12px;
+    margin-right: 6px;
+    border-radius: 8px;
+    background: rgba(137, 220, 235, 0.12);
+    color: #cdd6f4;
+    transition: all 0.2s ease;
+}
+
+/* Separator між пристроями */
+#custom-peripherals .device-separator {
+    color: #6c7086;
+    opacity: 0.5;
+    padding: 0 4px;
+}
+
+/* Базовий стиль пристрою */
+#custom-peripherals .device {
+    transition: color 0.2s ease;
+}
+
+/* Кольори батареї */
+#custom-peripherals .battery-good {
+    color: #a6e3a1;  /* Зелений */
+}
+
+#custom-peripherals .battery-medium {
+    color: #f9e2af;  /* Жовтий */
+}
+
+#custom-peripherals .battery-low {
+    color: #fab387;  /* Помаранчевий */
+}
+
+#custom-peripherals .battery-critical {
+    color: #f38ba8;  /* Червоний */
+}
+
 
