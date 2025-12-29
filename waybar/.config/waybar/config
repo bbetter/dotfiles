@@ -113,9 +113,9 @@
         "format-uk": "🇺🇦"
     },
     "custom/peripherals": {
-    	"exec": "~/.config/waybar/peripherals.sh",
+    	"exec": "~/.config/waybar/peripherals.py",
     	"return-type": "json",
-    	"interval": 10,
+    	"interval": 5,
     	"format": "{}",
     	"tooltip": true
     }
