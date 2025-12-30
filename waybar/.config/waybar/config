@@ -7,12 +7,13 @@
     "modules-left": ["hyprland/workspaces", "tray"],
     "modules-center": ["clock"],
     "modules-right": [
-	"custom/peripherals",
-	"custom/audio",
-	"custom/media",
-	"custom/cava",
-	"custom/recording",
-	"custom/notification",
+	    "custom/peripherals",
+	    "custom/audio",
+	    "custom/media",
+	    "custom/cava",
+	    "custom/recording",
+        "custom/network",
+	    "custom/notification",
         "hyprland/language"
     ],
 
@@ -72,9 +73,9 @@
     },
 
     "custom/mic": {
-  	"exec": "~/.config/waybar/mic-status.sh",
-  	"interval": 2,
-  	"on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+  	    "exec": "~/.config/waybar/mic-status.sh",
+  	    "interval": 2,
+  	    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
     },   
    
     "custom/notification": {
@@ -106,6 +107,12 @@
    	"on-scroll-up": "~/.config/waybar/audio-scroll.sh speaker up",
     	"on-scroll-down": "~/.config/waybar/audio-scroll.sh speaker down"
     }, 
+
+    "custom/network": {
+        "exec": "~/.config/waybar/network.py",
+        "interval": 5,
+        "return-type": "json"
+   },
        
     "hyprland/language": {
         "format": "{}",
