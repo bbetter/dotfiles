@@ -35,30 +35,49 @@ window#waybar {
     background-color: rgba(255, 255, 255, 0.06);
 }
 
-/* ==================================================
-   WORKSPACES
-   ================================================== */
+/* ===============================
+   WORKSPACES — MULTIMONITOR SAFE
+   =============================== */
+
 #workspaces {
     margin: 0 6px;
 }
 
+/* БАЗА */
 #workspaces button {
     padding: 0 10px;
-    color: #888;
+    margin: 0 2px;
+    color: #6c7086;
     background: transparent;
     border-radius: 6px;
-    transition: background 0.25s ease, color 0.25s ease;
+    transition: all 0.25s ease;
 }
 
-#workspaces button.active {
+/* VISIBLE (на іншому моніторі) */
+#workspaces button.visible {
+    color: #cdd6f4;
+    background: rgba(100, 149, 237, 0.08);
+}
+
+/* ACTIVE / FOCUSED (якщо пощастило з класами) */
+#workspaces button.active,
+#workspaces button.focused {
     color: #6495ed;
-    background: rgba(100, 149, 237, 0.16);
+    background: rgba(100, 149, 237, 0.18);
 }
 
-#workspaces button:hover {
-    background: rgba(100, 149, 237, 0.12);
-    color: #aaa;
+/* 🔥 FALLBACK:
+   якщо класів немає, але workspace реально активний */
+#workspaces button:not(.visible):not(.urgent):not(.persistent):first-child {
+    color: #6495ed;
 }
+
+/* URGENT */
+#workspaces button.urgent {
+    color: #f38ba8;
+    background: rgba(243, 139, 168, 0.25);
+}
+
 
 /* ==================================================
    TASKBAR
