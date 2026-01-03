@@ -160,26 +160,69 @@ for p in Path("/sys/bus/hid/drivers/razerkbd").glob("*/charge_level"):
     )
 
 # ============================================================
-# 4. USB GAMEPAD (XPAD)
+# 4. XBOX GAMEPAD (UPOWER BATTERY)
 # ============================================================
 
-for dev in Path("/sys/class/input").glob("event*/device/name"):
-    try:
-        name = dev.read_text().strip()
-    except Exception:
+upower_out = run(["upower", "-d"])
+
+for block in upower_out.split("Device:"):
+    if "Xbox Controller" not in block:
         continue
-
-    if re.search(r"x-?box", name, re.I):
-        register(
-            "Gamepad",
-            80,
-            DISPLAY["Gamepad"],
-            f"{name} (USB)"
-        )
-        break
+    
+    name = "Xbox Controller"
+    name_match = re.search(r"model:\s+(.+)", block)
+    if name_match:
+        name = name_match.group(1).strip()
+    
+    # Parse battery level
+    battery = None
+    level_match = re.search(r"battery-level:\s+(\w+)", block)
+    pct_match = re.search(r"percentage:\s+(\d+)%", block)
+    
+    if level_match:
+        level = level_match.group(1)
+        # Convert level to approximate percentage
+        level_map = {
+            "full": 100,
+            "high": 75,
+            "normal": 50,
+            "low": 25,
+            "critical": 10
+        }
+        battery = level_map.get(level, 50)
+    elif pct_match:
+        battery = int(pct_match.group(1))
+    
+    html = f"{DISPLAY['Gamepad']} {battery}%" if battery else DISPLAY["Gamepad"]
+    tooltip = f"{name} (Wireless)"
+    if battery:
+        tooltip += f"\nBattery: {battery}%"
+    
+    register("Gamepad", 100, html, tooltip)
+    break
 
 # ============================================================
-# 5. GENERIC KEYBOARD / MOUSE (HID FALLBACK)
+# 5. USB GAMEPAD (XPAD FALLBACK)
+# ============================================================
+
+if "Gamepad" not in best:
+    for dev in Path("/sys/class/input").glob("event*/device/name"):
+        try:
+            name = dev.read_text().strip()
+        except Exception:
+            continue
+
+        if re.search(r"x-?box", name, re.I):
+            register(
+                "Gamepad",
+                80,
+                DISPLAY["Gamepad"],
+                f"{name} (USB)"
+            )
+            break
+
+# ============================================================
+# 6. GENERIC KEYBOARD / MOUSE (HID FALLBACK)
 # ============================================================
 
 if "Keyboard" not in best:
@@ -205,7 +248,7 @@ if "Mouse" not in best:
             break
 
 # ============================================================
-# 6. USB STORAGE
+# 7. USB STORAGE
 # ============================================================
 
 try:

@@ -1,28 +1,40 @@
 [general]
 framerate = 60
-bars = 0  # 0 = автоматично під розмір терміналу
+bars = 0
 bar_width = 2
 bar_spacing = 1
 
 [input]
-method = pulse  # або pipewire
+method = pulse
 
 [output]
 method = ncurses
 
 [color]
-# gradient = 1
-gradient_count = 6
-gradient_color_1 = '#89b4fa'  # catppuccin blue
-gradient_color_2 = '#89dceb'  # catppuccin sky
-gradient_color_3 = '#a6e3a1'  # catppuccin green
-gradient_color_4 = '#f9e2af'  # catppuccin yellow
-gradient_color_5 = '#fab387'  # catppuccin peach
-gradient_color_6 = '#f38ba8'  # catppuccin red
+gradient = 1
+gradient_count = 8
+
+# Universal adaptive gradient - холодні відтінки
+gradient_color_1 = '#4a5568'  # темно-сірий (низькі частоти)
+gradient_color_2 = '#89b4fa'  # блакитний (наш основний акцент)
+gradient_color_3 = '#89dceb'  # sky blue
+gradient_color_4 = '#a6e3a1'  # м'ятний зелений
+gradient_color_5 = '#f9e2af'  # теплий жовтий
+gradient_color_6 = '#fab387'  # персиковий
+gradient_color_7 = '#f5c2e7'  # рожевий
+gradient_color_8 = '#cba6f7'  # фіолетовий (високі частоти)
 
 [smoothing]
-integral = 77
+integral = 85
 monstercat = 1
-waves = 0
-gravity = 100
+waves = 1
+gravity = 120
 ignore = 0
+
+[eq]
+# Трохи підсилюємо середні частоти для красивішої візуалізації
+1 = 1
+2 = 1.1
+3 = 1.2
+4 = 1.2
+5 = 1.1

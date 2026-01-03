@@ -9,149 +9,104 @@
 }
 
 window#waybar {
-    background: rgba(20, 20, 30, 0.96);
-    color: #e0e0e0;
-    border-bottom: 2px solid rgba(100, 150, 255, 0.28);
+    background: transparent;
+    color: #ffffff;
 }
 
 /* ==================================================
-   COMMON CUSTOM MODULE STYLE
+   MODULES — BLUR ЧЕРЕЗ HYPRLAND
    ================================================== */
 #custom-audio,
 #custom-peripherals,
 #custom-network,
 #custom-notification,
 #custom-recording,
-#language {
+#custom-media,
+#custom-cava,
+#clock,
+#language,
+#workspaces,
+#tray {
     padding: 4px 12px;
-    margin-right: 6px;
+    margin: 0 4px;
+    background: rgba(20, 20, 30, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     transition: all 0.2s ease;
 }
 
 #custom-audio:hover,
 #custom-peripherals:hover,
-#custom-network:hover {
-    background-color: rgba(255, 255, 255, 0.06);
+#custom-network:hover,
+#custom-media:hover {
+    background: rgba(30, 30, 40, 0.75);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* ===============================
-   WORKSPACES — MULTIMONITOR SAFE
-   =============================== */
-
+/* ==================================================
+   WORKSPACES
+   ================================================== */
 #workspaces {
-    margin: 0 6px;
+    padding: 2px 4px;
 }
 
-/* БАЗА */
 #workspaces button {
     padding: 0 10px;
     margin: 0 2px;
-    color: #6c7086;
+    color: rgba(255, 255, 255, 0.5);
     background: transparent;
     border-radius: 6px;
-    transition: all 0.25s ease;
+    transition: all 0.2s ease;
 }
 
-/* VISIBLE (на іншому моніторі) */
 #workspaces button.visible {
-    color: #cdd6f4;
-    background: rgba(100, 149, 237, 0.08);
+    color: rgba(255, 255, 255, 0.8);
 }
 
-/* ACTIVE / FOCUSED (якщо пощастило з класами) */
 #workspaces button.active,
 #workspaces button.focused {
-    color: #6495ed;
-    background: rgba(100, 149, 237, 0.18);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.18);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
-/* 🔥 FALLBACK:
-   якщо класів немає, але workspace реально активний */
-#workspaces button:not(.visible):not(.urgent):not(.persistent):first-child {
-    color: #6495ed;
-}
-
-/* URGENT */
 #workspaces button.urgent {
-    color: #f38ba8;
-    background: rgba(243, 139, 168, 0.25);
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.2);
 }
 
-
-/* ==================================================
-   TASKBAR
-   ================================================== */
-#taskbar {
-    margin: 0 6px;
-}
-
-#taskbar button {
-    padding: 2px 8px;
-    margin: 0 2px;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 6px;
-    transition: background 0.2s ease;
-}
-
-#taskbar button.active {
-    background: rgba(100, 149, 237, 0.22);
-}
-
-#taskbar button:hover {
-    background: rgba(100, 149, 237, 0.16);
+#workspaces button:hover {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 /* ==================================================
-   CLOCK
+   CLOCK — АКЦЕНТ
    ================================================== */
 #clock {
-    padding: 4px 16px;
-    color: #6495ed;
-    background: rgba(100, 149, 237, 0.12);
-    border-radius: 8px;
+    color: #ffffff;
     font-weight: 600;
+    background: rgba(20, 20, 30, 0.6);  /* як всі інші модулі */
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
-
 /* ==================================================
    TRAY
    ================================================== */
 #tray {
-    padding: 8px;
+    padding: 6px 8px;
 }
 
 #tray > .passive {
-    opacity: 0.55;
+    opacity: 0.5;
 }
 
 /* ==================================================
-   AUDIO
-   ================================================== */
-#custom-audio {
-    background: rgba(137, 220, 235, 0.12);
-    color: #cdd6f4;
-}
-
-/* ==================================================
-   NOTIFICATIONS
-   ================================================== */
-#custom-notification {
-    color: #fab387;
-    background: rgba(250, 179, 135, 0.12);
-}
-
-#custom-notification.notification {
-    color: #f38ba8;
-    background: rgba(243, 139, 168, 0.22);
-}
-
-/* ==================================================
-   KEYBOARD LAYOUT
+   LANGUAGE
    ================================================== */
 #language {
-    color: #dda0dd;
-    background: rgba(221, 160, 221, 0.12);
     font-family: "Noto Color Emoji", "JetBrainsMono Nerd Font", sans-serif;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* ==================================================
@@ -159,73 +114,83 @@ window#waybar {
    ================================================== */
 #custom-media,
 #custom-cava {
-    background: linear-gradient(90deg, #1e1e2e, #313244);
-    color: #cdd6f4;
+    background: rgba(20, 20, 30, 0.6);
 }
 
 #custom-media {
-    padding: 4px 10px;
     border-radius: 8px 0 0 8px;
-    margin-left: 6px;
+    padding-right: 6px;
+    margin-right: 0;
 }
 
 #custom-cava {
-    padding: 4px 10px 4px 6px;
     border-radius: 0 8px 8px 0;
-    margin-right: 6px;
+    padding-left: 6px;
+    margin-left: 0;
     color: #89dceb;
 }
 
-#custom-media.playing { color: #a6e3a1; }
-#custom-media.paused  { color: #f9e2af; }
+#custom-media.playing { 
+    color: #a6e3a1;
+    text-shadow: 0 0 8px rgba(166, 227, 161, 0.5);
+}
+
+#custom-media.paused { 
+    color: #f9e2af;
+}
+
 #custom-media.no-media {
-    color: #6c7086;
-    background: rgba(30, 30, 45, 0.45);
+    color: rgba(255, 255, 255, 0.4);
+    opacity: 0.6;
+}
+
+/* ==================================================
+   NOTIFICATION
+   ================================================== */
+#custom-notification.notification {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.3);
+    border-color: rgba(255, 107, 107, 0.4);
+    text-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
 }
 
 /* ==================================================
    RECORDING
    ================================================== */
 #custom-recording.recording {
-    color: #f38ba8;
-    background: rgba(243, 139, 168, 0.22);
-    animation: blink-recording 1.6s ease-in-out infinite;
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.3);
+    border-color: rgba(255, 107, 107, 0.4);
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes blink-recording {
-    50% { opacity: 0.6; }
+@keyframes pulse {
+    50% { opacity: 0.7; }
 }
 
 /* ==================================================
    PERIPHERALS
    ================================================== */
-#custom-peripherals {
-    background: rgba(137, 220, 235, 0.12);
-    color: #cdd6f4;
+#custom-peripherals .battery-low {
+    color: #fab387;
 }
 
-#custom-peripherals .battery-good     { color: #a6e3a1; }
-#custom-peripherals .battery-medium   { color: #f9e2af; }
-#custom-peripherals .battery-low      { color: #fab387; }
-#custom-peripherals .battery-critical { color: #f38ba8; }
-
-/* ==================================================
-   NETWORK
-   ================================================== */
-#custom-network {
-    font-weight: 500;
+#custom-peripherals .battery-critical {
+    color: #ff6b6b;
 }
 
 /* ==================================================
-   TOOLTIP (ONE PLACE, NO DUPLICATES)
+   TOOLTIP
    ================================================== */
 tooltip {
-    background: rgba(20, 20, 30, 0.96);
-    border: 1px solid rgba(100, 150, 255, 0.28);
+    background: rgba(20, 20, 30, 0.9);
+    border: 1px solid rgba(137, 180, 250, 0.25);
     border-radius: 8px;
-    padding: 8px 10px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 tooltip label {
-    color: #e0e0e0;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }

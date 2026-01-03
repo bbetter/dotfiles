@@ -4,21 +4,31 @@
     "height": 32,
     "spacing": 8,
     
-    "modules-left": ["hyprland/workspaces", "tray"],
-    "modules-center": ["clock"],
+    "modules-left": ["clock", "hyprland/language", "custom/notification", "tray"],
+    "modules-center": ["hyprland/workspaces"],
     "modules-right": [
-	    "custom/peripherals",
-	    "custom/audio",
 	    "custom/media",
 	    "custom/cava",
-	    "custom/recording",
-        "custom/network",
-	    "custom/notification",
-        "hyprland/language"
+	    "custom/audio",
+	    "custom/peripherals",
+            "custom/network",
+	    "custom/recording"
     ],
 
     "hyprland/workspaces": {
-    	"format": "{id}",
+    	"format": "{icon}",
+	"format-icons": {
+            "1": "I",
+            "2": "II",
+            "3": "III",
+            "4": "IV",
+            "5": "V",
+            "6": "VI",
+            "7": "VII",
+            "8": "VIII",
+            "9": "IX",
+            "10": "X"
+        },
     	"on-click": "activate",
     	"sort-by-number": true,
     	"all-outputs": true,
