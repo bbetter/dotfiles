@@ -1,12 +1,12 @@
 {
     "layer": "top",
     "position": "top",
-    "height": 36,
-    "spacing": 12,
+    "height": 32,
+    "spacing": 8,
     
     "modules-left": [
-        "hyprland/workspaces",
         "custom/window",
+        "hyprland/workspaces",
         "custom/media-cava"
     ],
     "modules-center": ["clock", "hyprland/language"],

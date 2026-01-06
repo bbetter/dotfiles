@@ -1,6 +1,7 @@
 /* ==================================================
-   GLOBAL
+   MINIMALISTIC WAYBAR THEME - ENHANCED
    ================================================== */
+
 * {
     font-family: "JetBrainsMono Nerd Font", "Noto Sans", sans-serif;
     font-size: 13px;
@@ -14,183 +15,285 @@ window#waybar {
 }
 
 /* ==================================================
-   MODULES — BLUR ЧЕРЕЗ HYPRLAND
+   SHARED MODULE STYLING
    ================================================== */
 #custom-audio,
+#custom-mic,
 #custom-peripherals,
 #custom-network,
 #custom-notification,
 #custom-recording,
-#custom-media,
-#custom-cava,
+#custom-media-cava,
+#custom-updates,
+#custom-window,
 #clock,
 #language,
 #workspaces,
 #tray {
     padding: 4px 12px;
     margin: 0 4px;
-    background: rgba(20, 20, 30, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: all 0.2s ease;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    transition: all 0.25s ease;
 }
 
+/* Hover effects - more pronounced */
 #custom-audio:hover,
+#custom-mic:hover,
 #custom-peripherals:hover,
 #custom-network:hover,
-#custom-media:hover {
-    background: rgba(30, 30, 40, 0.75);
-    border-color: rgba(255, 255, 255, 0.2);
+#custom-media-cava:hover,
+#custom-notification:hover,
+#clock:hover,
+#language:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 /* ==================================================
-   WORKSPACES
+   WORKSPACES - WITH UNDERLINE INDICATORS
    ================================================== */
 #workspaces {
     padding: 2px 4px;
+    margin-right: 12px;
 }
 
 #workspaces button {
-    padding: 0 10px;
+    padding: 6px 12px;
     margin: 0 2px;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
     background: transparent;
-    border-radius: 6px;
-    transition: all 0.2s ease;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    transition: all 0.25s ease;
 }
 
 #workspaces button.visible {
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 0.6);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
 }
 
 #workspaces button.active,
 #workspaces button.focused {
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.18);
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+    background: transparent;
+    border-bottom-color: #89b4fa;
+    font-weight: 600;
 }
 
 #workspaces button.urgent {
     color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.2);
+    border-bottom-color: #ff6b6b;
+    animation: urgent-blink 1s ease-in-out infinite;
+}
+
+#workspaces button.special {
+    color: #f5c2e7;
+    border-bottom-color: rgba(245, 194, 231, 0.5);
+}
+
+#workspaces button.special.active {
+    color: #f5c2e7;
+    border-bottom-color: #f5c2e7;
 }
 
 #workspaces button:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes urgent-blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
 }
 
 /* ==================================================
-   CLOCK — АКЦЕНТ
+   CLOCK - BOLD & PROMINENT
    ================================================== */
 #clock {
     color: #ffffff;
-    font-weight: 600;
-    background: rgba(20, 20, 30, 0.6);  /* як всі інші модулі */
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    font-weight: 700;
+    font-size: 15px;
+    padding: 4px 16px;
+    margin: 0 8px;
 }
+
+#clock:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
 /* ==================================================
    TRAY
    ================================================== */
 #tray {
-    padding: 6px 8px;
+    padding: 4px 8px;
+    margin-left: 12px;
+}
+
+#tray > * {
+    margin: 0 5px;
+    padding: 2px;
 }
 
 #tray > .passive {
     opacity: 0.5;
 }
 
+#tray > .active {
+    opacity: 1;
+}
+
 /* ==================================================
-   LANGUAGE
+   LANGUAGE INDICATOR
    ================================================== */
 #language {
     font-family: "Noto Color Emoji", "JetBrainsMono Nerd Font", sans-serif;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    min-width: 28px;
+    font-size: 14px;
+    margin-left: 4px;
 }
 
 /* ==================================================
-   MEDIA + CAVA
+   WINDOW TITLE - TYPOGRAPHY HIERARCHY
    ================================================== */
-#custom-media,
-#custom-cava {
-    background: rgba(20, 20, 30, 0.6);
+#custom-window {
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 400;
+    font-style: italic;
+    font-size: 12px;
+    margin-left: 12px;
+    padding: 4px 8px;
 }
 
-#custom-media {
-    border-radius: 8px 0 0 8px;
-    padding-right: 6px;
-    margin-right: 0;
+/* ==================================================
+   MEDIA PLAYER
+   ================================================== */
+#custom-media-cava {
+    color: rgba(255, 255, 255, 0.7);
+    margin-left: 16px;
 }
 
-#custom-cava {
-    border-radius: 0 8px 8px 0;
-    padding-left: 6px;
-    margin-left: 0;
-    color: #89dceb;
-}
-
-#custom-media.playing { 
+#custom-media-cava.playing {
     color: #a6e3a1;
-    text-shadow: 0 0 8px rgba(166, 227, 161, 0.5);
 }
 
-#custom-media.paused { 
+#custom-media-cava.paused {
     color: #f9e2af;
+    opacity: 0.7;
 }
 
-#custom-media.no-media {
-    color: rgba(255, 255, 255, 0.4);
-    opacity: 0.6;
+#custom-media-cava.no-media {
+    color: rgba(255, 255, 255, 0.3);
+    opacity: 0.4;
 }
 
 /* ==================================================
-   NOTIFICATION
+   NOTIFICATIONS - STATUS GROUP (GREEN ACCENT)
    ================================================== */
+#custom-notification {
+    color: #a6e3a1;
+}
+
 #custom-notification.notification {
     color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.3);
-    border-color: rgba(255, 107, 107, 0.4);
-    text-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
+    animation: notification-fade 2s ease-in-out infinite;
+}
+
+@keyframes notification-fade {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
 }
 
 /* ==================================================
-   RECORDING
+   RECORDING INDICATOR - STATUS GROUP (GREEN ACCENT)
    ================================================== */
+#custom-recording {
+    color: rgba(255, 255, 255, 0.7);
+}
+
 #custom-recording.recording {
     color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.3);
-    border-color: rgba(255, 107, 107, 0.4);
-    animation: pulse 1.5s ease-in-out infinite;
+    animation: recording-fade 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
-    50% { opacity: 0.7; }
+@keyframes recording-fade {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
 }
 
 /* ==================================================
-   PERIPHERALS
+   SYSTEM MODULES - BLUE ACCENT GROUP
    ================================================== */
+
+/* Audio */
+#custom-audio {
+    color: #89b4fa;
+}
+
+/* Microphone */
+#custom-mic {
+    color: #a6e3a1;
+}
+
+#custom-mic.muted {
+    color: #f38ba8;
+}
+
+/* Peripherals */
+#custom-peripherals {
+    color: #89b4fa;
+}
+
 #custom-peripherals .battery-low {
     color: #fab387;
 }
 
 #custom-peripherals .battery-critical {
     color: #ff6b6b;
+    animation: battery-blink 1s ease-in-out infinite;
+}
+
+@keyframes battery-blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+/* Network */
+#custom-network {
+    color: #89b4fa;
+}
+
+/* Updates */
+#custom-updates {
+    color: #89dceb;
+}
+
+#custom-updates.updates-available {
+    color: #fab387;
+    animation: updates-fade 2s ease-in-out infinite;
+}
+
+@keyframes updates-fade {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
 }
 
 /* ==================================================
-   TOOLTIP
+   TOOLTIPS
    ================================================== */
 tooltip {
-    background: rgba(20, 20, 30, 0.9);
-    border: 1px solid rgba(137, 180, 250, 0.25);
-    border-radius: 8px;
+    background: rgba(20, 20, 30, 0.95);
+    border: 1px solid rgba(137, 180, 250, 0.2);
+    border-radius: 6px;
     padding: 8px 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 tooltip label {
     color: #ffffff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }

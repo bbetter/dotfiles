@@ -12,7 +12,7 @@ def cmd(args):
 
 def no_media():
     print(json.dumps({
-        "text": "No Media",
+        "text": "",
         "class": "no-media"
     }))
     exit(0)
