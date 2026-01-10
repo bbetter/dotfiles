@@ -1,154 +1,136 @@
 {
-    "layer": "top",
-    "position": "top",
-    "height": 36,
-    "spacing": 12,
-    
-    "modules-left": [
-        "hyprland/workspaces",
-        "custom/window",
-        "custom/media-cava"
-    ],
-    "modules-center": ["clock", "hyprland/language"],
-    "modules-right": [
-        "tray",
-	    "custom/audio",
-	    "custom/peripherals",
-        "custom/network",
-	    "custom/recording",
-        "custom/notification"
-    ],
-
-    "hyprland/workspaces": {
-    	"format": "{icon}",
-	"format-icons": {
-            "1": "I",
-            "2": "II",
-            "3": "III",
-            "4": "IV",
-            "5": "V",
-            "6": "VI",
-            "7": "VII",
-            "8": "VIII",
-            "9": "IX",
-            "10": "X",
-            "special": "S"
-        },
-    	"on-click": "activate",
-    	"sort-by-number": true,
-    	"all-outputs": false,
-    	"show-special": true,
-    	"persistent-workspaces": {
-        	"DP-2": [1, 2, 3, 4, 5],
-        	"HDMI-A-1": [6, 7, 8, 9, 10]
-    	}
+  "layer": "top",
+  "position": "top",
+  "height": 38,
+  "spacing": 0,
+  "modules-left": [
+    "custom/separator",
+    "custom/window",
+    "custom/media-cava"
+  ],
+  "modules-center": [
+    "clock",
+    "hyprland/workspaces"
+  ],
+  "modules-right": [
+    "tray",
+    "custom/separator",
+    "custom/audio",
+    "custom/peripherals",
+    "custom/network",
+    "custom/separator",
+    "hyprland/language",
+    "custom/recording",
+    "custom/notification"
+  ],
+  "hyprland/workspaces": {
+    "format": "{icon}",
+    "format-icons": {
+      "1": "I",
+      "2": "II",
+      "3": "III",
+      "4": "IV",
+      "5": "V",
+      "6": "VI",
+      "7": "VII",
+      "8": "VIII",
+      "9": "IX",
+      "10": "X",
+      "special": "S"
     },
-           
-    "wlr/taskbar": {
-        "format": "{icon}",
-        "icon-size": 20,
-        "icon-theme": "Papirus-Dark",
-        "tooltip-format": "{title}",
-        "on-click": "activate",
-        "on-click-middle": "close",
-        "on-click-right": "close"
+    "on-click": "activate",
+    "sort-by-number": true,
+    "all-outputs": false,
+    "show-special": true
+  },
+  "custom/separator": {
+    "format": "|",
+    "tooltip": false
+  },
+  "custom/window": {
+    "exec": "~/.config/waybar/window-title.sh",
+    "format": "{}",
+    "restart-interval": 0
+  },
+  "clock": {
+    "format": "{:%H:%M}",
+    "format-alt": "{:%d.%m.%Y}",
+    "tooltip-format": "<big>{:%B %Y}</big>\n<tt><small>{calendar}</small></tt>",
+    "calendar": {
+      "mode": "month",
+      "mode-mon-col": 3,
+      "weeks-pos": "right",
+      "on-scroll": 1,
+      "format": {
+        "months": "<span color='#33ccff'><b>{}</b></span>",
+        "days": "<span color='#ffffff'><b>{}</b></span>",
+        "weeks": "<span color='#99ffdd'><b>W{}</b></span>",
+        "weekdays": "<span color='#00ff99'><b>{}</b></span>",
+        "today": "<span color='#ff6b6b'><b><u>{}</u></b></span>"
+      }
     },
-
-    "custom/window": {
-        "exec": "~/.config/waybar/window-title.sh",
-        "format": "{}",
-        "restart-interval": 0
-    },
-
-    "clock": {
-        "format": "{:%H:%M  %d.%m.%Y}",
-        "tooltip-format": "<tt><small>{calendar}</small></tt>",
-        "calendar": {
-            "mode": "month",
-            "format": {
-                "months": "<span color='#ffead3'><b>{}</b></span>",
-                "days": "<span color='#ecc6d9'><b>{}</b></span>",
-                "today": "<span color='#ff6699'><b><u>{}</u></b></span>"
-            }
-        }
-    },
-
-    "custom/media-cava": {
-    	"exec": "~/.config/waybar/media-cava-stream.py",
-    	"return-type": "json",
-    	"format": "{}",
-    	"on-click": "playerctl play-pause",
-    	"on-scroll-up": "playerctl next",
-    	"on-scroll-down": "playerctl previous"
-    },
-
-    "tray": {
-        "icon-size": 18,
-	"padding": 8,
-	"show-passive-items": true
-    },
-
-    "custom/mic": {
-  	    "exec": "~/.config/waybar/mic-status.sh",
-  	    "interval": 2,
-  	    "return-type": "json",
-  	    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
-    },   
-   
-    "custom/notification": {
-    	"format": "{}",
-    	"return-type": "json",
-    	"exec": "~/.config/waybar/swaync-count.sh",
-    	"interval": 1,
-    	"on-click": "swaync-client -t -sw",
-    	"on-click-right": "swaync-client -d -sw",
-    	"escape": true
-    },
-
-    "custom/recording": {
-    	"return-type": "json",
-    	"interval": 1,
-	"tooltip": true,
-    	"exec": "~/.config/waybar/recording-status.sh",
-    	"on-click": "~/.config/waybar/stop-recording.sh"
-    },
-
-    "custom/audio": {
-    	"exec": "~/.config/waybar/audio-control.sh",
-    	"return-type": "json",
-    	"interval": 1,
-    	"format": "{}",
-    	"tooltip": true,
-    	"on-click": "pavucontrol",
-    	"on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-   	"on-scroll-up": "~/.config/waybar/audio-scroll.sh speaker up",
-    	"on-scroll-down": "~/.config/waybar/audio-scroll.sh speaker down"
-    }, 
-
-    "custom/network": {
-        "exec": "~/.config/waybar/network.py",
-        "interval": 5,
-        "return-type": "json"
-   },
-       
-    "hyprland/language": {
-        "format": "{}",
-        "format-en": "🇺🇸",
-        "format-uk": "🇺🇦"
-    },
-    "custom/peripherals": {
-    	"exec": "~/.config/waybar/peripherals.py",
-    	"return-type": "json",
-    	"interval": 5,
-    	"format": "{}",
-    	"tooltip": true
-    },
-
-    "custom/updates": {
-    	"exec": "~/.config/waybar/updates.sh",
-    	"return-type": "json",
-    	"interval": 3600,
-    	"on-click": "kitty -e sh -c 'yay -Syu; read -p \"Press enter to close\"'",
-    	"signal": 8
+    "actions": {
+      "on-click-right": "mode",
+      "on-scroll-up": "shift_up",
+      "on-scroll-down": "shift_down"
     }
+  },
+  "custom/media-cava": {
+    "exec": "~/.config/waybar/media-cava-stream.py",
+    "return-type": "json",
+    "format": "{}",
+    "max-length": 50,
+    "on-click": "playerctl play-pause",
+    "on-scroll-up": "playerctl next",
+    "on-scroll-down": "playerctl previous"
+  },
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8,
+    "show-passive-items": true
+  },
+  "custom/notification": {
+    "format": "{}",
+    "return-type": "json",
+    "exec": "~/.config/waybar/swaync-count.sh",
+    "interval": 1,
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "escape": true
+  },
+  "custom/recording": {
+    "return-type": "json",
+    "interval": 1,
+    "tooltip": true,
+    "exec": "~/.config/waybar/recording-status.sh",
+    "on-click": "~/.config/waybar/stop-recording.sh"
+  },
+  "custom/audio": {
+    "exec": "~/.config/waybar/audio-control.sh",
+    "return-type": "json",
+    "interval": 1,
+    "format": "{}",
+    "tooltip": true,
+    "on-click": "pavucontrol",
+    "on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "on-scroll-up": "~/.config/waybar/audio-scroll.sh speaker up",
+    "on-scroll-down": "~/.config/waybar/audio-scroll.sh speaker down"
+  },
+  "custom/network": {
+    "exec": "~/.config/waybar/network.py",
+    "interval": 5,
+    "return-type": "json"
+  },
+  "hyprland/language": {
+    "format": "{}",
+    "format-en": "🇺🇸",
+    "format-uk": "🇺🇦"
+  },
+  "custom/peripherals": {
+    "exec": "~/.config/waybar/peripherals.py",
+    "return-type": "json",
+    "interval": 5,
+    "format": "{}",
+    "tooltip": true
+  }
 }

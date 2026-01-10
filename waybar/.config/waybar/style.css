@@ -1,5 +1,5 @@
 /* ==================================================
-   MINIMALISTIC WAYBAR THEME - ENHANCED
+   FLOATING MODULES WAYBAR - TRANSPARENT
    ================================================== */
 
 * {
@@ -15,156 +15,151 @@ window#waybar {
 }
 
 /* ==================================================
-   SHARED MODULE STYLING
+   MODULE CONTAINERS - FLOATING STYLE
    ================================================== */
 #custom-audio,
-#custom-mic,
 #custom-peripherals,
 #custom-network,
 #custom-notification,
 #custom-recording,
 #custom-media-cava,
-#custom-updates,
 #custom-window,
 #clock,
 #language,
-#workspaces,
 #tray {
-    padding: 4px 12px;
-    margin: 0 4px;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    transition: all 0.25s ease;
+    background: rgba(13, 13, 13, 0.8);
+    padding: 6px 14px;
+    margin: 4px 6px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Hover effects - more pronounced */
+#workspaces {
+    background: rgba(13, 13, 13, 0.8);
+    padding: 4px 8px;
+    margin: 4px 6px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#custom-separator {
+    color: transparent;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
 #custom-audio:hover,
-#custom-mic:hover,
 #custom-peripherals:hover,
 #custom-network:hover,
 #custom-media-cava:hover,
 #custom-notification:hover,
 #clock:hover,
 #language:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(51, 204, 255, 0.15);
 }
 
 /* ==================================================
-   WORKSPACES - WITH UNDERLINE INDICATORS
+   WORKSPACES - MINIMAL UNDERLINE STYLE
    ================================================== */
-#workspaces {
-    padding: 2px 4px;
-    margin-right: 12px;
-}
-
 #workspaces button {
-    padding: 6px 12px;
+    padding: 8px 12px;
     margin: 0 2px;
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.5);
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
-    transition: all 0.25s ease;
 }
 
 #workspaces button.visible {
-    color: rgba(255, 255, 255, 0.6);
-    border-bottom-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.75);
+    border-bottom-color: rgba(255, 255, 255, 0.2);
 }
 
 #workspaces button.active,
 #workspaces button.focused {
-    color: #ffffff;
+    color: #33ccff;
     background: transparent;
-    border-bottom-color: #89b4fa;
+    border-bottom-color: #33ccff;
     font-weight: 600;
+}
+
+#workspaces button.empty {
+    color: rgba(255, 255, 255, 0.25);
+    border-bottom-color: transparent;
+}
+
+#workspaces button:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom-color: rgba(51, 204, 255, 0.5);
 }
 
 #workspaces button.urgent {
     color: #ff6b6b;
     border-bottom-color: #ff6b6b;
-    animation: urgent-blink 1s ease-in-out infinite;
 }
 
 #workspaces button.special {
     color: #f5c2e7;
-    border-bottom-color: rgba(245, 194, 231, 0.5);
-}
-
-#workspaces button.special.active {
-    color: #f5c2e7;
-    border-bottom-color: #f5c2e7;
-}
-
-#workspaces button:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-bottom-color: rgba(255, 255, 255, 0.3);
-}
-
-@keyframes urgent-blink {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+    border-bottom-color: rgba(245, 194, 231, 0.6);
 }
 
 /* ==================================================
-   CLOCK - BOLD & PROMINENT
+   CLOCK
    ================================================== */
 #clock {
     color: #ffffff;
     font-weight: 700;
     font-size: 15px;
-    padding: 4px 16px;
-    margin: 0 8px;
+    padding: 6px 20px;
+    background: rgba(13, 13, 13, 0.85);
 }
 
 #clock:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(51, 204, 255, 0.2);
 }
 
 /* ==================================================
    TRAY
    ================================================== */
 #tray {
-    padding: 4px 8px;
-    margin-left: 12px;
+    padding: 4px 12px;
 }
 
 #tray > * {
-    margin: 0 5px;
-    padding: 2px;
+    margin: 0 4px;
+    padding: 3px;
 }
 
 #tray > .passive {
     opacity: 0.5;
 }
 
-#tray > .active {
-    opacity: 1;
+#tray > .needs-attention {
+    background: rgba(255, 107, 107, 0.15);
+    border-radius: 4px;
 }
 
 /* ==================================================
-   LANGUAGE INDICATOR
+   LANGUAGE
    ================================================== */
 #language {
     font-family: "Noto Color Emoji", "JetBrainsMono Nerd Font", sans-serif;
-    min-width: 28px;
-    font-size: 14px;
-    margin-left: 4px;
+    min-width: 32px;
+    font-size: 16px;
+    padding: 4px 12px;
 }
 
 /* ==================================================
-   WINDOW TITLE - TYPOGRAPHY HIERARCHY
+   WINDOW TITLE
    ================================================== */
 #custom-window {
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.7);
     font-weight: 400;
     font-style: italic;
     font-size: 12px;
-    margin-left: 12px;
-    padding: 4px 8px;
+    padding: 6px 12px;
 }
 
 /* ==================================================
@@ -172,7 +167,7 @@ window#waybar {
    ================================================== */
 #custom-media-cava {
     color: rgba(255, 255, 255, 0.7);
-    margin-left: 16px;
+    padding: 6px 16px;
 }
 
 #custom-media-cava.playing {
@@ -181,69 +176,40 @@ window#waybar {
 
 #custom-media-cava.paused {
     color: #f9e2af;
-    opacity: 0.7;
-}
-
-#custom-media-cava.no-media {
-    color: rgba(255, 255, 255, 0.3);
-    opacity: 0.4;
 }
 
 /* ==================================================
-   NOTIFICATIONS - STATUS GROUP (GREEN ACCENT)
+   NOTIFICATIONS
    ================================================== */
 #custom-notification {
     color: #a6e3a1;
+    padding: 6px 12px;
 }
 
 #custom-notification.notification {
     color: #ff6b6b;
-    animation: notification-fade 2s ease-in-out infinite;
-}
-
-@keyframes notification-fade {
-    0% { opacity: 1; }
-    50% { opacity: 0.6; }
-    100% { opacity: 1; }
+    background: rgba(255, 107, 107, 0.2);
 }
 
 /* ==================================================
-   RECORDING INDICATOR - STATUS GROUP (GREEN ACCENT)
+   RECORDING
    ================================================== */
 #custom-recording {
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.5);
 }
 
 #custom-recording.recording {
     color: #ff6b6b;
-    animation: recording-fade 1.5s ease-in-out infinite;
-}
-
-@keyframes recording-fade {
-    0% { opacity: 1; }
-    50% { opacity: 0.4; }
-    100% { opacity: 1; }
+    background: rgba(255, 107, 107, 0.2);
 }
 
 /* ==================================================
-   SYSTEM MODULES - BLUE ACCENT GROUP
+   SYSTEM MODULES
    ================================================== */
-
-/* Audio */
 #custom-audio {
     color: #89b4fa;
 }
 
-/* Microphone */
-#custom-mic {
-    color: #a6e3a1;
-}
-
-#custom-mic.muted {
-    color: #f38ba8;
-}
-
-/* Peripherals */
 #custom-peripherals {
     color: #89b4fa;
 }
@@ -254,46 +220,24 @@ window#waybar {
 
 #custom-peripherals .battery-critical {
     color: #ff6b6b;
-    animation: battery-blink 1s ease-in-out infinite;
+    background: rgba(255, 107, 107, 0.2);
 }
 
-@keyframes battery-blink {
-    0% { opacity: 1; }
-    50% { opacity: 0.3; }
-    100% { opacity: 1; }
-}
-
-/* Network */
 #custom-network {
     color: #89b4fa;
-}
-
-/* Updates */
-#custom-updates {
-    color: #89dceb;
-}
-
-#custom-updates.updates-available {
-    color: #fab387;
-    animation: updates-fade 2s ease-in-out infinite;
-}
-
-@keyframes updates-fade {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
 }
 
 /* ==================================================
    TOOLTIPS
    ================================================== */
 tooltip {
-    background: rgba(20, 20, 30, 0.95);
-    border: 1px solid rgba(137, 180, 250, 0.2);
-    border-radius: 6px;
-    padding: 8px 12px;
+    background: rgba(13, 13, 13, 0.95);
+    border: 1px solid rgba(51, 204, 255, 0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
 }
 
 tooltip label {
     color: #ffffff;
+    font-weight: 500;
 }
