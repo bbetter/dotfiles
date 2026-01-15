@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import subprocess
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -9,16 +9,16 @@ from pathlib import Path
 # CONFIG
 # ============================================================
 
-DEBUG = False   # True -> stderr debug
+DEBUG = False  # True -> stderr debug
 
 SEP = "<span foreground='#6c7086'>│</span>"
 
 DISPLAY = {
     "Keyboard": "⌨️",
-    "Mouse":    "🖱️",
-    "Headset":  "🎧",
-    "Gamepad":  "🎮",
-    "Storage":  "💾",
+    "Mouse": "🖱️",
+    "Headset": "🎧",
+    "Gamepad": "🎮",
+    "Storage": "💾",
 }
 
 # dev_type -> (priority, html, tooltip)
@@ -28,9 +28,11 @@ best = {}
 # HELPERS
 # ============================================================
 
+
 def debug(msg):
     if DEBUG:
         print(f"[peripherals] {msg}", file=sys.stderr)
+
 
 def run(cmd):
     try:
@@ -39,11 +41,13 @@ def run(cmd):
         debug(f"cmd failed: {cmd} ({e})")
         return ""
 
+
 def register(dev_type, priority, html, tooltip):
     cur = best.get(dev_type)
     if cur is None or priority > cur[0]:
         best[dev_type] = (priority, html, tooltip)
         debug(f"REGISTER {dev_type} prio={priority}")
+
 
 # ============================================================
 # 1. BLUETOOTH HEADSET (BATTERY FROM ACTIVE DEVICE)
@@ -63,7 +67,7 @@ if "Connected: yes" in bt_info and "Audio Sink" in bt_info:
     for pat in (
         r"Battery Percentage:.*\((\d+)\)",
         r"Battery Percentage:\s*(\d+)",
-        r"Battery:\s*(\d+)%"
+        r"Battery:\s*(\d+)%",
     ):
         m = re.search(pat, bt_info)
         if m:
@@ -109,7 +113,11 @@ for block in pactl.split("Sink #"):
 
     battery = bt_battery if bt_found and bt_battery is not None else battery_pw
 
-    html = f"{DISPLAY['Headset']} {battery}%" if battery is not None else DISPLAY["Headset"]
+    html = (
+        f"{DISPLAY['Headset']} {battery}%"
+        if battery is not None
+        else DISPLAY["Headset"]
+    )
 
     tooltip = f"{name} (Headset)"
     if battery is not None:
@@ -125,21 +133,26 @@ for block in pactl.split("Sink #"):
 
 # Mouse
 for p in Path("/sys/bus/hid/drivers/razermouse").glob("*/charge_level"):
-    try:
-        pct = int(p.read_text().strip()) * 100 // 255
-    except Exception:
-        continue
-
     name = "Razer Mouse"
     if (p.parent / "device_type").exists():
         name = (p.parent / "device_type").read_text().strip()
 
-    register(
-        "Mouse",
-        90,
-        f"{DISPLAY['Mouse']} {pct}%",
-        f"{name} (Mouse)\nBattery: {pct}%"
-    )
+    # Receiver не дає точний заряд
+    is_receiver = "Receiver" in name
+
+    if is_receiver:
+        html = DISPLAY["Mouse"]
+        tooltip = f"{name}\n(Battery level unavailable via dongle)"
+    else:
+        try:
+            pct = int(p.read_text().strip()) * 100 // 255
+            html = f"{DISPLAY['Mouse']} {pct}%"
+            tooltip = f"{name} (Mouse)\nBattery: {pct}%"
+        except Exception:
+            html = DISPLAY["Mouse"]
+            tooltip = f"{name} (Mouse)"
+
+    register("Mouse", 90, html, tooltip)
 
 # Keyboard
 for p in Path("/sys/bus/hid/drivers/razerkbd").glob("*/charge_level"):
@@ -156,7 +169,7 @@ for p in Path("/sys/bus/hid/drivers/razerkbd").glob("*/charge_level"):
         "Keyboard",
         90,
         f"{DISPLAY['Keyboard']} {pct}%",
-        f"{name} (Keyboard)\nBattery: {pct}%"
+        f"{name} (Keyboard)\nBattery: {pct}%",
     )
 
 # ============================================================
@@ -168,36 +181,30 @@ upower_out = run(["upower", "-d"])
 for block in upower_out.split("Device:"):
     if "Xbox Controller" not in block:
         continue
-    
+
     name = "Xbox Controller"
     name_match = re.search(r"model:\s+(.+)", block)
     if name_match:
         name = name_match.group(1).strip()
-    
+
     # Parse battery level
     battery = None
     level_match = re.search(r"battery-level:\s+(\w+)", block)
     pct_match = re.search(r"percentage:\s+(\d+)%", block)
-    
+
     if level_match:
         level = level_match.group(1)
         # Convert level to approximate percentage
-        level_map = {
-            "full": 100,
-            "high": 75,
-            "normal": 50,
-            "low": 25,
-            "critical": 10
-        }
+        level_map = {"full": 100, "high": 75, "normal": 50, "low": 25, "critical": 10}
         battery = level_map.get(level, 50)
     elif pct_match:
         battery = int(pct_match.group(1))
-    
+
     html = f"{DISPLAY['Gamepad']} {battery}%" if battery else DISPLAY["Gamepad"]
     tooltip = f"{name} (Wireless)"
     if battery:
         tooltip += f"\nBattery: {battery}%"
-    
+
     register("Gamepad", 100, html, tooltip)
     break
 
@@ -213,12 +220,7 @@ if "Gamepad" not in best:
             continue
 
         if re.search(r"x-?box", name, re.I):
-            register(
-                "Gamepad",
-                80,
-                DISPLAY["Gamepad"],
-                f"{name} (USB)"
-            )
+            register("Gamepad", 80, DISPLAY["Gamepad"], f"{name} (USB)")
             break
 
 # ============================================================
@@ -228,23 +230,13 @@ if "Gamepad" not in best:
 if "Keyboard" not in best:
     for p in Path("/dev/input/by-id").glob("*kbd*"):
         if p.exists():
-            register(
-                "Keyboard",
-                60,
-                DISPLAY["Keyboard"],
-                "Keyboard (USB / 2.4 GHz)"
-            )
+            register("Keyboard", 60, DISPLAY["Keyboard"], "Keyboard (USB / 2.4 GHz)")
             break
 
 if "Mouse" not in best:
     for p in Path("/dev/input/by-id").glob("*mouse*"):
         if p.exists():
-            register(
-                "Mouse",
-                60,
-                DISPLAY["Mouse"],
-                "Mouse (USB / 2.4 GHz)"
-            )
+            register("Mouse", 60, DISPLAY["Mouse"], "Mouse (USB / 2.4 GHz)")
             break
 
 # ============================================================
@@ -259,7 +251,7 @@ try:
                 "Storage",
                 70,
                 DISPLAY["Storage"],
-                f"USB Storage\nMounted at {dev['mountpoint']}"
+                f"USB Storage\nMounted at {dev['mountpoint']}",
             )
 except Exception:
     pass
@@ -279,7 +271,9 @@ for dev_type in order:
         tooltip.append(t)
 
 if html:
-    print(json.dumps({
-        "text": f" {SEP} ".join(html),
-        "tooltip": "\n\n".join(tooltip)
-    }, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"text": f" {SEP} ".join(html), "tooltip": "\n\n".join(tooltip)},
+            ensure_ascii=False,
+        )
+    )
