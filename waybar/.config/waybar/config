@@ -4,21 +4,23 @@
   "height": 38,
   "spacing": 0,
   "modules-left": [
-    "custom/separator",
+    "clock",
+    // "custom/separator",  // replaced by CSS margin gaps
     "custom/window",
-    "custom/media-cava"
+    // "custom/separator",
+    "tray"
+    //    "custom/media-cava"
   ],
   "modules-center": [
-    "clock",
     "hyprland/workspaces"
   ],
   "modules-right": [
-    "tray",
-    "custom/separator",
+    // "tray",
+    // "custom/separator",  // replaced by CSS margin gaps
     "custom/audio",
     "custom/peripherals",
     "custom/network",
-    "custom/separator",
+    // "custom/separator",
     "hyprland/language",
     "custom/recording",
     "custom/notification"
@@ -26,16 +28,16 @@
   "hyprland/workspaces": {
     "format": "{icon}",
     "format-icons": {
-      "1": "I",
-      "2": "II",
-      "3": "III",
-      "4": "IV",
-      "5": "V",
-      "6": "VI",
-      "7": "VII",
-      "8": "VIII",
-      "9": "IX",
-      "10": "X",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "0",
       "special": "S"
     },
     "on-click": "activate",
@@ -53,8 +55,7 @@
     "restart-interval": 0
   },
   "clock": {
-    "format": "{:%H:%M}",
-    "format-alt": "{:%d.%m.%Y}",
+    "format": "{:%H:%M  %d.%m.%Y}",
     "tooltip-format": "<big>{:%B %Y}</big>\n<tt><small>{calendar}</small></tt>",
     "calendar": {
       "mode": "month",

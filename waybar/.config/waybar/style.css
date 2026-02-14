@@ -42,12 +42,20 @@ window#waybar {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Old separator module (kept for fallback, uncomment in config to re-enable) */
 #custom-separator {
     color: transparent;
     padding: 0;
     margin: 0;
     background: transparent;
 }
+
+/* Group gaps - replaces custom/separator modules with CSS margins */
+#clock          { margin-right: 16px; }
+#tray           { margin-left: 16px; }
+#custom-audio   { margin-left: 16px; }
+#custom-network { margin-right: 16px; }
+#language       { margin-left: 16px; }
 
 #custom-audio:hover,
 #custom-peripherals:hover,
@@ -111,7 +119,7 @@ window#waybar {
 #clock {
     color: #ffffff;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 13px;
     padding: 3px 16px;
     background: rgba(13, 13, 13, 0.85);
 }
