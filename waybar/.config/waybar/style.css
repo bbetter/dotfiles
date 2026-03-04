@@ -22,6 +22,7 @@ window#waybar {
 #custom-network,
 #custom-notification,
 #custom-recording,
+#custom-jarvis,
 #custom-media-cava,
 #custom-window,
 #clock,
@@ -249,3 +250,8 @@ tooltip label {
     color: #ffffff;
     font-weight: 500;
 }
+
+#custom-jarvis { color: #a6e3a1; }
+#custom-jarvis.listening { color: #f38ba8; }
+#custom-jarvis.processing { color: #fab387; }
+#custom-jarvis.offline { color: #585b70; }

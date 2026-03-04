@@ -22,6 +22,7 @@
     "custom/network",
     // "custom/separator",
     "hyprland/language",
+    "custom/jarvis",
     "custom/recording",
     "custom/notification"
   ],
@@ -98,6 +99,14 @@
     "on-click": "swaync-client -t -sw",
     "on-click-right": "swaync-client -d -sw",
     "escape": true
+  },
+  "custom/jarvis": {
+    "exec": "~/.config/waybar/jarvis-status.sh",
+    "interval": 2,
+    "return-type": "json",
+    "format": "{}",
+    "tooltip": true,
+    "on-click": "pkill -SIGUSR1 -f 'python main.py'"
   },
   "custom/recording": {
     "return-type": "json",
