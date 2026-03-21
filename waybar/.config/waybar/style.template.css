@@ -28,7 +28,7 @@ window#waybar {
 #clock,
 #language,
 #tray {
-    background: rgba(39,40,34,0.85);
+    background: __BG_ALPHA__;
     padding: 3px 12px;
     margin: 3px 6px;
     border-radius: 8px;
@@ -36,7 +36,7 @@ window#waybar {
 }
 
 #workspaces {
-    background: rgba(39,40,34,0.85);
+    background: __BG_ALPHA__;
     padding: 2px 6px;
     margin: 3px 6px;
     border-radius: 10px;
@@ -71,17 +71,17 @@ window#waybar {
 
 #workspaces button.active,
 #workspaces button.focused {
-    color: #66d9ef;
-    border-bottom-color: #66d9ef;
+    color: __PRIMARY__;
+    border-bottom-color: __PRIMARY__;
 }
 
 #workspaces button.urgent {
-    color: #f92672;
-    border-bottom-color: #f92672;
+    color: __ERROR__;
+    border-bottom-color: __ERROR__;
 }
 
 #workspaces button.special {
-    color: #f4bf75;
+    color: __SPECIAL__;
 }
 
 /* ==================================================
@@ -91,18 +91,18 @@ window#waybar {
     color: #ffffff;
     font-weight: 700;
     padding: 3px 16px;
-    background: rgba(39,40,34,0.95);
+    background: __BG_STRONG__;
 }
 
 /* ==================================================
    MEDIA / STATUS
    ================================================== */
-#custom-media-cava.playing { color: #a1efe4; }
-#custom-media-cava.paused { color: #ae81ff; }
+#custom-media-cava.playing { color: __SUCCESS__; }
+#custom-media-cava.paused { color: __WARNING__; }
 
-#custom-notification { color: #a1efe4; }
+#custom-notification { color: __SUCCESS__; }
 #custom-notification.notification {
-    color: #f92672;
+    color: __ERROR__;
 }
 
 /* ==================================================
@@ -111,14 +111,14 @@ window#waybar {
 #custom-audio,
 #custom-peripherals,
 #custom-network {
-    color: #ae81ff;
+    color: __SECONDARY__;
 }
 
 /* ==================================================
    TOOLTIP
    ================================================== */
 tooltip {
-    background: rgba(39,40,34,0.95);
+    background: __BG_STRONG__;
     border-radius: 8px;
 }
 

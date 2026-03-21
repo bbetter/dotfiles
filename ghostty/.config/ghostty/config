@@ -19,7 +19,8 @@ window-padding-x = 8
 window-padding-y = 8
 
 # Background
-background-opacity = 0.95
+background-opacity = 0.90
+background-blur = true
 
 term = xterm-256color
 
