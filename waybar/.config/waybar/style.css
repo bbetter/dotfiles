@@ -20,7 +20,6 @@ window#waybar {
 #custom-audio,
 #custom-peripherals,
 #custom-network,
-#custom-aiush,
 #custom-notification,
 #custom-recording,
 #custom-jarvis,
@@ -53,7 +52,6 @@ window#waybar {
 #custom-audio:hover,
 #custom-peripherals:hover,
 #custom-network:hover,
-#custom-aiush:hover,
 #custom-media-cava:hover,
 #custom-notification:hover,
 #clock:hover,
@@ -112,21 +110,8 @@ window#waybar {
    ================================================== */
 #custom-audio,
 #custom-peripherals,
-#custom-network,
-#custom-aiush {
+#custom-network {
     color: #c795ae;
-}
-
-#custom-aiush.active {
-    color: #95c7ae;
-}
-
-#custom-aiush.warning {
-    color: #c7ae95;
-}
-
-#custom-aiush.critical {
-    color: #c79595;
 }
 
 /* ==================================================
