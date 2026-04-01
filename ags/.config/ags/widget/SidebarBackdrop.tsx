@@ -1,5 +1,6 @@
 import app from "ags/gtk4/app"
 import { Astal, Gdk, Gtk } from "ags/gtk4"
+import { SIDEBAR_WIDTH } from "./Sidebar"
 import { closeSidebar } from "./sidebar/state"
 
 export function SidebarBackdrop(gdkmonitor: Gdk.Monitor) {
@@ -20,6 +21,7 @@ export function SidebarBackdrop(gdkmonitor: Gdk.Monitor) {
       exclusivity={Astal.Exclusivity.NORMAL}
       layer={Astal.Layer.OVERLAY}
       anchor={TOP | RIGHT | BOTTOM | LEFT}
+      marginRight={SIDEBAR_WIDTH}
       application={app}
       class="SidebarBackdrop"
     >

@@ -2,7 +2,7 @@ import { createPoll } from "ags/time"
 import { exec } from "ags/process"
 
 export function Language() {
-  const layoutText = createPoll("⌨️", 1000, () => {
+  const layoutText = createPoll("⌨️", 200, () => {
     try {
       const output = exec("hyprctl devices -j")
       const devices = JSON.parse(output)

@@ -33,7 +33,7 @@ export function SidebarUpdates() {
   return (
     <box orientation={1} spacing={6} class="sidebar-section" visible={state.as(s => s.visible)}>
       <label label="UPDATES" class="sidebar-section-title" halign={Gtk.Align.START} />
-      <box orientation={1} spacing={4} class="sidebar-card">
+      <box orientation={1} spacing={4} class="sidebar-card sidebar-compact-card">
         <label label={state.as(s => s.text)} class="sidebar-updates-text" halign={Gtk.Align.START} />
         <label label={state.as(s => s.tooltip)} class="sidebar-muted" halign={Gtk.Align.START} wrap />
       </box>

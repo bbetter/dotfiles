@@ -8,8 +8,9 @@ import { SidebarUpdates } from "./sidebar/Updates"
 import { SidebarPeripherals } from "./sidebar/Peripherals"
 import { SidebarActivity } from "./sidebar/Activity"
 import { SidebarJarvis } from "./sidebar/Jarvis"
-import { SidebarAiush } from "./sidebar/Aiush"
 import { closeSidebar } from "./sidebar/state"
+
+export const SIDEBAR_WIDTH = 390
 
 function clearChildren(box: Gtk.Box) {
   let child = box.get_first_child()
@@ -52,7 +53,6 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
   const peripheralsSlot = <box orientation={Gtk.Orientation.VERTICAL} /> as Gtk.Box
   const activitySlot = <box orientation={Gtk.Orientation.VERTICAL} /> as Gtk.Box
   const jarvisSlot = <box orientation={Gtk.Orientation.VERTICAL} /> as Gtk.Box
-  const aiushSlot = <box orientation={Gtk.Orientation.VERTICAL} /> as Gtk.Box
 
   setSlotChild(statusSlot, createPlaceholder("OVERVIEW", 3))
   setSlotChild(notificationsSlot, createPlaceholder("NOTIFICATIONS"))
@@ -61,7 +61,6 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
   setSlotChild(peripheralsSlot, createPlaceholder("DEVICES", 3))
   setSlotChild(activitySlot, createPlaceholder("ACTIVITY"))
   setSlotChild(jarvisSlot, createPlaceholder("JARVIS", 2))
-  setSlotChild(aiushSlot, createPlaceholder("AIUSH", 2))
 
   const content = (
     <box orientation={Gtk.Orientation.VERTICAL} spacing={12} class="sidebar-content">
@@ -75,13 +74,12 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
         </button>
       </box>
       {statusSlot}
-      {notificationsSlot}
       {mediaSlot}
+      {activitySlot}
+      {notificationsSlot}
       {updatesSlot}
       {peripheralsSlot}
-      {activitySlot}
       {jarvisSlot}
-      {aiushSlot}
     </box>
   ) as Gtk.Box
 
@@ -105,7 +103,7 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
       anchor={TOP | RIGHT | BOTTOM}
       application={app}
       class="Sidebar"
-      widthRequest={380}
+      widthRequest={SIDEBAR_WIDTH}
     >
       {scroller}
     </window>
@@ -119,13 +117,12 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
 
       const stages: Array<[number, Gtk.Box, () => Gtk.Widget]> = [
         [20, statusSlot, () => SidebarStatus() as Gtk.Widget],
-        [60, notificationsSlot, () => SidebarNotifications() as Gtk.Widget],
+        [60, mediaSlot, () => SidebarMedia() as Gtk.Widget],
         [120, activitySlot, () => SidebarActivity() as Gtk.Widget],
-        [180, peripheralsSlot, () => SidebarPeripherals() as Gtk.Widget],
-        [240, mediaSlot, () => SidebarMedia() as Gtk.Widget],
-        [320, updatesSlot, () => SidebarUpdates() as Gtk.Widget],
+        [180, notificationsSlot, () => SidebarNotifications() as Gtk.Widget],
+        [260, peripheralsSlot, () => SidebarPeripherals() as Gtk.Widget],
+        [340, updatesSlot, () => SidebarUpdates() as Gtk.Widget],
         [420, jarvisSlot, () => SidebarJarvis() as Gtk.Widget],
-        [520, aiushSlot, () => SidebarAiush() as Gtk.Widget],
       ]
 
       for (const [delay, slot, factory] of stages) {

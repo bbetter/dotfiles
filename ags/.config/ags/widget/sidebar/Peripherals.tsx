@@ -34,7 +34,7 @@ export function SidebarPeripherals() {
   return (
     <box orientation={1} spacing={4} class="sidebar-section">
       <label label="DEVICES" class="sidebar-section-title" halign={Gtk.Align.START} />
-      <box orientation={1} spacing={6} class="sidebar-card">
+      <box orientation={1} spacing={6} class="sidebar-card sidebar-compact-card">
         <label
           label={state.as(s => s.text)}
           useMarkup

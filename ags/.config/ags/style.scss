@@ -229,7 +229,7 @@ tooltip {
 }
 
 .sidebar-header {
-  padding-bottom: 6px;
+  padding-bottom: 10px;
 }
 
 .sidebar-title {
@@ -249,16 +249,35 @@ tooltip {
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.6);
   background: rgba(255, 255, 255, 0.04);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.12);
+  }
 }
 
 .sidebar-date {
   color: #c9b782;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
 }
 
+.sidebar-time {
+  color: #f8f0e3;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.sidebar-caption {
+  font-size: 12px;
+}
+
 .sidebar-section {
-  padding: 8px 0 0;
+  padding: 10px 0 0;
   border-bottom: 1px solid rgba(187, 142, 96, 0.15);
 }
 
@@ -275,6 +294,71 @@ tooltip {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(187, 142, 96, 0.12);
+}
+
+.sidebar-hero-card {
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(187, 142, 96, 0.18), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-hero-header {
+  margin-bottom: 6px;
+}
+
+.sidebar-summary-grid,
+.sidebar-utility-grid,
+.sidebar-quick-grid {
+  margin-top: 4px;
+}
+
+.sidebar-mini-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(187, 142, 96, 0.08);
+}
+
+.sidebar-summary-title {
+  color: #f8f0e3;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sidebar-row-value-strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sidebar-notifications-card {
+  background:
+    linear-gradient(180deg, rgba(194, 77, 57, 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-notifications-header {
+  margin-bottom: 2px;
+}
+
+.sidebar-notifications-count {
+  color: #f8f0e3;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.sidebar-media-card {
+  background:
+    linear-gradient(180deg, rgba(201, 183, 130, 0.1), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-media-action {
+  min-width: 0;
+}
+
+.sidebar-compact-card {
+  padding: 12px;
 }
 
 .sidebar-card-loading {
@@ -305,15 +389,36 @@ tooltip {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   color: #f3eadc;
+  border: 1px solid transparent;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(187, 142, 96, 0.28);
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(187, 142, 96, 0.38);
+    transform: translateY(1px);
+  }
 }
 
 .sidebar-action-primary {
   background: rgba(187, 142, 96, 0.18);
+
+  &:hover {
+    background: rgba(187, 142, 96, 0.26);
+  }
+
+  &:active {
+    background: rgba(187, 142, 96, 0.32);
+  }
 }
 
 .sidebar-action-title {
   color: #f3eadc;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -349,30 +454,70 @@ tooltip {
 
 .sidebar-peripherals {
   color: #c19c6f;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .sidebar-jarvis {
   color: #c9b782;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .sidebar-aiush {
   color: #c19c6f;
-  font-size: 12px;
+  font-size: 13px;
+}
+
+.sidebar-ai-usage-card {
+  background:
+    linear-gradient(180deg, rgba(187, 142, 96, 0.12), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-ai-usage-caption {
+  font-size: 10px;
+}
+
+.sidebar-ai-provider {
+  min-width: 0;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.sidebar-ai-provider-summary {
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.sidebar-ai-provider-detail {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.sidebar-ai-provider-active {
+  background: rgba(92, 138, 93, 0.09);
+  border-color: rgba(126, 182, 125, 0.18);
+}
+
+.sidebar-ai-provider-warning {
+  background: rgba(187, 142, 96, 0.12);
+  border-color: rgba(187, 142, 96, 0.22);
+}
+
+.sidebar-ai-provider-critical {
+  background: rgba(194, 77, 57, 0.14);
+  border-color: rgba(194, 77, 57, 0.28);
 }
 
 .sidebar-media-title,
 .sidebar-updates-text {
   color: #f3eadc;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 700;
 }
 
 .sidebar-media-subtitle,
 .sidebar-media-progress {
   color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .sidebar-cava {

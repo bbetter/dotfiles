@@ -19,6 +19,14 @@ function formatTime(seconds: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`
 }
 
+function runPlayerctl(command: string) {
+  try {
+    exec(`playerctl ${command}`)
+  } catch {
+    // Ignore if no active player exists.
+  }
+}
+
 export function SidebarMedia() {
   const cava = Cava.get_default()
   cava.bars = 18
@@ -69,11 +77,22 @@ export function SidebarMedia() {
   return (
     <box orientation={1} spacing={6} class="sidebar-section" visible={state.as(s => s.visible)}>
       <label label="NOW PLAYING" class="sidebar-section-title" halign={Gtk.Align.START} />
-      <box orientation={1} spacing={4} class="sidebar-card">
+      <box orientation={1} spacing={8} class="sidebar-card sidebar-media-card">
         <label label={state.as(s => s.title)} class="sidebar-media-title" halign={Gtk.Align.START} wrap />
         <label label={state.as(s => s.subtitle)} class="sidebar-media-subtitle" halign={Gtk.Align.START} wrap />
         <label label={state.as(s => s.progress)} class="sidebar-media-progress" halign={Gtk.Align.START} />
         <label label={cavaText} class="sidebar-cava" halign={Gtk.Align.START} />
+        <box spacing={8}>
+          <button class="sidebar-action sidebar-media-action" onClicked={() => runPlayerctl("previous")}>
+            <label label="Prev" />
+          </button>
+          <button class="sidebar-action sidebar-action-primary sidebar-media-action" onClicked={() => runPlayerctl("play-pause")}>
+            <label label="Play / Pause" />
+          </button>
+          <button class="sidebar-action sidebar-media-action" onClicked={() => runPlayerctl("next")}>
+            <label label="Next" />
+          </button>
+        </box>
       </box>
     </box>
   )

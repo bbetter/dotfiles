@@ -1,5 +1,6 @@
 import { createPoll } from "ags/time"
 import { exec } from "ags/process"
+import { Gtk } from "ags/gtk4"
 import Wp from "gi://AstalWp"
 
 interface AudioState {
@@ -10,7 +11,7 @@ interface AudioState {
 export function Audio() {
   const wp = Wp.get_default()
 
-  const state = createPoll<AudioState>({ label: "🔊 N/A", tooltip: "" }, 500, () => {
+  const state = createPoll<AudioState>({ label: "🔊 N/A", tooltip: "" }, 150, () => {
     const speaker = wp?.audio.defaultSpeaker
     if (!speaker) return { label: "🔊 N/A", tooltip: "" }
 
@@ -28,7 +29,7 @@ export function Audio() {
     }
   })
 
-  return (
+  const button = (
     <button
       class="audio"
       tooltipText={state.as(s => s.tooltip)}
@@ -42,5 +43,24 @@ export function Audio() {
     >
       <label label={state.as(s => s.label)} />
     </button>
-  )
+  ) as Gtk.Button
+
+  const scroll = new Gtk.EventControllerScroll({
+    flags: Gtk.EventControllerScrollFlags.VERTICAL | Gtk.EventControllerScrollFlags.DISCRETE,
+  })
+
+  scroll.connect("scroll", (_controller, _dx, dy) => {
+    try {
+      if (dy < 0) exec("pactl set-sink-volume @DEFAULT_SINK@ +5%")
+      else if (dy > 0) exec("pactl set-sink-volume @DEFAULT_SINK@ -5%")
+    } catch {
+      // Ignore failures from missing backends.
+    }
+
+    return true
+  })
+
+  button.add_controller(scroll)
+
+  return button
 }
