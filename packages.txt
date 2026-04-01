@@ -220,7 +220,7 @@ vim
 vlc
 vulkan-radeon
 vulkan-tools
-waybar
+aylurs-gtk-shell
 welcome
 wf-recorder
 wget

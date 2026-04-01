@@ -5,7 +5,7 @@ Personal dotfiles for EndeavourOS/Arch Linux + Hyprland setup
 ## 🎨 Rice Preview
 
 - **WM**: Hyprland
-- **Bar**: Waybar  
+- **Bar**: AGS  
 - **Launcher**: Wofi
 - **Terminal**: Ghostty
 - **Notifications**: SwayNC
@@ -38,13 +38,13 @@ yay -S --needed - < aur-packages.txt
 ### Link configs:
 ```bash
 cd ~/.dotfiles
-stow -v hypr waybar wofi ghostty swaync swaylock cava neofetch mpv scripts
+stow -v hypr ags wofi ghostty swaync swaylock cava neofetch mpv scripts
 ```
 
 ## 📦 Core Packages
 
 ### Window Manager:
-- hyprland, waybar, wofi, swaync, swaylock
+- hyprland, aylurs-gtk-shell, wofi, swaync, swaylock
 
 ### Terminal & Shell:
 - ghostty, zsh/bash

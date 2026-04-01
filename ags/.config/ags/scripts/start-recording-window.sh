@@ -11,7 +11,6 @@ if pgrep -x wf-recorder >/dev/null; then
     exit 1
 fi
 
-# Беремо активне вікно
 WIN_JSON=$(hyprctl activewindow -j 2>/dev/null)
 
 [ -z "$WIN_JSON" ] && notify-send "❌ Recording" "No active window" && exit 1
@@ -21,7 +20,6 @@ Y=$(echo "$WIN_JSON" | jq -r '.at[1]')
 W=$(echo "$WIN_JSON" | jq -r '.size[0]')
 H=$(echo "$WIN_JSON" | jq -r '.size[1]')
 
-# ❗ ПРАВИЛЬНИЙ формат для wf-recorder
 GEOM="${X},${Y} ${W}x${H}"
 
 FILE="$DIR/window_$(date +'%Y-%m-%d_%H-%M-%S').mp4"
@@ -32,4 +30,3 @@ echo "$FILE" > "$FILE_FILE"
 notify-send "🎥 Recording window" "Geometry: $GEOM"
 
 wf-recorder -g "$GEOM" -f "$FILE" &
-

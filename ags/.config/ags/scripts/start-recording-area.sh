@@ -20,4 +20,3 @@ echo "$FILE" > "$FILE_FILE"
 notify-send "🎥 Recording area" "Select region"
 
 wf-recorder -g "$GEOM" -f "$FILE" &
-
