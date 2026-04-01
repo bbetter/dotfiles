@@ -1,0 +1,138 @@
+/* ==================================================
+   FLOATING MODULES WAYBAR - TRANSPARENT
+   ================================================== */
+
+* {
+    font-family: "JetBrainsMono Nerd Font", "Noto Sans", sans-serif;
+    font-size: 13px;
+    min-height: 0;
+    font-weight: 500;
+}
+
+window#waybar {
+    background: transparent;
+    color: #ffffff;
+}
+
+/* ==================================================
+   MODULE CONTAINERS
+   ================================================== */
+#custom-audio,
+#custom-peripherals,
+#custom-network,
+#custom-notification,
+#custom-recording,
+#custom-jarvis,
+#custom-media-cava,
+#custom-window,
+#custom-aiush,
+#custom-printer,
+#clock,
+#language,
+#tray {
+    background: rgba(33,19,9,0.85);
+    padding: 3px 12px;
+    margin: 3px 6px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#workspaces {
+    background: rgba(33,19,9,0.85);
+    padding: 2px 6px;
+    margin: 3px 6px;
+    border-radius: 10px;
+}
+
+/* spacing */
+#clock          { margin-right: 16px; }
+#tray           { margin-left: 16px; }
+#custom-audio   { margin-left: 16px; }
+#custom-network { margin-right: 16px; }
+#language       { margin-left: 16px; }
+
+#custom-audio:hover,
+#custom-peripherals:hover,
+#custom-network:hover,
+#custom-media-cava:hover,
+#custom-notification:hover,
+#clock:hover,
+#language:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+/* ==================================================
+   WORKSPACES
+   ================================================== */
+#workspaces button {
+    padding: 4px 10px;
+    margin: 0 2px;
+    color: rgba(255,255,255,0.5);
+    border-bottom: 2px solid transparent;
+}
+
+#workspaces button.active,
+#workspaces button.focused {
+    color: #bb8e60;
+    border-bottom-color: #bb8e60;
+}
+
+#workspaces button.urgent {
+    color: #9a6441;
+    border-bottom-color: #9a6441;
+}
+
+#workspaces button.special {
+    color: #b48151;
+}
+
+/* ==================================================
+   CLOCK
+   ================================================== */
+#clock {
+    color: #ffffff;
+    font-weight: 700;
+    padding: 3px 16px;
+    background: rgba(33,19,9,0.95);
+}
+
+/* ==================================================
+   MEDIA / STATUS
+   ================================================== */
+#custom-media-cava.playing { color: #c9b782; }
+#custom-media-cava.paused { color: #c19c6f; }
+
+#custom-notification { color: #c9b782; }
+#custom-notification.notification {
+    color: #9a6441;
+}
+
+/* ==================================================
+   SYSTEM
+   ================================================== */
+#custom-audio,
+#custom-peripherals,
+#custom-network {
+    color: #c19c6f;
+}
+
+#custom-aiush,
+#custom-printer {
+    color: #c9b782;
+}
+
+#custom-printer.printing {
+    color: #bb8e60;
+}
+
+/* ==================================================
+   TOOLTIP
+   ================================================== */
+tooltip {
+    background: rgba(33,19,9,0.95);
+    border-radius: 8px;
+}
+
+tooltip label {
+    color: #ffffff;
+}
