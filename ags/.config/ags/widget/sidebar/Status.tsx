@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 import Wp from "gi://AstalWp"
@@ -22,9 +22,9 @@ function launch(command: string) {
   }
 }
 
-function getLanguage(): string {
+async function getLanguage(): Promise<string> {
   try {
-    const output = exec("hyprctl devices -j")
+    const output = await execAsync("hyprctl devices -j")
     const devices = JSON.parse(output)
     const keyboard = devices.keyboards?.find((k: { main?: boolean }) => k.main) || devices.keyboards?.[0]
     if (!keyboard) return "unknown"
@@ -53,7 +53,7 @@ export function SidebarStatus() {
       time: "",
     },
     1000,
-    () => {
+    async () => {
       const speaker = wp?.audio.defaultSpeaker
       let audio = "No audio device"
       let audioLead = "Audio unavailable"
@@ -66,7 +66,7 @@ export function SidebarStatus() {
       let network = "No network connection"
       let networkLead = "Offline"
       try {
-        const raw = exec(`python3 ${GLib.get_home_dir()}/.config/ags/scripts/network.py`).trim()
+        const raw = (await execAsync(`python3 ${GLib.get_home_dir()}/.config/ags/scripts/network.py`)).trim()
         const data = JSON.parse(raw) as { text?: string; tooltip?: string }
         network = data.tooltip?.split("\n").slice(0, 2).join(" - ") || data.text || network
         networkLead = data.text ?? networkLead
@@ -90,7 +90,7 @@ export function SidebarStatus() {
         audioLead,
         network,
         networkLead,
-        language: getLanguage(),
+        language: await getLanguage(),
         date,
         time,
       }

@@ -23,7 +23,7 @@ function getAiushState(): AiushState {
 
 export function SidebarAiush() {
   const state = createPoll<AiushState>(
-    getAiushState(),
+    { text: "", tooltip: "", visible: false },
     60_000, // 1-minute interval — external API call
     getAiushState,
   )

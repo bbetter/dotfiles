@@ -366,23 +366,6 @@ tooltip {
   border-color: rgba(187, 142, 96, 0.08);
 }
 
-.sidebar-placeholder-line {
-  min-height: 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  animation: sidebar-placeholder-pulse 1.2s ease-in-out infinite;
-}
-
-.sidebar-placeholder-short {
-  min-width: 45%;
-  max-width: 45%;
-}
-
-@keyframes sidebar-placeholder-pulse {
-  0% { opacity: 0.45; }
-  50% { opacity: 0.9; }
-  100% { opacity: 0.45; }
-}
 
 .sidebar-action {
   padding: 10px 12px;

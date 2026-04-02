@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 
