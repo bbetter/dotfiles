@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { exec, execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import Cava from "gi://AstalCava"
 
@@ -35,17 +35,17 @@ export function SidebarMedia() {
   const state = createPoll<MediaState>(
     { title: "", subtitle: "", progress: "", visible: false },
     1000,
-    () => {
+    async () => {
       try {
-        const status = exec("playerctl status").trim()
+        const status = (await execAsync("playerctl status")).trim()
         if (status !== "Playing" && status !== "Paused") {
           return { title: "", subtitle: "", progress: "", visible: false }
         }
 
-        const title = exec("playerctl metadata --format '{{title}}'").trim() || "Unknown title"
-        const artist = exec("playerctl metadata --format '{{artist}}'").trim() || "Unknown artist"
-        const position = parseFloat(exec("playerctl position"))
-        const lengthUs = parseInt(exec("playerctl metadata mpris:length"))
+        const title = (await execAsync("playerctl metadata --format '{{title}}'")).trim() || "Unknown title"
+        const artist = (await execAsync("playerctl metadata --format '{{artist}}'")).trim() || "Unknown artist"
+        const position = parseFloat(await execAsync("playerctl position"))
+        const lengthUs = parseInt(await execAsync("playerctl metadata mpris:length"))
         const length = Number.isFinite(lengthUs) ? lengthUs / 1_000_000 : 0
         const icon = status === "Paused" ? "paused" : "playing"
 

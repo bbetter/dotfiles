@@ -1,5 +1,13 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
+import { SidebarStatus } from "./sidebar/Status"
+import { SidebarNotifications } from "./sidebar/Notifications"
+import { SidebarMedia } from "./sidebar/Media"
+import { SidebarUpdates } from "./sidebar/Updates"
+import { SidebarPeripherals } from "./sidebar/Peripherals"
+import { SidebarActivity } from "./sidebar/Activity"
+import { SidebarJarvis } from "./sidebar/Jarvis"
+import { SidebarAiush } from "./sidebar/Aiush"
 import { closeSidebar } from "./sidebar/state"
 
 export const SIDEBAR_WIDTH = 390
@@ -20,7 +28,11 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
       class="Sidebar"
       widthRequest={SIDEBAR_WIDTH}
     >
-      <scrolledwindow vexpand hscrollbarPolicy={Gtk.PolicyType.NEVER} vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}>
+      <scrolledwindow
+        vexpand
+        hscrollbarPolicy={Gtk.PolicyType.NEVER}
+        vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
+      >
         <box orientation={Gtk.Orientation.VERTICAL} spacing={12} class="sidebar-content">
           <box class="sidebar-header">
             <box orientation={Gtk.Orientation.VERTICAL} hexpand>
@@ -31,6 +43,14 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
               <label label="✕" />
             </button>
           </box>
+          {SidebarStatus()}
+          {SidebarMedia()}
+          {SidebarActivity()}
+          {SidebarNotifications()}
+          {SidebarUpdates()}
+          {SidebarPeripherals()}
+          {SidebarJarvis()}
+          {SidebarAiush()}
         </box>
       </scrolledwindow>
     </window>

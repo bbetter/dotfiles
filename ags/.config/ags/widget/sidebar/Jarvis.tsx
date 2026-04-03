@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 
@@ -15,9 +15,9 @@ export function SidebarJarvis() {
   const state = createPoll<JarvisState>(
     { text: "", tooltip: "", visible: false },
     2000,
-    () => {
+    async () => {
       try {
-        const raw = exec(script).trim()
+        const raw = (await execAsync(script)).trim()
         if (!raw) return { text: "", tooltip: "", visible: false }
         const data = JSON.parse(raw) as { text?: string; tooltip?: string }
         const text = data.text ?? ""

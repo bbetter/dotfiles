@@ -1,4 +1,4 @@
-import { exec } from "ags/process"
+import { exec, execAsync } from "ags/process"
 import { createPoll } from "ags/time"
 import { Gtk } from "ags/gtk4"
 
@@ -11,10 +11,10 @@ export function SidebarNotifications() {
   const state = createPoll<SidebarNotificationsState>(
     { count: 0, dnd: false },
     2000,
-    () => {
+    async () => {
       try {
-        const count = Number.parseInt(exec("swaync-client -c -sw").trim(), 10)
-        const dnd = exec("swaync-client -D -sw").trim().toLowerCase() === "true"
+        const count = Number.parseInt((await execAsync("swaync-client -c -sw")).trim(), 10)
+        const dnd = (await execAsync("swaync-client -D -sw")).trim().toLowerCase() === "true"
         return {
           count: Number.isFinite(count) ? count : 0,
           dnd,

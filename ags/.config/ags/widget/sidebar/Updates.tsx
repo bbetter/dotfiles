@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 
@@ -13,9 +13,9 @@ export function SidebarUpdates() {
   const state = createPoll<UpdatesState>(
     { text: "", tooltip: "", visible: false },
     300_000,
-    () => {
+    async () => {
       try {
-        const raw = exec(`${GLib.get_home_dir()}/.config/ags/scripts/updates.sh`).trim()
+        const raw = (await execAsync(`${GLib.get_home_dir()}/.config/ags/scripts/updates.sh`)).trim()
         if (!raw) return { text: "", tooltip: "", visible: false }
         const data = JSON.parse(raw) as { text?: string; tooltip?: string }
         if (!data.text) return { text: "", tooltip: "", visible: false }

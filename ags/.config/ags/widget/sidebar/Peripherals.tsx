@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 
@@ -15,9 +15,9 @@ export function SidebarPeripherals() {
   const state = createPoll<PeripheralsState>(
     { text: "No devices", tooltip: "", visible: true },
     5000,
-    () => {
+    async () => {
       try {
-        const raw = exec(`python3 ${script}`).trim()
+        const raw = (await execAsync(`python3 ${script}`)).trim()
         if (!raw) return { text: "No devices", tooltip: "", visible: true }
         const data = JSON.parse(raw) as { text?: string; tooltip?: string }
         return {

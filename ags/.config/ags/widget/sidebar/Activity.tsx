@@ -133,10 +133,10 @@ export function SidebarActivity() {
       visible: true,
     },
     1000,
-    () => {
+    async () => {
       let printer = "Idle"
       try {
-        const output = exec("lpstat -l -o").trim()
+        const output = (await execAsync("lpstat -l -o")).trim()
         if (output) {
           const count = output.split("\n").filter(line => /^\S/.test(line)).length
           printer = count > 0 ? `${count} print job${count > 1 ? "s" : ""}` : "Idle"
@@ -147,7 +147,7 @@ export function SidebarActivity() {
 
       let recording = "Not recording"
       try {
-        const output = exec(`${scriptsPath}/recording-status.sh`).trim()
+        const output = (await execAsync(`${scriptsPath}/recording-status.sh`)).trim()
         if (output) {
           const data = JSON.parse(output) as { text?: string }
           if (data.text) recording = data.text
@@ -166,7 +166,7 @@ export function SidebarActivity() {
       let codexVisible = false
       let aiushVisible = false
       try {
-        const raw = exec(`python3 ${GLib.get_home_dir()}/.local/lib/aiush/aiush.py --once`).trim()
+        const raw = (await execAsync(`python3 ${GLib.get_home_dir()}/.local/lib/aiush/aiush.py --once`)).trim()
         if (raw) {
           const data = JSON.parse(raw) as { tooltip?: string }
           const parsed = parseAiushTooltip(data.tooltip ?? "")

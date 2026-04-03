@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 
@@ -9,9 +9,9 @@ interface AiushState {
   visible: boolean
 }
 
-function getAiushState(): AiushState {
+async function getAiushState(): Promise<AiushState> {
   try {
-    const raw = exec(`python3 ${GLib.get_home_dir()}/.local/lib/aiush/aiush.py --once`).trim()
+    const raw = (await execAsync(`python3 ${GLib.get_home_dir()}/.local/lib/aiush/aiush.py --once`)).trim()
     if (!raw) return { text: "", tooltip: "", visible: false }
     const data = JSON.parse(raw) as { text?: string; tooltip?: string }
     const text = data.text ?? ""
