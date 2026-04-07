@@ -1,37 +1,32 @@
 import { createPoll } from "ags/time"
-import Bluetooth from "gi://AstalBluetooth"
+import { Gtk } from "ags/gtk4"
+import AstalBluetooth from "gi://AstalBluetooth"
+import { toggleBluetoothPopup } from "../BluetoothPopup"
 
 export function BluetoothIndicator() {
-  const bt = Bluetooth.get_default()
-  
-  const btText = createPoll("", 500, () => {
-    
-    if (!bt.isPowered) {
-      return "" // Не показуємо якщо вимкнено
-    }
-    
-    const devices = bt.get_devices()
-    
-    const connected = devices.filter(d => d.connected)
-    
-    if (connected.length > 0) {
-      const device = connected[0]
-      return `ᛒ ${device.name}`
-    }
-    
-    return "ᛒ"
-  })
-  
-  const isVisible = createPoll(false, 500, () => {
-    return bt.isPowered || bt.get_devices().filter(d => d.connected).length > 0
+  const bt = AstalBluetooth.get_default()
+
+  const label = createPoll("", 500, () => {
+    if (!bt.get_is_powered()) return ""
+    const connected = bt.get_devices().filter(d => d.get_connected())
+    if (connected.length === 0) return "󰂯"
+    const d = connected[0]
+    const bat = d.get_battery_percentage()
+    const batStr = bat >= 0 ? ` ${Math.round(bat)}%` : ""
+    return `󰂱 ${d.get_alias() ?? d.get_name() ?? ""}${batStr}`
   })
 
-  return (
-    <button 
+  const visible = createPoll(false, 500, () => bt.get_is_powered())
+
+  const btn = (
+    <button
       class="bluetooth"
-      visible={isVisible}
+      visible={visible}
+      onClicked={() => toggleBluetoothPopup(btn)}
     >
-      <label label={btText} />
+      <label label={label} />
     </button>
-  )
+  ) as Gtk.Button
+
+  return btn
 }

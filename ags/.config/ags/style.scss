@@ -29,6 +29,7 @@
 .language,
 .window-title,
 .audio,
+.bluetooth,
 .network,
 .recording,
 .sidebar-toggle {
@@ -211,6 +212,10 @@ tooltip {
   background: rgba(0, 0, 0, 0.01);
 }
 
+.PopupBackdrop {
+  background: transparent;
+}
+
 /* ==================================================
    SIDEBAR WINDOW
    ================================================== */
@@ -227,6 +232,7 @@ tooltip {
 .sidebar-content {
   padding: 18px 16px;
 }
+
 
 .sidebar-header {
   padding-bottom: 10px;
@@ -262,14 +268,27 @@ tooltip {
 
 .sidebar-date {
   color: #c9b782;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .sidebar-time {
   color: #f8f0e3;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
+}
+
+.sidebar-layout-badge {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-compact-value {
+  color: #f3eadc;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .sidebar-caption {
@@ -297,7 +316,7 @@ tooltip {
 }
 
 .sidebar-hero-card {
-  padding: 18px;
+  padding: 12px 14px;
   background:
     linear-gradient(180deg, rgba(187, 142, 96, 0.18), rgba(255, 255, 255, 0.04)),
     rgba(255, 255, 255, 0.05);
@@ -319,6 +338,7 @@ tooltip {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(187, 142, 96, 0.08);
 }
+
 
 .sidebar-summary-title {
   color: #f8f0e3;
@@ -343,7 +363,7 @@ tooltip {
 
 .sidebar-notifications-count {
   color: #f8f0e3;
-  font-size: 28px;
+  font-size: 18px;
   font-weight: 800;
 }
 
@@ -466,13 +486,15 @@ tooltip {
 }
 
 .sidebar-ai-provider-summary {
-  font-size: 16px;
-  line-height: 1.15;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .sidebar-ai-provider-detail {
   font-size: 10px;
-  line-height: 1.35;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .sidebar-ai-provider-active {
@@ -507,4 +529,467 @@ tooltip {
   color: #c19c6f;
   font-size: 12px;
   letter-spacing: 1px;
+}
+
+/* ==================================================
+   NETWORK POPUP
+   ================================================== */
+.NetworkPopup {
+  background: transparent;
+}
+
+.network-popup-outer {
+  /* transparent wrapper holding arrow + card */
+}
+
+.network-popup-arrow-row {
+  /* spacers center the arrow horizontally */
+}
+
+/* Upward-pointing triangle via CSS border trick.
+   Width/height 0 + transparent sides + opaque bottom = triangle pointing up. */
+.network-popup-arrow {
+  min-width: 0;
+  min-height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid rgba(187, 142, 96, 0.5);
+  margin-bottom: -1px; /* overlap popup top-border so they visually connect */
+}
+
+.network-popup-content {
+  background: rgba(18, 11, 5, 0.97);
+  border-radius: 14px;
+  border: 1px solid rgba(187, 142, 96, 0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 14px;
+}
+
+.network-popup-title {
+  color: #bb8e60;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.network-popup-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(187, 142, 96, 0.1);
+  padding: 8px 12px;
+}
+
+.network-popup-row {
+  /* spacing set via GTK attribute, not CSS */
+}
+
+.network-popup-label {
+  color: #9a6441;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.network-popup-value {
+  color: #f3eadc;
+  font-size: 13px;
+}
+
+.network-scan-btn {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(187, 142, 96, 0.15);
+  color: #bb8e60;
+  font-size: 11px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(187, 142, 96, 0.28);
+  }
+}
+
+.network-ap-list {
+  /* container for AP rows */
+}
+
+.network-ap-row {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(187, 142, 96, 0.2);
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.13);
+  }
+}
+
+.network-ap-active {
+  background: rgba(92, 138, 93, 0.12);
+  border-color: rgba(126, 182, 125, 0.22);
+
+  &:hover {
+    background: rgba(92, 138, 93, 0.18);
+  }
+}
+
+.network-ap-name {
+  color: #f3eadc;
+  font-size: 13px;
+}
+
+.network-ap-name-active {
+  color: #9dcc9c;
+  font-weight: 700;
+}
+
+.network-ap-lock {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+}
+
+.network-ap-strength {
+  color: #bb8e60;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.network-password-box {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(187, 142, 96, 0.2);
+  padding: 12px;
+}
+
+.network-password-prompt {
+  color: #c9b782;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.network-btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f3eadc;
+  font-size: 13px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
+/* ==================================================
+   BLUETOOTH BAR PILL
+   ================================================== */
+.bluetooth {
+  padding: 3px 12px;
+  margin: 3px 6px;
+  color: #c19c6f;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ==================================================
+   BLUETOOTH POPUP
+   ================================================== */
+.BluetoothPopup {
+  background: transparent;
+}
+
+.bt-popup-outer {}
+.bt-popup-arrow-row {}
+
+.bt-popup-arrow {
+  min-width: 0;
+  min-height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid rgba(187, 142, 96, 0.5);
+  margin-bottom: -1px;
+}
+
+.bt-popup-content {
+  background: rgba(18, 11, 5, 0.97);
+  border-radius: 14px;
+  border: 1px solid rgba(187, 142, 96, 0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 14px;
+}
+
+.bt-popup-title {
+  color: #bb8e60;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.bt-power-btn {
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.15s ease;
+}
+
+.bt-power-btn-on {
+  background: rgba(92, 138, 93, 0.2);
+  color: #9dcc9c;
+  border: 1px solid rgba(126, 182, 125, 0.3);
+
+  &:hover { background: rgba(92, 138, 93, 0.3); }
+}
+
+.bt-power-btn-off {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+  border: 1px solid transparent;
+
+  &:hover { background: rgba(255, 255, 255, 0.1); }
+}
+
+.bt-scan-btn {
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  transition: background 0.15s ease;
+
+  &:hover { background: rgba(255, 255, 255, 0.1); }
+}
+
+.bt-scan-btn-active {
+  background: rgba(187, 142, 96, 0.2);
+  color: #bb8e60;
+  &:hover { background: rgba(187, 142, 96, 0.3); }
+}
+
+.bt-device-list {}
+
+.bt-device-row {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+}
+
+.bt-device-icon {
+  font-size: 18px;
+  color: #c19c6f;
+  min-width: 24px;
+}
+
+.bt-device-name {
+  color: #f3eadc;
+  font-size: 13px;
+}
+
+.bt-device-name-connected {
+  color: #9dcc9c;
+  font-weight: 700;
+}
+
+.bt-device-battery {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+}
+
+.bt-action-btn {
+  padding: 4px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f3eadc;
+  transition: background 0.15s ease;
+
+  &:hover { background: rgba(255, 255, 255, 0.13); }
+}
+
+.bt-action-btn-disconnect {
+  background: rgba(194, 77, 57, 0.15);
+  color: #e8816e;
+
+  &:hover { background: rgba(194, 77, 57, 0.25); }
+}
+
+.bt-empty-label {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+}
+
+/* ==================================================
+   AUDIO POPUP
+   ================================================== */
+.AudioPopup {
+  background: transparent;
+}
+
+.audio-popup-outer {
+  /* transparent wrapper */
+}
+
+.audio-popup-arrow-row {
+  /* spacers center the arrow */
+}
+
+.audio-popup-arrow {
+  min-width: 0;
+  min-height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid rgba(187, 142, 96, 0.5);
+  margin-bottom: -1px;
+}
+
+.audio-popup-content {
+  background: rgba(18, 11, 5, 0.97);
+  border-radius: 14px;
+  border: 1px solid rgba(187, 142, 96, 0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 14px;
+}
+
+.audio-popup-title {
+  color: #bb8e60;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.audio-popup-divider {
+  min-height: 1px;
+  background: rgba(187, 142, 96, 0.15);
+}
+
+.audio-section {
+  /* vertical box containing header + device name + slider */
+}
+
+.audio-section-label {
+  color: #9a6441;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.audio-vol-pct {
+  color: #f3eadc;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 38px;
+}
+
+.audio-mute-btn {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c19c6f;
+  font-size: 14px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.audio-mute-btn-active {
+  color: #c24d39;
+  background: rgba(194, 77, 57, 0.15);
+
+  &:hover {
+    background: rgba(194, 77, 57, 0.25);
+  }
+}
+
+.audio-device-name {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+}
+
+.audio-slider {
+  /* GTK slider default; trough/highlight styled below */
+  margin-top: 2px;
+
+  trough {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    min-height: 5px;
+  }
+
+  highlight {
+    background: #bb8e60;
+    border-radius: 4px;
+  }
+
+  slider {
+    background: #f3eadc;
+    border-radius: 50%;
+    min-width: 14px;
+    min-height: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.audio-device-list {
+  /* container for device switch rows */
+}
+
+.audio-device-row {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(187, 142, 96, 0.2);
+  }
+}
+
+.audio-device-row-active {
+  background: rgba(92, 138, 93, 0.12);
+  border-color: rgba(126, 182, 125, 0.22);
+
+  &:hover {
+    background: rgba(92, 138, 93, 0.18);
+  }
+}
+
+.audio-device-row-icon {
+  color: #9dcc9c;
+  font-size: 10px;
+  min-width: 12px;
+}
+
+.audio-device-row-name {
+  color: #f3eadc;
+  font-size: 12px;
+}
+
+.network-btn-primary {
+  background: rgba(187, 142, 96, 0.2);
+  color: #f3eadc;
+
+  &:hover {
+    background: rgba(187, 142, 96, 0.32);
+  }
+
+  &:active {
+    background: rgba(187, 142, 96, 0.42);
+  }
 }

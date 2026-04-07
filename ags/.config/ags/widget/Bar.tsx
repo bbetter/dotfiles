@@ -1,6 +1,7 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { Audio } from "./bar/Audio"
+import { BluetoothIndicator } from "./bar/Bluetooth"
 import { RecordingStatus } from "./bar/Recording"
 import { NetworkIndicator } from "./bar/Network"
 import { Workspaces } from "./bar/Workspaces"
@@ -34,6 +35,7 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
 
         <box $type="end" hexpand halign={Gtk.Align.END} spacing={0}>
           <Audio />
+          <BluetoothIndicator />
           <NetworkIndicator />
           <Language />
           <RecordingStatus />

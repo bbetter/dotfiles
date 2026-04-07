@@ -1,5 +1,6 @@
 import app from "ags/gtk4/app"
 import { exec } from "ags/process"
+import { closeAllPopups } from "../PopupManager"
 
 const SIDEBAR_WINDOW_PREFIXES = ["sidebar-window-", "sidebar-backdrop-"]
 
@@ -28,6 +29,7 @@ export function isSidebarOpen(): boolean {
 }
 
 export function openSidebar() {
+  closeAllPopups()
   const activeConnector = getActiveMonitorConnector()
 
   eachSidebarWindow(win => {

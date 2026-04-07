@@ -1,7 +1,8 @@
 import { createPoll } from "ags/time"
-import { exec } from "ags/process"
 import { Gtk } from "ags/gtk4"
+import { exec } from "ags/process"
 import Wp from "gi://AstalWp"
+import { toggleAudioPopup } from "../AudioPopup"
 
 interface AudioState {
   label: string
@@ -11,35 +12,29 @@ interface AudioState {
 export function Audio() {
   const wp = Wp.get_default()
 
-  const state = createPoll<AudioState>({ label: "🔊 N/A", tooltip: "" }, 150, () => {
+  const state = createPoll<AudioState>({ label: "󰕾 N/A", tooltip: "" }, 150, () => {
     const speaker = wp?.audio.defaultSpeaker
-    if (!speaker) return { label: "🔊 N/A", tooltip: "" }
+    if (!speaker) return { label: "󰕾 N/A", tooltip: "" }
 
     if (speaker.mute) {
       return {
-        label: "󰖁 Muted",
-        tooltip: "Volume: Muted\nClick for Pavucontrol\nRight click to unmute",
+        label: "󰝟 Muted",
+        tooltip: "Volume: Muted",
       }
     }
 
     const vol = Math.round(speaker.volume * 100)
     return {
-      label: `🔊 ${vol}%`,
-      tooltip: `Volume: ${vol}%\nClick for Pavucontrol\nRight click to mute`,
+      label: `󰕾 ${vol}%`,
+      tooltip: `Volume: ${vol}%`,
     }
   })
 
-  const button = (
+  const btn = (
     <button
       class="audio"
       tooltipText={state.as(s => s.tooltip)}
-      onClicked={() => {
-        try {
-          exec("pavucontrol")
-        } catch {
-          // Ignore if unavailable.
-        }
-      }}
+      onClicked={() => toggleAudioPopup(btn)}
     >
       <label label={state.as(s => s.label)} />
     </button>
@@ -53,14 +48,10 @@ export function Audio() {
     try {
       if (dy < 0) exec("pactl set-sink-volume @DEFAULT_SINK@ +5%")
       else if (dy > 0) exec("pactl set-sink-volume @DEFAULT_SINK@ -5%")
-    } catch {
-      // Ignore failures from missing backends.
-    }
-
+    } catch { /* ignore */ }
     return true
   })
 
-  button.add_controller(scroll)
-
-  return button
+  btn.add_controller(scroll)
+  return btn
 }

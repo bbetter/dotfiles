@@ -5,9 +5,7 @@ import { SidebarNotifications } from "./sidebar/Notifications"
 import { SidebarMedia } from "./sidebar/Media"
 import { SidebarUpdates } from "./sidebar/Updates"
 import { SidebarPeripherals } from "./sidebar/Peripherals"
-import { SidebarActivity } from "./sidebar/Activity"
-import { SidebarJarvis } from "./sidebar/Jarvis"
-import { SidebarAiush } from "./sidebar/Aiush"
+import { SidebarAiUsage } from "./sidebar/AiUsage"
 import { closeSidebar } from "./sidebar/state"
 
 export const SIDEBAR_WIDTH = 390
@@ -45,12 +43,10 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
           </box>
           {SidebarStatus()}
           {SidebarMedia()}
-          {SidebarActivity()}
           {SidebarNotifications()}
           {SidebarUpdates()}
           {SidebarPeripherals()}
-          {SidebarJarvis()}
-          {SidebarAiush()}
+          {SidebarAiUsage()}
         </box>
       </scrolledwindow>
     </window>

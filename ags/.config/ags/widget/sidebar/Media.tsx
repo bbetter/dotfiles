@@ -1,8 +1,6 @@
 import { createPoll } from "ags/time"
 import { exec, execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
-import Cava from "gi://AstalCava"
-
 interface MediaState {
   title: string
   subtitle: string
@@ -28,10 +26,6 @@ function runPlayerctl(command: string) {
 }
 
 export function SidebarMedia() {
-  const cava = Cava.get_default()
-  cava.bars = 18
-  cava.framerate = 30
-
   const state = createPoll<MediaState>(
     { title: "", subtitle: "", progress: "", visible: false },
     1000,
@@ -61,27 +55,15 @@ export function SidebarMedia() {
     },
   )
 
-  const cavaText = createPoll("▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁", 33, () => {
-    const values = cava.values
-    if (!values || values.length === 0) {
-      return "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
-    }
-
-    const chars = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
-    return values.slice(0, 18).map(val => {
-      const index = Math.min(Math.floor(val * chars.length), chars.length - 1)
-      return chars[index]
-    }).join("")
-  })
-
   return (
     <box orientation={1} spacing={6} class="sidebar-section" visible={state.as(s => s.visible)}>
       <label label="NOW PLAYING" class="sidebar-section-title" halign={Gtk.Align.START} />
-      <box orientation={1} spacing={8} class="sidebar-card sidebar-media-card">
+      <box orientation={1} spacing={6} class="sidebar-card sidebar-media-card">
         <label label={state.as(s => s.title)} class="sidebar-media-title" halign={Gtk.Align.START} wrap />
-        <label label={state.as(s => s.subtitle)} class="sidebar-media-subtitle" halign={Gtk.Align.START} wrap />
-        <label label={state.as(s => s.progress)} class="sidebar-media-progress" halign={Gtk.Align.START} />
-        <label label={cavaText} class="sidebar-cava" halign={Gtk.Align.START} />
+        <box>
+          <label label={state.as(s => s.subtitle)} class="sidebar-media-subtitle" hexpand halign={Gtk.Align.START} />
+          <label label={state.as(s => s.progress)} class="sidebar-media-progress" halign={Gtk.Align.END} />
+        </box>
         <box spacing={8}>
           <button class="sidebar-action sidebar-media-action" onClicked={() => runPlayerctl("previous")}>
             <label label="Prev" />

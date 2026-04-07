@@ -1,6 +1,8 @@
 import { createPoll } from "ags/time"
 import { exec } from "ags/process"
+import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
+import { toggleNetworkPopup } from "../NetworkPopup"
 
 interface NetworkState {
   text: string
@@ -9,7 +11,7 @@ interface NetworkState {
 
 export function NetworkIndicator() {
   const state = createPoll<NetworkState>(
-      { text: "🚫", tooltip: "No network connection" },
+    { text: "🚫", tooltip: "No network connection" },
     5000,
     () => {
       try {
@@ -25,9 +27,15 @@ export function NetworkIndicator() {
     },
   )
 
-  return (
-    <button class="network" tooltipText={state.as(s => s.tooltip)}>
+  const btn = (
+    <button
+      class="network"
+      tooltipText={state.as(s => s.tooltip)}
+      onClicked={() => toggleNetworkPopup(btn)}
+    >
       <label label={state.as(s => s.text)} />
     </button>
-  )
+  ) as Gtk.Button
+
+  return btn
 }

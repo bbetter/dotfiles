@@ -3,6 +3,10 @@ import style from "./style.scss"
 import Bar from "./widget/Bar"
 import { Sidebar } from "./widget/Sidebar"
 import { SidebarBackdrop } from "./widget/SidebarBackdrop"
+import { NetworkPopup } from "./widget/NetworkPopup"
+import { AudioPopup } from "./widget/AudioPopup"
+import { BluetoothPopup } from "./widget/BluetoothPopup"
+import { PopupBackdrop } from "./widget/PopupBackdrop"
 import { closeSidebar, openSidebar, toggleSidebar } from "./widget/sidebar/state"
 
 app.start({
@@ -24,6 +28,10 @@ app.start({
       Bar(monitor)
       SidebarBackdrop(monitor)
       Sidebar(monitor)
+      PopupBackdrop(monitor)   // must be before popup windows (z-below them)
+      NetworkPopup(monitor)
+      AudioPopup(monitor)
+      BluetoothPopup(monitor)
     })
   },
 })
