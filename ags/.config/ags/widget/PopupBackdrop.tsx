@@ -6,7 +6,7 @@ export function PopupBackdrop(gdkmonitor: Gdk.Monitor) {
   const { TOP, RIGHT, BOTTOM, LEFT } = Astal.WindowAnchor
   const monitorName = gdkmonitor.get_connector() ?? `${gdkmonitor.get_model() ?? "monitor"}`
 
-  const hitbox = <box hexpand vexpand /> as Gtk.Box
+  const hitbox = <box hexpand vexpand class="popup-backdrop-hitbox" /> as Gtk.Box
   hitbox.canTarget = true
   hitbox.sensitive = true
   const click = Gtk.GestureClick.new()

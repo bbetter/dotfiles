@@ -6,6 +6,7 @@ import { SidebarBackdrop } from "./widget/SidebarBackdrop"
 import { NetworkPopup } from "./widget/NetworkPopup"
 import { AudioPopup } from "./widget/AudioPopup"
 import { BluetoothPopup } from "./widget/BluetoothPopup"
+import { CalendarPopup } from "./widget/CalendarPopup"
 import { PopupBackdrop } from "./widget/PopupBackdrop"
 import { closeSidebar, openSidebar, toggleSidebar } from "./widget/sidebar/state"
 
@@ -32,6 +33,7 @@ app.start({
       NetworkPopup(monitor)
       AudioPopup(monitor)
       BluetoothPopup(monitor)
+      CalendarPopup(monitor)
     })
   },
 })

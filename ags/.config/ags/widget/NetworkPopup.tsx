@@ -167,50 +167,62 @@ function makePwSection(): PwSection {
 
 const POPUP_WIDTH = 320
 const ARROW_WIDTH = 20
-let _popup: Gtk.Window | null = null
-let _monitor: Gdk.Monitor | null = null
-let _arrowEl: Gtk.Box | null = null
 
-function positionUnder(sourceWidget: Gtk.Widget) {
-  if (!_popup || !_monitor) return
-  const root = sourceWidget.get_root() as Gtk.Widget | null
+const _popups = new Map<Gdk.Monitor, Gtk.Window>()
+const _revealers = new Map<Gdk.Monitor, Gtk.Revealer>()
+const _arrows = new Map<Gdk.Monitor, Gtk.Box>()
+
+function positionUnder(popup: Gtk.Window, monitor: Gdk.Monitor, arrowEl: Gtk.Box, sourceWidget: Gtk.Widget) {
+  const root = sourceWidget.get_root() as any
   if (!root) return
   const [ok, bx] = sourceWidget.translate_coordinates(root, 0, 0)
   if (!ok) return
 
   const bw = sourceWidget.get_allocated_width()
   const btnCenterX = bx + bw / 2
-  const monitorWidth = _monitor.get_geometry().width
+  const monitorWidth = monitor.get_geometry().width
 
   const marginRight = Math.max(4, Math.min(
     monitorWidth - POPUP_WIDTH - 4,
     monitorWidth - btnCenterX - POPUP_WIDTH / 2,
   ))
-  ;(_popup as any).marginRight = marginRight
+  ;(popup as any).marginRight = marginRight
 
-  if (_arrowEl) {
+  if (arrowEl) {
     const popupLeftX = monitorWidth - marginRight - POPUP_WIDTH
     const btnWithinPopup = btnCenterX - popupLeftX
-    _arrowEl.set_margin_start(Math.max(4, Math.round(btnWithinPopup - ARROW_WIDTH / 2)))
+    arrowEl.set_margin_start(Math.max(4, Math.round(btnWithinPopup - ARROW_WIDTH / 2)))
   }
 }
 
 export function toggleNetworkPopup(sourceWidget?: Gtk.Widget) {
-  if (!_popup) return
-  if (_popup.visible) {
-    _popup.visible = false
-    updateBackdrop()
+  const monitor = (sourceWidget?.get_root() as any)?.gdkmonitor as Gdk.Monitor | undefined
+  if (!monitor) return
+
+  const popup = _popups.get(monitor)
+  const revealer = _revealers.get(monitor)
+  if (!popup || !revealer) return
+
+  if (popup.visible && revealer.revealChild) {
+    revealer.revealChild = false
+    setTimeout(() => {
+      if (!revealer.revealChild) {
+        popup.visible = false
+        updateBackdrop()
+      }
+    }, 200)
   } else {
     closeSidebar()
-    closeAllPopups(_popup)
-    if (sourceWidget) positionUnder(sourceWidget)
-    _popup.visible = true
+    closeAllPopups(popup)
+    const arrow = _arrows.get(monitor)
+    if (sourceWidget && arrow) positionUnder(popup, monitor, arrow, sourceWidget)
+    popup.visible = true
+    revealer.revealChild = true
     updateBackdrop()
   }
 }
 
 export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
-  _monitor = gdkmonitor
   const network = AstalNetwork.get_default()
   const wifi = network?.get_wifi() ?? null
   const wired = network?.get_wired() ?? null
@@ -276,25 +288,11 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
   // ── Arrow: imperative element so we can set margin_start dynamically ────
   const arrowEl = new Gtk.Box()
   arrowEl.add_css_class("network-popup-arrow")
-  _arrowEl = arrowEl
 
-  // ── JSX shell ─────────────────────────────────────────────────────────────
-  const { TOP, RIGHT } = Astal.WindowAnchor
-
-  const win = (
-    <window
-      name="network-popup"
-      visible={false}
-      gdkmonitor={gdkmonitor}
-      exclusivity={Astal.Exclusivity.NORMAL}
-      layer={Astal.Layer.OVERLAY}
-      anchor={TOP | RIGHT}
-      application={app}
-      class="NetworkPopup"
-      marginTop={4}
-      marginRight={8}
-      widthRequest={POPUP_WIDTH}
-    >
+  const revealer = new Gtk.Revealer({
+    transitionType: Gtk.RevealerTransitionType.SLIDE_DOWN,
+    transitionDuration: 200,
+    child: (
       <box orientation={1} class="network-popup-outer">
         {/* Arrow tip — margin_start on arrowEl controls where it points */}
         <box class="network-popup-arrow-row">
@@ -319,9 +317,32 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
           {pw.widget}
         </box>
       </box>
+    ) as Gtk.Widget
+  })
+
+  // ── JSX shell ─────────────────────────────────────────────────────────────
+  const { TOP, RIGHT } = Astal.WindowAnchor
+
+  const win = (
+    <window
+      name="network-popup"
+      visible={false}
+      gdkmonitor={gdkmonitor}
+      exclusivity={Astal.Exclusivity.NORMAL}
+      layer={Astal.Layer.OVERLAY}
+      anchor={TOP | RIGHT}
+      application={app}
+      class="NetworkPopup"
+      marginTop={4}
+      marginRight={8}
+      widthRequest={POPUP_WIDTH}
+    >
+      {revealer}
     </window>
   ) as Gtk.Window
 
-  _popup = win
+  _popups.set(gdkmonitor, win)
+  _revealers.set(gdkmonitor, revealer)
+  _arrows.set(gdkmonitor, arrowEl)
   return win
 }

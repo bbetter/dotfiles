@@ -1,4 +1,6 @@
 import { createPoll } from "ags/time"
+import { toggleCalendarPopup } from "../CalendarPopup"
+import { Gtk } from "ags/gtk4"
 
 export function Clock() {
   const time = createPoll("", 1000, () => {
@@ -13,9 +15,15 @@ export function Clock() {
     })
   })
 
-  return (
-    <button class="clock" tooltipText={time}>
+  const btn = (
+    <button 
+      class="clock" 
+      tooltipText={time}
+      onClicked={() => toggleCalendarPopup(btn)}
+    >
       <label label={time} />
     </button>
-  )
+  ) as Gtk.Button
+
+  return btn
 }

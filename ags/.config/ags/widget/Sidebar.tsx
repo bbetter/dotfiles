@@ -6,6 +6,7 @@ import { SidebarMedia } from "./sidebar/Media"
 import { SidebarUpdates } from "./sidebar/Updates"
 import { SidebarPeripherals } from "./sidebar/Peripherals"
 import { SidebarAiUsage } from "./sidebar/AiUsage"
+import { SystemUsage } from "./sidebar/SystemUsage"
 import { closeSidebar } from "./sidebar/state"
 
 export const SIDEBAR_WIDTH = 390
@@ -44,6 +45,7 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
           {SidebarStatus()}
           {SidebarMedia()}
           {SidebarNotifications()}
+          {SystemUsage()}
           {SidebarUpdates()}
           {SidebarPeripherals()}
           {SidebarAiUsage()}

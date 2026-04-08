@@ -1,6 +1,6 @@
 import app from "ags/gtk4/app"
 
-const POPUP_NAMES = ["network-popup", "audio-popup", "bluetooth-popup"]
+const POPUP_NAMES = ["network-popup", "audio-popup", "bluetooth-popup", "calendar-popup"]
 const BACKDROP_PREFIX = "popup-backdrop-"
 
 function isPopup(name: string) {

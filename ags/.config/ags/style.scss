@@ -216,6 +216,49 @@ tooltip {
   background: transparent;
 }
 
+.popup-backdrop-hitbox {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* ==================================================
+   CALENDAR POPUP
+   ================================================== */
+.CalendarPopup {
+  background: transparent;
+}
+
+.calendar-popup-arrow {
+  min-width: 0;
+  min-height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid rgba(187, 142, 96, 0.5);
+  margin-bottom: -1px;
+}
+
+.calendar-popup-content {
+  background: rgba(18, 11, 5, 0.97);
+  border-radius: 14px;
+  border: 1px solid rgba(187, 142, 96, 0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 14px;
+}
+
+.calendar-widget {
+  color: #f3eadc;
+  background: transparent;
+
+  header {
+    color: #bb8e60;
+  }
+
+  &:selected {
+    background: rgba(187, 142, 96, 0.2);
+    color: #ffffff;
+    border-radius: 6px;
+  }
+}
+
 /* ==================================================
    SIDEBAR WINDOW
    ================================================== */
@@ -337,6 +380,32 @@ tooltip {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(187, 142, 96, 0.08);
+}
+
+.usage-item {
+  margin-bottom: 4px;
+}
+
+.usage-icon {
+  color: #bb8e60;
+  font-size: 14px;
+}
+
+.usage-bar {
+  trough {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    min-height: 6px;
+  }
+
+  block {
+    border-radius: 4px;
+    min-height: 6px;
+  }
+
+  block.low { background: #9dcc9c; }
+  block.high { background: #bb8e60; }
+  block.full { background: #c24d39; }
 }
 
 
