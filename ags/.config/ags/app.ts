@@ -10,6 +10,8 @@ import { CalendarPopup } from "./widget/CalendarPopup"
 import { PopupBackdrop } from "./widget/PopupBackdrop"
 import { closeSidebar, openSidebar, toggleSidebar } from "./widget/sidebar/state"
 
+const startTime = Date.now()
+
 app.start({
   css: style,
   requestHandler(argv, res) {
@@ -22,18 +24,40 @@ app.start({
       return
     }
 
+    if (argv[0] === "reload") {
+      res("ok")
+      setTimeout(() => app.quit(), 100)
+      return
+    }
+
     res(`unknown request: ${argv.join(" ")}`)
   },
   main() {
-    app.get_monitors().map(monitor => {
+    console.log("AGS: Starting window initialization...")
+    
+    const monitors = app.get_monitors()
+
+    // Initialize bars and sidebars immediately (visible on startup)
+    monitors.forEach(monitor => {
+      const mStart = Date.now()
       Bar(monitor)
       SidebarBackdrop(monitor)
       Sidebar(monitor)
-      PopupBackdrop(monitor)   // must be before popup windows (z-below them)
-      NetworkPopup(monitor)
-      AudioPopup(monitor)
-      BluetoothPopup(monitor)
-      CalendarPopup(monitor)
+      console.log(`AGS: Bar+Sidebar for ${monitor.get_connector() || "unknown"} in ${Date.now() - mStart}ms`)
     })
+
+    // Defer popup windows — they start hidden, no need to block initial render
+    setTimeout(() => {
+      monitors.forEach(monitor => {
+        PopupBackdrop(monitor)
+        NetworkPopup(monitor)
+        AudioPopup(monitor)
+        BluetoothPopup(monitor)
+        CalendarPopup(monitor)
+      })
+      console.log(`AGS: Popups initialized in ${Date.now() - startTime}ms total`)
+    }, 0)
+
+    console.log(`AGS: Total startup time: ${Date.now() - startTime}ms`)
   },
 })

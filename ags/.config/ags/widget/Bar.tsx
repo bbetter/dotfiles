@@ -12,11 +12,12 @@ import { Language } from "./bar/Language"
 
 export default function Bar(gdkmonitor: Gdk.Monitor) {
   const { TOP, LEFT, RIGHT } = Astal.WindowAnchor
+  const monitorName = gdkmonitor.get_connector() ?? `${gdkmonitor.get_model() ?? "monitor"}`
 
   return (
     <window
       visible
-      name="bar"
+      name={`bar-${monitorName}`}
       gdkmonitor={gdkmonitor}
       exclusivity={Astal.Exclusivity.EXCLUSIVE}
       anchor={TOP | LEFT | RIGHT}
@@ -26,11 +27,11 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
       <centerbox class="bar-content">
         <box $type="start" hexpand halign={Gtk.Align.START} spacing={0}>
           <Clock />
-          <WindowTitle/>
+          <WindowTitle />
         </box>
 
         <box $type="center" hexpand halign={Gtk.Align.CENTER}>
-          <Workspaces gdkmonitor={gdkmonitor}/>
+          <Workspaces gdkmonitor={gdkmonitor} />
         </box>
 
         <box $type="end" hexpand halign={Gtk.Align.END} spacing={0}>

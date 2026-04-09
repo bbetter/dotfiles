@@ -1,14 +1,17 @@
-import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { Gtk } from "ags/gtk4"
+import Mpris from "gi://AstalMpris"
 import Cava from "gi://AstalCava"
+import { Binding } from "ags"
 
 export function MediaGroup() {
+  const mpris = Mpris.get_default()
   const cava = Cava.get_default()
+  
   cava.bars = 10
   cava.framerate = 30
   
-  // === MEDIA PLAYER ===
   const formatTime = (seconds: number): string => {
+    if (seconds < 0) return "0:00"
     const s = Math.floor(seconds)
     const h = Math.floor(s / 3600)
     const m = Math.floor((s % 3600) / 60)
@@ -19,43 +22,47 @@ export function MediaGroup() {
     }
     return `${m}:${sec.toString().padStart(2, '0')}`
   }
-  
-  const mediaText = createPoll("", 500, () => {
-    try {
-      const status = exec("playerctl status").trim()
-      if (status !== "Playing" && status !== "Paused") return ""
-      
-      const position = parseFloat(exec("playerctl position"))
-      const lengthUs = parseInt(exec("playerctl metadata mpris:length"))
-      const length = lengthUs / 1_000_000
-      
-      const icon = status === "Paused" ? "⏸" : "▶"
-      return `${icon} ${formatTime(position)} / ${formatTime(length)}`
-    } catch (e) {
-      return ""
-    }
+
+  // Get the player that is currently playing, or the first one
+  const activePlayer = Binding.derive([mpris.bind("players")], (players) => {
+    return players.find(p => p.playbackStatus === Mpris.PlaybackStatus.PLAYING) || players[0] || null
   })
+
+  // We'll use a Box that updates its content based on the active player
+  const content = new Gtk.Box()
   
-  const isMediaVisible = createPoll(false, 500, () => {
-    try {
-      const status = exec("playerctl status").trim()
-      return status === "Playing" || status === "Paused"
-    } catch (e) {
-      return false
+  const updateContent = (player: Mpris.Player | null) => {
+    // Clear
+    let child = content.get_first_child()
+    while (child) {
+      const next = child.get_next_sibling()
+      content.remove(child)
+      child = next
     }
-  })
-  
-  const tooltip = createPoll("", 1000, () => {
-    try {
-      return exec("playerctl metadata --format '{{title}}\n{{artist}}'")
-    } catch (e) {
-      return ""
+
+    if (!player) return
+
+    const label = new Gtk.Label()
+    const updateLabel = () => {
+      const status = player.playbackStatus === Mpris.PlaybackStatus.PAUSED ? "⏸" : "▶"
+      const current = player.position < 0 ? 0 : player.position
+      const total = player.length < 0 ? 0 : player.length
+      label.label = `${status} ${formatTime(current)} / ${formatTime(total)}`
     }
-  })
-  
+
+    player.connect("notify::playback-status", updateLabel)
+    player.connect("notify::position", updateLabel)
+    player.connect("notify::length", updateLabel)
+    updateLabel()
+    
+    content.append(label)
+  }
+
+  activePlayer.subscribe(updateContent)
+  updateContent(mpris.players.find(p => p.playbackStatus === Mpris.PlaybackStatus.PLAYING) || mpris.players[0] || null)
+
   // === CAVA ===
-  const cavaText = createPoll("▁▁▁▁▁▁▁▁▁▁", 33, () => {
-    const values = cava.values
+  const cavaText = cava.bind("values").as(values => {
     if (!values || values.length === 0) {
       return "▁▁▁▁▁▁▁▁▁▁"
     }
@@ -68,19 +75,15 @@ export function MediaGroup() {
   })
 
   return (
-    <box class="media-group" spacing={0} visible={isMediaVisible}>
+    <box class="media-group" spacing={0} visible={mpris.bind("players").as(p => p.length > 0)}>
       <button 
         class="media media-left"
-        tooltipText={tooltip}
         onClicked={() => {
-          try {
-            exec("playerctl play-pause")
-          } catch (e) {
-            console.error("Failed to toggle playback:", e)
-          }
+          const p = mpris.players.find(p => p.playbackStatus === Mpris.PlaybackStatus.PLAYING) || mpris.players[0]
+          p?.playPause()
         }}
       >
-        <label label={mediaText} />
+        {content}
       </button>
       
       <box class="cava media-right">

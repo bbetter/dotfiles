@@ -31,21 +31,24 @@ export function SidebarMedia() {
     1000,
     async () => {
       try {
-        const status = (await execAsync("playerctl status")).trim()
+        const raw = (await execAsync(
+          "playerctl metadata --format '{{status}}\\t{{title}}\\t{{artist}}\\t{{position}}\\t{{mpris:length}}'"
+        )).trim()
+
+        const [status, title, artist, posStr, lengthStr] = raw.split("\t")
+
         if (status !== "Playing" && status !== "Paused") {
           return { title: "", subtitle: "", progress: "", visible: false }
         }
 
-        const title = (await execAsync("playerctl metadata --format '{{title}}'")).trim() || "Unknown title"
-        const artist = (await execAsync("playerctl metadata --format '{{artist}}'")).trim() || "Unknown artist"
-        const position = parseFloat(await execAsync("playerctl position"))
-        const lengthUs = parseInt(await execAsync("playerctl metadata mpris:length"))
-        const length = Number.isFinite(lengthUs) ? lengthUs / 1_000_000 : 0
+        const position = parseFloat(posStr) || 0
+        const lengthUs = parseInt(lengthStr) || 0
+        const length = lengthUs / 1_000_000
         const icon = status === "Paused" ? "paused" : "playing"
 
         return {
-          title,
-          subtitle: `${artist} • ${icon}`,
+          title: title || "Unknown title",
+          subtitle: `${artist || "Unknown artist"} • ${icon}`,
           progress: length > 0 ? `${formatTime(position)} / ${formatTime(length)}` : "",
           visible: true,
         }

@@ -1,9 +1,7 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { SidebarStatus } from "./sidebar/Status"
-import { SidebarNotifications } from "./sidebar/Notifications"
 import { SidebarMedia } from "./sidebar/Media"
-import { SidebarUpdates } from "./sidebar/Updates"
 import { SidebarPeripherals } from "./sidebar/Peripherals"
 import { SidebarAiUsage } from "./sidebar/AiUsage"
 import { SystemUsage } from "./sidebar/SystemUsage"
@@ -25,32 +23,51 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
       anchor={TOP | RIGHT | BOTTOM}
       application={app}
       class="Sidebar"
-      widthRequest={SIDEBAR_WIDTH}
     >
-      <scrolledwindow
-        vexpand
-        hscrollbarPolicy={Gtk.PolicyType.NEVER}
-        vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
+      <box
+        class="sidebar-window-container"
+        widthRequest={SIDEBAR_WIDTH}
+        halign={Gtk.Align.END}
+        hexpand={false}
       >
-        <box orientation={Gtk.Orientation.VERTICAL} spacing={12} class="sidebar-content">
-          <box class="sidebar-header">
-            <box orientation={Gtk.Orientation.VERTICAL} hexpand>
-              <label label="CONTROL CENTER" class="sidebar-title" halign={Gtk.Align.START} />
-              <label label="extra status and quick checks" class="sidebar-subtitle" halign={Gtk.Align.START} />
+        <scrolledwindow
+          vexpand
+          hexpand={false}
+          hscrollbarPolicy={Gtk.PolicyType.NEVER}
+          vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
+          widthRequest={SIDEBAR_WIDTH}
+          minContentWidth={SIDEBAR_WIDTH}
+        >
+          <box 
+            orientation={Gtk.Orientation.VERTICAL} 
+            spacing={12} 
+            class="sidebar-content"
+            widthRequest={SIDEBAR_WIDTH}
+            hexpand={false}
+            halign={Gtk.Align.FILL}
+          >
+            <box class="sidebar-header" hexpand={false}>
+              <box orientation={Gtk.Orientation.VERTICAL} hexpand>
+                <label label="CONTROL CENTER" class="sidebar-title" halign={Gtk.Align.START} />
+                <label 
+                  label="extra status and quick checks" 
+                  class="sidebar-subtitle" 
+                  halign={Gtk.Align.START} 
+                  wrap
+                />
+              </box>
+              <button class="sidebar-close" onClicked={closeSidebar}>
+                <label label="✕" />
+              </button>
             </box>
-            <button class="sidebar-close" onClicked={closeSidebar}>
-              <label label="✕" />
-            </button>
+            {SidebarStatus()}
+            {SidebarMedia()}
+            {SystemUsage()}
+            {SidebarPeripherals()}
+            {SidebarAiUsage()}
           </box>
-          {SidebarStatus()}
-          {SidebarMedia()}
-          {SidebarNotifications()}
-          {SystemUsage()}
-          {SidebarUpdates()}
-          {SidebarPeripherals()}
-          {SidebarAiUsage()}
-        </box>
-      </scrolledwindow>
+        </scrolledwindow>
+      </box>
     </window>
   ) as Gtk.Window
 }

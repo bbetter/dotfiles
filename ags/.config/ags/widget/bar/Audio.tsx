@@ -1,32 +1,28 @@
 import { createPoll } from "ags/time"
 import { Gtk } from "ags/gtk4"
-import { exec } from "ags/process"
 import Wp from "gi://AstalWp"
 import { toggleAudioPopup } from "../AudioPopup"
 
 interface AudioState {
   label: string
   tooltip: string
+  volume: number
+  mute: boolean
 }
 
 export function Audio() {
   const wp = Wp.get_default()
 
-  const state = createPoll<AudioState>({ label: "󰕾 N/A", tooltip: "" }, 150, () => {
+  const state = createPoll<AudioState>({ label: "󰕾 N/A", tooltip: "", volume: 0, mute: false }, 200, () => {
     const speaker = wp?.audio.defaultSpeaker
-    if (!speaker) return { label: "󰕾 N/A", tooltip: "" }
-
-    if (speaker.mute) {
-      return {
-        label: "󰝟 Muted",
-        tooltip: "Volume: Muted",
-      }
-    }
+    if (!speaker) return { label: "󰕾 N/A", tooltip: "", volume: 0, mute: false }
 
     const vol = Math.round(speaker.volume * 100)
     return {
-      label: `󰕾 ${vol}%`,
+      label: speaker.mute ? "󰝟 Muted" : `󰕾 ${vol}%`,
       tooltip: `Volume: ${vol}%`,
+      volume: speaker.volume,
+      mute: speaker.mute
     }
   })
 
@@ -45,9 +41,11 @@ export function Audio() {
   })
 
   scroll.connect("scroll", (_controller, _dx, dy) => {
+    const speaker = wp?.audio.defaultSpeaker
+    if (!speaker) return true
     try {
-      if (dy < 0) exec("pactl set-sink-volume @DEFAULT_SINK@ +5%")
-      else if (dy > 0) exec("pactl set-sink-volume @DEFAULT_SINK@ -5%")
+      if (dy < 0) speaker.volume = Math.min(1.5, speaker.volume + 0.05)
+      else if (dy > 0) speaker.volume = Math.max(0, speaker.volume - 0.05)
     } catch { /* ignore */ }
     return true
   })
