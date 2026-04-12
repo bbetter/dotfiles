@@ -1,7 +1,7 @@
 window {
-    background-color: rgba(39,15,14,0.95);
+    background-color: rgba(35,21,20,0.95);
     border-radius: 10px;
-    border: 2px solid #c99782;
+    border: 2px solid #6e8ec1;
 }
 
 #input {
@@ -9,8 +9,8 @@ window {
     padding: 8px;
     border-radius: 6px;
     border: none;
-    background-color: rgba(39,15,14,0.85);
-    color: c9c3c2;
+    background-color: rgba(35,21,20,0.85);
+    color: c8c4c4;
 }
 
 #inner-box {
@@ -20,14 +20,14 @@ window {
 #entry {
     padding: 6px;
     border-radius: 6px;
-    color: c9c3c2;
+    color: c8c4c4;
 }
 
 #entry:selected {
-    background-color: #c99782;
-    color: 270f0e;
+    background-color: #6e8ec1;
+    color: 231514;
 }
 
 #text {
-    color: c9c3c2;
+    color: c8c4c4;
 }
