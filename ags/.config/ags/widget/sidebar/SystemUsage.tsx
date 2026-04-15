@@ -56,10 +56,10 @@ async function getUsage(): Promise<UsageState> {
     console.error("Failed to get system usage:", e)
   }
 
-  const result = { 
-    cpu: Number.isFinite(cpu) ? cpu : 0, 
-    ram: Number.isFinite(ram) ? ram : 0, 
-    vram: Number.isFinite(vram) ? vram : 0 
+  const result = {
+    cpu: Number.isFinite(cpu) ? cpu : 0,
+    ram: Number.isFinite(ram) ? ram : 0,
+    vram: Number.isFinite(vram) ? vram : 0
   }
 
   history.cpu.shift(); history.cpu.push(result.cpu)
@@ -71,15 +71,15 @@ async function getUsage(): Promise<UsageState> {
 
 function UsageChart(key: keyof typeof history) {
   const drawingArea = new Gtk.DrawingArea({
-    heightRequest: 36,
+    height_request: 36,
     hexpand: true,
   })
 
   drawingArea.set_draw_func((_area, cr, width, height) => {
     const data = history[key]
     const step = width / (HISTORY_SIZE - 1)
-    
-    cr.setSourceRGBA(0.75, 0.54, 0.41, 0.8) 
+
+    cr.setSourceRGBA(0.75, 0.54, 0.41, 0.8)
     cr.setLineWidth(1.5)
 
     cr.moveTo(0, height)
@@ -89,7 +89,7 @@ function UsageChart(key: keyof typeof history) {
       cr.lineTo(x, y)
     }
     cr.strokePreserve()
-    
+
     cr.lineTo(width, height)
     cr.lineTo(0, height)
     cr.setSourceRGBA(0.75, 0.54, 0.41, 0.1)
@@ -126,40 +126,43 @@ export function SystemUsage() {
   listContainer.add_css_class("sidebar-mini-card")
   listContainer.append(UsageItem("CPU", state.as(s => s.cpu), "󰻠", "cpu"))
   listContainer.append(UsageItem("RAM", state.as(s => s.ram), "󰍛", "ram"))
-  
+
   const vramItem = UsageItem("VRAM", state.as(s => s.vram), "󰢮", "vram")
   const vramBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   vramBox.append(vramItem)
-  state.as(s => s.vram > 0).subscribe(v => vramBox.visible = v)
+  state.as(s => s.vram > 0).subscribe((v: boolean) => { vramBox.visible = v })
   listContainer.append(vramBox)
 
   const revealer = new Gtk.Revealer({
-    child: listContainer,
+    reveal_child: false,
     transition_type: Gtk.RevealerTransitionType.SLIDE_DOWN,
     transition_duration: 250,
-    reveal_child: false,
   })
+  revealer.set_child(listContainer)
 
-  const header = new Gtk.Box({ hexpand: true, spacing: 8 })
-  const title = new Gtk.Label({ label: "SYSTEM PERFORMANCE", halign: Gtk.Align.START, hexpand: true })
-  title.add_css_class("sidebar-section-title")
-  
-  const toggleBtn = new Gtk.Button()
-  toggleBtn.add_css_class("sidebar-notif-toggle") 
+  // Keep a ref to the label so we can update it from the JSX button's onClicked
   const toggleLabel = new Gtk.Label({ label: "Show 󰅀" })
-  toggleBtn.set_child(toggleLabel)
-  
-  toggleBtn.connect("clicked", () => {
-    revealer.reveal_child = !revealer.reveal_child
-    toggleLabel.label = revealer.reveal_child ? "Hide 󰅃" : "Show 󰅀"
-  })
-
-  header.append(title)
-  header.append(toggleBtn)
 
   return (
     <box orientation={1} spacing={4} class="sidebar-section">
-      {header}
+      <box hexpand spacing={8}>
+        <label
+          label="SYSTEM PERFORMANCE"
+          class="sidebar-section-title"
+          hexpand
+          halign={Gtk.Align.START}
+        />
+        <button
+          class="sidebar-notif-toggle"
+          onClicked={() => {
+            const next = !revealer.get_reveal_child()
+            revealer.set_reveal_child(next)
+            toggleLabel.label = next ? "Hide 󰅃" : "Show 󰅀"
+          }}
+        >
+          {toggleLabel}
+        </button>
+      </box>
       {revealer}
     </box>
   )

@@ -1,158 +1,102 @@
-import Notifd from "gi://AstalNotifd"
+import { createPoll } from "ags/time"
+import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
+import { closeSidebar } from "./state"
 
-function NotificationEntry({ notification }: { notification: Notifd.Notification }) {
-  const icon = notification.appIcon || notification.appEntry || "dialog-information"
-  
-  const actions = notification.actions || []
-  const actionRow = new Gtk.Box({ spacing: 6 })
-  actionRow.add_css_class("notification-actions")
-  
-  for (const action of actions) {
-    const btn = new Gtk.Button({ label: action.label })
-    btn.add_css_class("notification-action-btn")
-    btn.connect("clicked", () => notification.invoke(action.id))
-    actionRow.append(btn)
+interface SwayNCState {
+  count: number
+  dnd: boolean
+}
+
+async function getSwayncState(): Promise<SwayNCState> {
+  try {
+    const [countRaw, dndRaw] = await Promise.all([
+      execAsync("swaync-client -c -sw"),
+      execAsync("swaync-client -D -sw"),
+    ])
+    return {
+      count: parseInt(countRaw.trim()) || 0,
+      dnd: dndRaw.trim().toLowerCase() === "true",
+    }
+  } catch {
+    return { count: 0, dnd: false }
   }
-
-  return (
-    <box orientation={1} class="notification-entry-wrapper">
-      <box class="notification-entry" spacing={8}>
-        <Gtk.Image 
-          iconName={icon} 
-          pixelSize={32}
-          valign={Gtk.Align.START}
-          visible={!!icon}
-        />
-        <box orientation={1} hexpand>
-          <box>
-            <label 
-              label={notification.summary || "Notification"} 
-              class="notification-summary" 
-              halign={Gtk.Align.START} 
-              ellipsize={3}
-              hexpand
-            />
-            <button 
-              class="notification-close" 
-              onClicked={() => notification.dismiss()}
-            >
-              <label label="✕" />
-            </button>
-          </box>
-          <label 
-            label={notification.body || ""} 
-            class="notification-body" 
-            halign={Gtk.Align.START} 
-            wrap
-            maxWidthChars={30}
-          />
-          {actions.length > 0 && actionRow}
-        </box>
-      </box>
-    </box>
-  )
 }
 
 export function SidebarNotificationList() {
-  const notifd = Notifd.get_default()
-  if (!notifd) return <box />
-
-  const outer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
-  const listContainer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6 })
-  
-  const revealer = new Gtk.Revealer({
-    child: listContainer,
-    transition_type: Gtk.RevealerTransitionType.SLIDE_DOWN,
-    transition_duration: 250,
-    reveal_child: false,
-  })
-
-  const header = new Gtk.Box({ hexpand: true, spacing: 8 })
-  header.add_css_class("sidebar-notifications-header")
-  
-  const title = new Gtk.Label({ label: "NOTIFICATIONS", halign: Gtk.Align.START, hexpand: true })
-  title.add_css_class("sidebar-section-title")
-  
-  const countLabel = new Gtk.Label({ label: "0", halign: Gtk.Align.END })
-  countLabel.add_css_class("sidebar-notifications-count-small")
-  
-  const toggleBtn = new Gtk.Button()
-  toggleBtn.add_css_class("sidebar-notif-toggle")
-  const toggleLabel = new Gtk.Label({ label: "Expand 󰅀" })
-  toggleBtn.set_child(toggleLabel)
-  
-  toggleBtn.connect("clicked", () => {
-    revealer.reveal_child = !revealer.reveal_child
-    toggleLabel.label = revealer.reveal_child ? "Collapse 󰅃" : "Expand 󰅀"
-  })
-
-  const clearBtn = new Gtk.Button({ label: "Clear" })
-  clearBtn.add_css_class("sidebar-notif-clear")
-  clearBtn.connect("clicked", () => {
-    notifd.get_notifications().forEach(n => n.dismiss())
-  })
-
-  header.append(title)
-  header.append(countLabel)
-  header.append(clearBtn)
-  header.append(toggleBtn)
-  
-  outer.append(header)
-  outer.append(revealer)
-
-  const update = () => {
-    let child = listContainer.get_first_child()
-    while (child) {
-      const next = child.get_next_sibling()
-      listContainer.remove(child)
-      child = next
-    }
-
-    const notifications = notifd.get_notifications()
-    const count = notifications.length
-    countLabel.label = count > 0 ? `${count}` : ""
-    clearBtn.visible = count > 0
-    toggleBtn.visible = count > 0
-
-    if (count > 0) {
-      // Group by App Name
-      const groups = new Map<string, Notifd.Notification[]>()
-      for (const n of notifications) {
-        const app = n.appName || "Unknown"
-        if (!groups.has(app)) groups.set(app, [])
-        groups.get(app)!.push(n)
-      }
-
-      for (const [appName, list] of groups) {
-        const stackHeader = new Gtk.Box({ spacing: 6 })
-        stackHeader.add_css_class("sidebar-notif-stack-header")
-
-        const appLabel = new Gtk.Label({
-          label: `${appName.toUpperCase()} (${list.length})`,
-          halign: Gtk.Align.START
-        })
-        appLabel.add_css_class("sidebar-notif-app-name")
-        stackHeader.append(appLabel)
-        listContainer.append(stackHeader)
-
-        for (const n of list) {
-          listContainer.append(NotificationEntry({ notification: n }))
-        }
-      }
-    } else {
-      revealer.reveal_child = false
-      toggleLabel.label = "Expand 󰅀"
-    }
-  }
-
-  notifd.connect("notified", update)
-  notifd.connect("resolved", update)
-  update()
+  const state = createPoll<SwayNCState>(
+    { count: 0, dnd: false },
+    3000,
+    getSwayncState,
+  )
 
   return (
     <box orientation={1} class="sidebar-section">
-      {outer}
+      <box class="sidebar-notifications-header" hexpand spacing={8}>
+        <label
+          label="NOTIFICATIONS"
+          class="sidebar-section-title"
+          hexpand
+          halign={Gtk.Align.START}
+        />
+        <label
+          label={state.as(s => s.count > 0 ? `${s.count}` : "")}
+          class="sidebar-notifications-count-small"
+          halign={Gtk.Align.END}
+        />
+        <button
+          class="sidebar-notif-clear"
+          visible={state.as(s => s.count > 0)}
+          onClicked={() => execAsync("swaync-client -C -sw").catch(() => {})}
+        >
+          <label label="Clear" />
+        </button>
+      </box>
+
+      <box spacing={8} marginTop={4} class="sidebar-notif-actions">
+        <button
+          class="sidebar-action"
+          hexpand
+          onClicked={() => {
+            execAsync("swaync-client -op -sw").catch(() => {})
+            closeSidebar()
+          }}
+        >
+          <box spacing={10}>
+            <label
+              label={state.as(s => s.count > 0 ? "󰂚" : "󰂜")}
+              class={state.as(s => `sidebar-action-title ${s.count > 0 ? "sidebar-attention" : "sidebar-muted"}`)}
+            />
+            <box orientation={1} hexpand>
+              <label
+                label={state.as(s =>
+                  s.count > 0
+                    ? `${s.count} notification${s.count === 1 ? "" : "s"}`
+                    : "No notifications"
+                )}
+                class="sidebar-action-title"
+                halign={Gtk.Align.START}
+              />
+              <label
+                label="Open swaync panel →"
+                class="sidebar-action-subtitle"
+                halign={Gtk.Align.START}
+              />
+            </box>
+          </box>
+        </button>
+
+        <button
+          class={state.as(s => `sidebar-action ${s.dnd ? "sidebar-action-primary" : ""}`)}
+          onClicked={() => execAsync("swaync-client -d -sw").catch(() => {})}
+          tooltipText="Toggle Do Not Disturb"
+        >
+          <label
+            label={state.as(s => s.dnd ? "󰂛" : "󰂚")}
+            class={state.as(s => `sidebar-action-title ${s.dnd ? "sidebar-attention" : "sidebar-muted"}`)}
+          />
+        </button>
+      </box>
     </box>
   )
 }
