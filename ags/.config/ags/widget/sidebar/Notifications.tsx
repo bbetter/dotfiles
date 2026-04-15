@@ -63,9 +63,9 @@ export function SidebarNotificationList() {
   
   const revealer = new Gtk.Revealer({
     child: listContainer,
-    transitionType: Gtk.RevealerTransitionType.SLIDE_DOWN,
-    transitionDuration: 250,
-    revealChild: false
+    transition_type: Gtk.RevealerTransitionType.SLIDE_DOWN,
+    transition_duration: 250,
+    reveal_child: false,
   })
 
   const header = new Gtk.Box({ hexpand: true, spacing: 8 })
@@ -83,8 +83,8 @@ export function SidebarNotificationList() {
   toggleBtn.set_child(toggleLabel)
   
   toggleBtn.connect("clicked", () => {
-    revealer.revealChild = !revealer.revealChild
-    toggleLabel.label = revealer.revealChild ? "Collapse 󰅃" : "Expand 󰅀"
+    revealer.reveal_child = !revealer.reveal_child
+    toggleLabel.label = revealer.reveal_child ? "Collapse 󰅃" : "Expand 󰅀"
   })
 
   const clearBtn = new Gtk.Button({ label: "Clear" })
@@ -111,8 +111,9 @@ export function SidebarNotificationList() {
 
     const notifications = notifd.get_notifications()
     const count = notifications.length
-    countLabel.label = `${count}`
-    outer.visible = count > 0
+    countLabel.label = count > 0 ? `${count}` : ""
+    clearBtn.visible = count > 0
+    toggleBtn.visible = count > 0
 
     if (count > 0) {
       // Group by App Name
@@ -126,21 +127,21 @@ export function SidebarNotificationList() {
       for (const [appName, list] of groups) {
         const stackHeader = new Gtk.Box({ spacing: 6 })
         stackHeader.add_css_class("sidebar-notif-stack-header")
-        
-        const appLabel = new Gtk.Label({ 
+
+        const appLabel = new Gtk.Label({
           label: `${appName.toUpperCase()} (${list.length})`,
-          halign: Gtk.Align.START 
+          halign: Gtk.Align.START
         })
         appLabel.add_css_class("sidebar-notif-app-name")
         stackHeader.append(appLabel)
         listContainer.append(stackHeader)
-        
+
         for (const n of list) {
           listContainer.append(NotificationEntry({ notification: n }))
         }
       }
     } else {
-      revealer.revealChild = false
+      revealer.reveal_child = false
       toggleLabel.label = "Expand 󰅀"
     }
   }

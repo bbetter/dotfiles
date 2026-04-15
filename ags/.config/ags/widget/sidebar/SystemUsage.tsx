@@ -135,9 +135,9 @@ export function SystemUsage() {
 
   const revealer = new Gtk.Revealer({
     child: listContainer,
-    transitionType: Gtk.RevealerTransitionType.SLIDE_DOWN,
-    transitionDuration: 250,
-    revealChild: false
+    transition_type: Gtk.RevealerTransitionType.SLIDE_DOWN,
+    transition_duration: 250,
+    reveal_child: false,
   })
 
   const header = new Gtk.Box({ hexpand: true, spacing: 8 })
@@ -150,8 +150,8 @@ export function SystemUsage() {
   toggleBtn.set_child(toggleLabel)
   
   toggleBtn.connect("clicked", () => {
-    revealer.revealChild = !revealer.revealChild
-    toggleLabel.label = revealer.revealChild ? "Hide 󰅃" : "Show 󰅀"
+    revealer.reveal_child = !revealer.reveal_child
+    toggleLabel.label = revealer.reveal_child ? "Hide 󰅃" : "Show 󰅀"
   })
 
   header.append(title)

@@ -33,8 +33,8 @@ export function createPopup(props: BasePopupProps): PopupHandle {
     arrowEl.add_css_class(`${prefix}-arrow`)
 
     const revealer = new Gtk.Revealer({
-        transitionType: Gtk.RevealerTransitionType.SLIDE_DOWN,
-        transitionDuration: 200,
+        transition_type: Gtk.RevealerTransitionType.SLIDE_DOWN,
+        transition_duration: 200,
         hexpand: true,
         child: (
             <box orientation={1} class={`${prefix}-outer`} hexpand>
@@ -69,10 +69,10 @@ export function createPopup(props: BasePopupProps): PopupHandle {
     ) as Gtk.Window
 
     const toggle = (sourceWidget?: Gtk.Widget) => {
-        if (win.visible && revealer.revealChild) {
-            revealer.revealChild = false
+        if (win.visible && revealer.reveal_child) {
+            revealer.reveal_child = false
             setTimeout(() => {
-                if (!revealer.revealChild) {
+                if (!revealer.reveal_child) {
                     win.visible = false
                     updateBackdrop()
                 }
@@ -84,7 +84,7 @@ export function createPopup(props: BasePopupProps): PopupHandle {
                 positionUnder(win, gdkmonitor, arrowEl, sourceWidget, defaultWidth)
             }
             win.visible = true
-            revealer.revealChild = true
+            revealer.reveal_child = true
             updateBackdrop()
         }
     }
