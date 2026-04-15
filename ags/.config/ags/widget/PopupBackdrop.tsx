@@ -19,7 +19,7 @@ export function PopupBackdrop(gdkmonitor: Gdk.Monitor) {
       visible={false}
       gdkmonitor={gdkmonitor}
       exclusivity={Astal.Exclusivity.NORMAL}
-      layer={Astal.Layer.OVERLAY}
+      layer={Astal.Layer.TOP}
       anchor={TOP | RIGHT | BOTTOM | LEFT}
       application={app}
       class="PopupBackdrop"

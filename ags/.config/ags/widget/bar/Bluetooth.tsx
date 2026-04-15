@@ -2,6 +2,7 @@ import { createPoll } from "ags/time"
 import { Gtk } from "ags/gtk4"
 import AstalBluetooth from "gi://AstalBluetooth"
 import { toggleBluetoothPopup } from "../BluetoothPopup"
+import app from "ags/gtk4/app"
 
 export function BluetoothIndicator() {
   const bt = AstalBluetooth.get_default()
@@ -27,6 +28,16 @@ export function BluetoothIndicator() {
       <label label={label} />
     </button>
   ) as Gtk.Button
+
+  app.observe_property("windows", (a) => {
+    const win = a.get_window("bluetooth-popup")
+    if (win) {
+      win.observe_property("visible", (w) => {
+        if (w.visible) btn.add_css_class("active")
+        else btn.remove_css_class("active")
+      })
+    }
+  })
 
   return btn
 }

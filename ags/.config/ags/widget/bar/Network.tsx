@@ -3,6 +3,7 @@ import { exec } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 import { toggleNetworkPopup } from "../NetworkPopup"
+import app from "ags/gtk4/app"
 
 interface NetworkState {
   text: string
@@ -36,6 +37,16 @@ export function NetworkIndicator() {
       <label label={state.as(s => s.text)} />
     </button>
   ) as Gtk.Button
+
+  app.observe_property("windows", (a) => {
+    const win = a.get_window("network-popup")
+    if (win) {
+      win.observe_property("visible", (w) => {
+        if (w.visible) btn.add_css_class("active")
+        else btn.remove_css_class("active")
+      })
+    }
+  })
 
   return btn
 }

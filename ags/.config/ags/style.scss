@@ -3,21 +3,21 @@
 // Edit style.template.scss to change structure;
 // run gen-theme.sh to regenerate this file.
 // ==================================================
-$bg-alpha:   rgba(39,39,39,0.85);
-$bg-strong:  rgba(39,39,39,0.95);
-$bg-popup:   rgba(39,39,39,0.97);
-$bg-sidebar: rgba(39,39,39,0.98);
+$bg-alpha:   rgba(33,21,18,0.85);
+$bg-strong:  rgba(33,21,18,0.95);
+$bg-popup:   rgba(33,21,18,0.97);
+$bg-sidebar: rgba(33,21,18,0.98);
 
-$primary:   #b8c579;
-$secondary: #8e7bc6;
-$success:   #cb8686;
-$error:     #dccdae;
-$alert:     #dccdae;
-$special:   #cab883;
+$primary:   #bf8969;
+$secondary: #b48950;
+$success:   #a979c5;
+$error:     #b46652;
+$alert:     #b46652;
+$special:   #9c6142;
 
-$fg:        #c9c9c9;
-$fg-warm:   #c9c9c9;
-$fg-bright: #c9c9c9;
+$fg:        #c7c4c3;
+$fg-warm:   #c7c4c3;
+$fg-bright: #c7c4c3;
 
 $connected: #9dcc9c;
 $green-bg:  #5c8a5d;
@@ -61,6 +61,40 @@ $green-bg:  #5c8a5d;
   background: $bg-alpha;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.1, 0.8, 0.2, 1);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  &.active {
+    background: rgba($primary, 0.25);
+    box-shadow: 0 0 8px rgba($primary, 0.4);
+    
+    label {
+      color: $primary;
+    }
+  }
+}
+
+@keyframes popup-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.network-popup-outer,
+.audio-popup-outer,
+.bt-popup-outer,
+.calendar-popup-outer {
+  animation: popup-appear 0.22s cubic-bezier(0.1, 0.8, 0.2, 1);
 }
 
 /* ==================================================
@@ -395,6 +429,18 @@ tooltip {
   padding-top: 8px;
 }
 
+.sidebar-notif-stack-header {
+  margin-top: 8px;
+  margin-bottom: -4px;
+}
+
+.sidebar-notif-app-name {
+  font-size: 9px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 1px;
+}
+
 .notification-entry {
   padding: 10px;
   background: rgba(255, 255, 255, 0.03);
@@ -420,6 +466,29 @@ tooltip {
 .notification-body {
   color: rgba(255, 255, 255, 0.6);
   font-size: 11px;
+}
+
+.notification-actions {
+  margin-top: 8px;
+}
+
+.notification-action-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: $fg-warm;
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba($primary, 0.2);
+  }
+
+  &:active {
+    background: rgba($primary, 0.15);
+  }
 }
 
 .notification-close {
@@ -464,6 +533,20 @@ tooltip {
   color: $error;
   letter-spacing: 1.5px;
   margin-bottom: 6px;
+}
+
+.sidebar-notif-clear {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: $fg;
+  }
 }
 
 .sidebar-card {
@@ -544,6 +627,81 @@ tooltip {
   background:
     linear-gradient(180deg, rgba($success, 0.1), rgba(255, 255, 255, 0.04)),
     rgba(255, 255, 255, 0.05);
+  padding: 12px;
+}
+
+.sidebar-media-art {
+  min-width: 80px;
+  min-height: 80px;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-media-title {
+  color: $fg-warm;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sidebar-media-subtitle {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+
+.sidebar-media-progress {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  margin-top: -2px;
+}
+
+.sidebar-media-slider {
+  margin: 4px 0;
+  
+  trough {
+    min-height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  highlight {
+    background: $success;
+    border-radius: 2px;
+  }
+
+  slider {
+    min-width: 10px;
+    min-height: 10px;
+    margin: -3px 0;
+    background: $fg;
+    border-radius: 50%;
+    box-shadow: none;
+  }
+}
+
+.sidebar-media-controls {
+  margin-top: 4px;
+}
+
+.sidebar-media-btn {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: $success;
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &-main {
+    font-size: 26px;
+    color: $fg-bright;
+  }
 }
 
 .sidebar-media-action {
@@ -728,6 +886,20 @@ tooltip {
   border-right: 10px solid transparent;
   border-bottom: 10px solid rgba($primary, 0.5);
   margin-bottom: -1px; /* overlap popup top-border so they visually connect */
+}
+
+.popup-search-entry {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba($primary, 0.15);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: $fg-warm;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: rgba($primary, 0.4);
+    background: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .network-popup-content {

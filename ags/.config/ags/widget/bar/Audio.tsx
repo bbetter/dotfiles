@@ -2,6 +2,7 @@ import { createPoll } from "ags/time"
 import { Gtk } from "ags/gtk4"
 import Wp from "gi://AstalWp"
 import { toggleAudioPopup } from "../AudioPopup"
+import app from "ags/gtk4/app"
 
 interface AudioState {
   label: string
@@ -35,6 +36,16 @@ export function Audio() {
       <label label={state.as(s => s.label)} />
     </button>
   ) as Gtk.Button
+
+  app.observe_property("windows", (a) => {
+    const win = a.get_window("audio-popup")
+    if (win) {
+      win.observe_property("visible", (w) => {
+        if (w.visible) btn.add_css_class("active")
+        else btn.remove_css_class("active")
+      })
+    }
+  })
 
   const scroll = new Gtk.EventControllerScroll({
     flags: Gtk.EventControllerScrollFlags.VERTICAL | Gtk.EventControllerScrollFlags.DISCRETE,

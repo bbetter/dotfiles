@@ -1,6 +1,7 @@
 import { createPoll } from "ags/time"
 import { toggleCalendarPopup } from "../CalendarPopup"
 import { Gtk } from "ags/gtk4"
+import app from "ags/gtk4/app"
 
 export function Clock() {
   const time = createPoll("", 1000, () => {
@@ -24,6 +25,16 @@ export function Clock() {
       <label label={time} />
     </button>
   ) as Gtk.Button
+
+  app.observe_property("windows", (a) => {
+    const win = a.get_window("calendar-popup")
+    if (win) {
+      win.observe_property("visible", (w) => {
+        if (w.visible) btn.add_css_class("active")
+        else btn.remove_css_class("active")
+      })
+    }
+  })
 
   return btn
 }
