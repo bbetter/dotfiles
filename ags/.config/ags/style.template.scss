@@ -327,23 +327,23 @@ tooltip {
 }
 
 .sidebar-subtitle {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba($fg, 0.45);
   font-size: 12px;
 }
 
 .sidebar-close {
   padding: 6px 8px;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.04);
+  color: rgba($fg, 0.6);
+  background: rgba($fg, 0.04);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba($fg, 0.08);
     color: $fg;
   }
 
   &:active {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba($fg, 0.12);
   }
 }
 
@@ -368,7 +368,7 @@ tooltip {
   
   &-icon {
     font-size: 14px;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba($fg, 0.45);
   }
   
   &-value {
@@ -426,13 +426,13 @@ tooltip {
 }
 
 .notification-body {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba($fg, 0.6);
   font-size: 11px;
 }
 
 .notification-close {
   padding: 2px 6px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba($fg, 0.3);
   &:hover {
     color: $alert;
   }
@@ -445,7 +445,7 @@ tooltip {
 }
 
 .sidebar-layout-badge {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba($fg, 0.45);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -607,7 +607,7 @@ tooltip {
 }
 
 .sidebar-action-subtitle {
-  color: rgba(255, 255, 255, 0.58);
+  color: rgba($fg, 0.58);
   font-size: 11px;
 }
 
@@ -627,7 +627,7 @@ tooltip {
 }
 
 .sidebar-muted {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba($fg, 0.55);
   font-size: 11px;
 }
 
@@ -653,8 +653,8 @@ tooltip {
 
 .sidebar-ai-usage-card {
   background:
-    linear-gradient(180deg, rgba($primary, 0.12), rgba(255, 255, 255, 0.03)),
-    rgba(255, 255, 255, 0.05);
+    linear-gradient(180deg, rgba($primary, 0.12), rgba($fg, 0.03)),
+    rgba($fg, 0.05);
 }
 
 .sidebar-ai-usage-caption {
@@ -675,7 +675,7 @@ tooltip {
 .sidebar-ai-provider-detail {
   font-size: 10px;
   line-height: 1.3;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba($fg, 0.5);
 }
 
 .sidebar-ai-provider-active {
@@ -702,7 +702,7 @@ tooltip {
 
 .sidebar-media-subtitle,
 .sidebar-media-progress {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba($fg, 0.6);
   font-size: 13px;
 }
 
@@ -710,6 +710,173 @@ tooltip {
   color: $secondary;
   font-size: 12px;
   letter-spacing: 1px;
+}
+
+/* ==================================================
+   SIDEBAR STATUS BUTTONS
+   ================================================== */
+.sidebar-status-btn {
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba($fg, 0.08);
+  }
+
+  &:active {
+    background: rgba($fg, 0.14);
+  }
+}
+
+/* ==================================================
+   SIDEBAR NOTIFICATION CONTROLS
+   ================================================== */
+.sidebar-notifications-count-small {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba($fg, 0.6);
+}
+
+.sidebar-notif-toggle {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba($fg, 0.06);
+  color: rgba($fg, 0.6);
+  font-size: 11px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba($fg, 0.12);
+    color: $fg;
+  }
+
+  &:active {
+    background: rgba($fg, 0.18);
+  }
+}
+
+.sidebar-notif-clear {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba($alert, 0.1);
+  color: rgba($alert, 0.8);
+  font-size: 11px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba($alert, 0.18);
+    color: $alert;
+  }
+
+  &:active {
+    background: rgba($alert, 0.24);
+  }
+}
+
+.sidebar-notif-stack-header {
+  padding: 6px 0 2px;
+}
+
+.sidebar-notif-app-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: $primary;
+  letter-spacing: 0.8px;
+  opacity: 0.7;
+}
+
+.notification-actions {
+  margin-top: 6px;
+}
+
+.notification-action-btn {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba($primary, 0.12);
+  color: $primary;
+  font-size: 11px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba($primary, 0.22);
+  }
+
+  &:active {
+    background: rgba($primary, 0.3);
+  }
+}
+
+/* ==================================================
+   SIDEBAR MEDIA CONTROLS
+   ================================================== */
+.sidebar-media-controls {
+  margin-top: 4px;
+}
+
+.sidebar-media-progress-box {
+  margin-top: 2px;
+}
+
+.sidebar-media-art {
+  min-width: 56px;
+  min-height: 56px;
+  border-radius: 8px;
+}
+
+.sidebar-media-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba($fg, 0.08);
+  color: $fg-warm;
+  font-size: 16px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba($fg, 0.14);
+  }
+
+  &:active {
+    background: rgba($fg, 0.2);
+  }
+}
+
+.sidebar-media-btn-main {
+  background: rgba($success, 0.18);
+  color: $success;
+  font-size: 18px;
+  padding: 8px 16px;
+
+  &:hover {
+    background: rgba($success, 0.28);
+  }
+
+  &:active {
+    background: rgba($success, 0.35);
+  }
+}
+
+.sidebar-media-slider {
+  margin-top: 2px;
+
+  trough {
+    background: rgba($fg, 0.12);
+    border-radius: 4px;
+    min-height: 4px;
+  }
+
+  highlight {
+    background: $success;
+    border-radius: 4px;
+  }
+
+  slider {
+    background: $fg-warm;
+    border-radius: 50%;
+    min-width: 12px;
+    min-height: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* ==================================================
@@ -754,7 +921,7 @@ tooltip {
 }
 
 .network-popup-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba($fg, 0.05);
   border-radius: 10px;
   border: 1px solid rgba($primary, 0.1);
   padding: 8px 12px;
@@ -796,17 +963,17 @@ tooltip {
 .network-ap-row {
   padding: 7px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba($fg, 0.04);
   border: 1px solid transparent;
   transition: background 0.15s ease, border-color 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.09);
+    background: rgba($fg, 0.09);
     border-color: rgba($primary, 0.2);
   }
 
   &:active {
-    background: rgba(255, 255, 255, 0.13);
+    background: rgba($fg, 0.13);
   }
 }
 
@@ -830,7 +997,7 @@ tooltip {
 }
 
 .network-ap-lock {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba($fg, 0.45);
   font-size: 12px;
 }
 
@@ -841,7 +1008,7 @@ tooltip {
 }
 
 .network-password-box {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba($fg, 0.05);
   border-radius: 10px;
   border: 1px solid rgba($primary, 0.2);
   padding: 12px;
@@ -856,17 +1023,17 @@ tooltip {
 .network-btn {
   padding: 7px 12px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba($fg, 0.07);
   color: $fg-warm;
   font-size: 13px;
   transition: background 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba($fg, 0.12);
   }
 
   &:active {
-    background: rgba(255, 255, 255, 0.16);
+    background: rgba($fg, 0.16);
   }
 }
 
@@ -880,7 +1047,7 @@ tooltip {
   transition: all 0.2s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba($fg, 0.08);
   }
 }
 
@@ -936,22 +1103,22 @@ tooltip {
 }
 
 .bt-power-btn-off {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.45);
+  background: rgba($fg, 0.06);
+  color: rgba($fg, 0.45);
   border: 1px solid transparent;
 
-  &:hover { background: rgba(255, 255, 255, 0.1); }
+  &:hover { background: rgba($fg, 0.1); }
 }
 
 .bt-scan-btn {
   padding: 3px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.6);
+  background: rgba($fg, 0.06);
+  color: rgba($fg, 0.6);
   font-size: 12px;
   transition: background 0.15s ease;
 
-  &:hover { background: rgba(255, 255, 255, 0.1); }
+  &:hover { background: rgba($fg, 0.1); }
 }
 
 .bt-scan-btn-active {
@@ -965,7 +1132,7 @@ tooltip {
 .bt-device-row {
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba($fg, 0.04);
   border: 1px solid transparent;
 }
 
@@ -986,7 +1153,7 @@ tooltip {
 }
 
 .bt-device-battery {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba($fg, 0.45);
   font-size: 11px;
 }
 
@@ -994,22 +1161,22 @@ tooltip {
   padding: 4px 10px;
   border-radius: 7px;
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba($fg, 0.07);
   color: $fg-warm;
   transition: background 0.15s ease;
 
-  &:hover { background: rgba(255, 255, 255, 0.13); }
+  &:hover { background: rgba($fg, 0.13); }
 }
 
 .bt-action-btn-disconnect {
   background: rgba($alert, 0.15);
-  color: #e8816e;
+  color: $error;
 
   &:hover { background: rgba($alert, 0.25); }
 }
 
 .bt-empty-label {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba($fg, 0.35);
   font-size: 12px;
 }
 
@@ -1078,13 +1245,13 @@ tooltip {
 .audio-mute-btn {
   padding: 2px 6px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba($fg, 0.06);
   color: $secondary;
   font-size: 14px;
   transition: background 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba($fg, 0.12);
   }
 }
 
@@ -1098,7 +1265,7 @@ tooltip {
 }
 
 .audio-device-name {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba($fg, 0.55);
   font-size: 11px;
 }
 
@@ -1107,7 +1274,7 @@ tooltip {
   margin-top: 2px;
 
   trough {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba($fg, 0.12);
     border-radius: 4px;
     min-height: 5px;
   }
@@ -1133,12 +1300,12 @@ tooltip {
 .audio-device-row {
   padding: 6px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba($fg, 0.04);
   border: 1px solid transparent;
   transition: background 0.15s ease, border-color 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.09);
+    background: rgba($fg, 0.09);
     border-color: rgba($primary, 0.2);
   }
 }

@@ -108,6 +108,7 @@ export function SidebarStatus() {
       <box spacing={12} class="sidebar-status-row" hexpand={false}>
         {/* Notifications */}
         <button
+          class="sidebar-status-btn"
           onClicked={() => { execAsync("swaync-client -op -sw"); closeSidebar(); }}
           hexpand={false}
           halign={Gtk.Align.START}
@@ -122,6 +123,7 @@ export function SidebarStatus() {
 
         {/* DND */}
         <button
+          class="sidebar-status-btn"
           onClicked={() => execAsync("swaync-client -d -sw")}
           hexpand={false}
           halign={Gtk.Align.END}
