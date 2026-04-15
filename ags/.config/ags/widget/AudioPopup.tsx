@@ -133,13 +133,15 @@ function buildDeviceRows(
 const _handles = new Map<Gdk.Monitor, PopupHandle>()
 
 export function toggleAudioPopup(sourceWidget?: Gtk.Widget) {
-    const monitor = (sourceWidget?.get_root() as any)?.gdkmonitor as Gdk.Monitor | undefined
+    const root = sourceWidget?.get_root() as any
+    const monitor = root?.gdkmonitor || root?.monitor
     if (!monitor) return
     const handle = _handles.get(monitor)
     if (handle) handle.toggle(sourceWidget)
 }
 
 export function AudioPopup(gdkmonitor: Gdk.Monitor) {
+    const monitorName = gdkmonitor.get_connector() ?? "default"
     const wp = AstalWp.get_default()
     const audio = wp?.get_audio() ?? null
 
@@ -187,7 +189,7 @@ export function AudioPopup(gdkmonitor: Gdk.Monitor) {
     ) as Gtk.Widget
 
     const handle = createPopup({
-        name: "audio-popup",
+        name: `audio-popup-${monitorName}`,
         className: "AudioPopup",
         baseClassName: "audio-popup",
         gdkmonitor,

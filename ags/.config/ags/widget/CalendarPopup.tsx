@@ -4,18 +4,20 @@ import { createPopup, PopupHandle } from "./BasePopup"
 const _handles = new Map<Gdk.Monitor, PopupHandle>()
 
 export function toggleCalendarPopup(sourceWidget?: Gtk.Widget) {
-    const monitor = (sourceWidget?.get_root() as any)?.gdkmonitor as Gdk.Monitor | undefined
+    const root = sourceWidget?.get_root() as any
+    const monitor = root?.gdkmonitor || root?.monitor
     if (!monitor) return
     const handle = _handles.get(monitor)
     if (handle) handle.toggle(sourceWidget)
 }
 
 export function CalendarPopup(gdkmonitor: Gdk.Monitor) {
+    const monitorName = gdkmonitor.get_connector() ?? "default"
     const calendar = new Gtk.Calendar()
     calendar.add_css_class("calendar-widget")
 
     const handle = createPopup({
-        name: "calendar-popup",
+        name: `calendar-popup-${monitorName}`,
         className: "CalendarPopup",
         baseClassName: "calendar-popup",
         gdkmonitor,

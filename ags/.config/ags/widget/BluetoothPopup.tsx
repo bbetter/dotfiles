@@ -80,13 +80,15 @@ function buildDeviceRows(devices: AstalBluetooth.Device[], container: Gtk.Box, f
 const _handles = new Map<Gdk.Monitor, PopupHandle>()
 
 export function toggleBluetoothPopup(sourceWidget?: Gtk.Widget) {
-    const monitor = (sourceWidget?.get_root() as any)?.gdkmonitor as Gdk.Monitor | undefined
+    const root = sourceWidget?.get_root() as any
+    const monitor = root?.gdkmonitor || root?.monitor
     if (!monitor) return
     const handle = _handles.get(monitor)
     if (handle) handle.toggle(sourceWidget)
 }
 
 export function BluetoothPopup(gdkmonitor: Gdk.Monitor) {
+    const monitorName = gdkmonitor.get_connector() ?? "default"
     const bt = AstalBluetooth.get_default()
     const adapter = bt?.get_adapter() ?? null
 
@@ -153,7 +155,7 @@ export function BluetoothPopup(gdkmonitor: Gdk.Monitor) {
     ) as Gtk.Widget
 
     const handle = createPopup({
-        name: "bluetooth-popup",
+        name: `bluetooth-popup-${monitorName}`,
         className: "BluetoothPopup",
         baseClassName: "bt-popup",
         gdkmonitor,
@@ -162,6 +164,13 @@ export function BluetoothPopup(gdkmonitor: Gdk.Monitor) {
         child: content
     })
 
+    const win = handle.window
+    win.connect("notify::visible", () => {
+        if (win.visible) {
+            searchEntry.grab_focus()
+        }
+    })
+
     _handles.set(gdkmonitor, handle)
-    return handle.window
+    return win
 }

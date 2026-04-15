@@ -1,4 +1,5 @@
 import app from "ags/gtk4/app"
+import { Gdk } from "ags/gtk4"
 import style from "./style.scss"
 import Bar from "./widget/Bar"
 import { Sidebar } from "./widget/Sidebar"
@@ -11,6 +12,23 @@ import { PopupBackdrop } from "./widget/PopupBackdrop"
 import { closeSidebar, openSidebar, toggleSidebar } from "./widget/sidebar/state"
 
 const startTime = Date.now()
+
+function initWindows(monitor: Gdk.Monitor) {
+  const mStart = Date.now()
+  const connector = monitor.get_connector() || "unknown"
+  console.log(`AGS: Initializing windows for ${connector}`)
+  
+  Bar(monitor)
+  SidebarBackdrop(monitor)
+  Sidebar(monitor)
+  PopupBackdrop(monitor)
+  NetworkPopup(monitor)
+  AudioPopup(monitor)
+  BluetoothPopup(monitor)
+  CalendarPopup(monitor)
+  
+  console.log(`AGS: Windows for ${connector} initialized in ${Date.now() - mStart}ms`)
+}
 
 app.start({
   css: style,
@@ -35,28 +53,23 @@ app.start({
   main() {
     console.log("AGS: Starting window initialization...")
     
+    // Initialize for existing monitors
     const monitors = app.get_monitors()
+    console.log(`AGS: Found ${monitors.length} monitor(s)`)
+    monitors.forEach(monitor => initWindows(monitor))
 
-    // Initialize bars and sidebars immediately (visible on startup)
-    monitors.forEach(monitor => {
-      const mStart = Date.now()
-      Bar(monitor)
-      SidebarBackdrop(monitor)
-      Sidebar(monitor)
-      console.log(`AGS: Bar+Sidebar for ${monitor.get_connector() || "unknown"} in ${Date.now() - mStart}ms`)
+    // Handle monitor changes
+    const display = Gdk.Display.get_default()
+    const monitorsList = display?.get_monitors()
+    monitorsList?.connect("items-changed", (list, position, removed, added) => {
+      if (added > 0) {
+        for (let i = 0; i < added; i++) {
+          const monitor = list.get_item(position + i) as Gdk.Monitor
+          console.log(`AGS: Monitor added: ${monitor.get_connector()}`)
+          initWindows(monitor)
+        }
+      }
     })
-
-    // Defer popup windows — they start hidden, no need to block initial render
-    setTimeout(() => {
-      monitors.forEach(monitor => {
-        PopupBackdrop(monitor)
-        NetworkPopup(monitor)
-        AudioPopup(monitor)
-        BluetoothPopup(monitor)
-        CalendarPopup(monitor)
-      })
-      console.log(`AGS: Popups initialized in ${Date.now() - startTime}ms total`)
-    }, 0)
 
     console.log(`AGS: Total startup time: ${Date.now() - startTime}ms`)
   },

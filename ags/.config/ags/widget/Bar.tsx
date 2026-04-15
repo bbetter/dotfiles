@@ -26,7 +26,7 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
     >
       <centerbox class="bar-content">
         <box $type="start" hexpand halign={Gtk.Align.START} spacing={0}>
-          <Clock />
+          <Clock gdkmonitor={gdkmonitor} />
           <WindowTitle />
         </box>
 
@@ -35,12 +35,12 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
         </box>
 
         <box $type="end" hexpand halign={Gtk.Align.END} spacing={0}>
-          <Audio />
-          <BluetoothIndicator />
-          <NetworkIndicator />
+          <Audio gdkmonitor={gdkmonitor} />
+          <BluetoothIndicator gdkmonitor={gdkmonitor} />
+          <NetworkIndicator gdkmonitor={gdkmonitor} />
           <Language />
           <RecordingStatus />
-          <SidebarToggle />
+          <SidebarToggle gdkmonitor={gdkmonitor} />
         </box>
       </centerbox>
     </window>

@@ -58,43 +58,63 @@ export function SidebarNotificationList() {
   const notifd = Notifd.get_default()
   if (!notifd) return <box />
 
-  const container = new Gtk.Box({ 
-    orientation: Gtk.Orientation.VERTICAL, 
-    spacing: 6,
-    visible: false
+  const outer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
+  const listContainer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6 })
+  
+  const revealer = new Gtk.Revealer({
+    child: listContainer,
+    transitionType: Gtk.RevealerTransitionType.SLIDE_DOWN,
+    transitionDuration: 250,
+    revealChild: false
   })
-  container.add_css_class("sidebar-notifications-list")
+
+  const header = new Gtk.Box({ hexpand: true, spacing: 8 })
+  header.add_css_class("sidebar-notifications-header")
+  
+  const title = new Gtk.Label({ label: "NOTIFICATIONS", halign: Gtk.Align.START, hexpand: true })
+  title.add_css_class("sidebar-section-title")
+  
+  const countLabel = new Gtk.Label({ label: "0", halign: Gtk.Align.END })
+  countLabel.add_css_class("sidebar-notifications-count-small")
+  
+  const toggleBtn = new Gtk.Button()
+  toggleBtn.add_css_class("sidebar-notif-toggle")
+  const toggleLabel = new Gtk.Label({ label: "Expand 󰅀" })
+  toggleBtn.set_child(toggleLabel)
+  
+  toggleBtn.connect("clicked", () => {
+    revealer.revealChild = !revealer.revealChild
+    toggleLabel.label = revealer.revealChild ? "Collapse 󰅃" : "Expand 󰅀"
+  })
+
+  const clearBtn = new Gtk.Button({ label: "Clear" })
+  clearBtn.add_css_class("sidebar-notif-clear")
+  clearBtn.connect("clicked", () => {
+    notifd.get_notifications().forEach(n => n.dismiss())
+  })
+
+  header.append(title)
+  header.append(countLabel)
+  header.append(clearBtn)
+  header.append(toggleBtn)
+  
+  outer.append(header)
+  outer.append(revealer)
 
   const update = () => {
-    let child = container.get_first_child()
+    let child = listContainer.get_first_child()
     while (child) {
       const next = child.get_next_sibling()
-      container.remove(child)
+      listContainer.remove(child)
       child = next
     }
 
     const notifications = notifd.get_notifications()
-    container.visible = notifications.length > 0
+    const count = notifications.length
+    countLabel.label = `${count}`
+    outer.visible = count > 0
 
-    if (notifications.length > 0) {
-      const sep = new Gtk.Box()
-      sep.add_css_class("sidebar-separator")
-      container.append(sep)
-
-      const header = new Gtk.Box({ hexpand: true })
-      const title = new Gtk.Label({ label: "NOTIFICATIONS", halign: Gtk.Align.START, hexpand: true })
-      title.add_css_class("sidebar-section-title")
-      
-      const clearBtn = new Gtk.Button({ label: "Clear All", halign: Gtk.Align.END })
-      clearBtn.add_css_class("sidebar-notif-clear")
-      clearBtn.connect("clicked", () => {
-        notifd.get_notifications().forEach(n => n.dismiss())
-      })
-
-      header.append(title)
-      header.append(clearBtn)
-      container.append(header)
-      
+    if (count > 0) {
       // Group by App Name
       const groups = new Map<string, Notifd.Notification[]>()
       for (const n of notifications) {
@@ -103,28 +123,25 @@ export function SidebarNotificationList() {
         groups.get(app)!.push(n)
       }
 
-      // Render latest 3 groups
-      const sortedGroups = [...groups.entries()]
-        .sort((a, b) => b[1][0].id - a[1][0].id)
-        .slice(0, 3)
-
-      for (const [appName, list] of sortedGroups) {
-        if (list.length > 1) {
-           const stackHeader = new Gtk.Box({ spacing: 6 })
-           stackHeader.add_css_class("sidebar-notif-stack-header")
-           
-           const appLabel = new Gtk.Label({ 
-             label: `${appName.toUpperCase()} (${list.length})`,
-             halign: Gtk.Align.START 
-           })
-           appLabel.add_css_class("sidebar-notif-app-name")
-           stackHeader.append(appLabel)
-           container.append(stackHeader)
-        }
+      for (const [appName, list] of groups) {
+        const stackHeader = new Gtk.Box({ spacing: 6 })
+        stackHeader.add_css_class("sidebar-notif-stack-header")
         
-        // Show only the latest notification from this app
-        container.append(NotificationEntry({ notification: list[list.length - 1] }))
+        const appLabel = new Gtk.Label({ 
+          label: `${appName.toUpperCase()} (${list.length})`,
+          halign: Gtk.Align.START 
+        })
+        appLabel.add_css_class("sidebar-notif-app-name")
+        stackHeader.append(appLabel)
+        listContainer.append(stackHeader)
+        
+        for (const n of list) {
+          listContainer.append(NotificationEntry({ notification: n }))
+        }
       }
+    } else {
+      revealer.revealChild = false
+      toggleLabel.label = "Expand 󰅀"
     }
   }
 
@@ -132,5 +149,9 @@ export function SidebarNotificationList() {
   notifd.connect("resolved", update)
   update()
 
-  return container
+  return (
+    <box orientation={1} class="sidebar-section">
+      {outer}
+    </box>
+  )
 }

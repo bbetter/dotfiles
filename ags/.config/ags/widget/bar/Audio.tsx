@@ -1,5 +1,5 @@
 import { createPoll } from "ags/time"
-import { Gtk } from "ags/gtk4"
+import { Gtk, Gdk } from "ags/gtk4"
 import Wp from "gi://AstalWp"
 import { toggleAudioPopup } from "../AudioPopup"
 import app from "ags/gtk4/app"
@@ -11,8 +11,9 @@ interface AudioState {
   mute: boolean
 }
 
-export function Audio() {
+export function Audio({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const wp = Wp.get_default()
+  const monitorName = gdkmonitor.get_connector() ?? "default"
 
   const state = createPoll<AudioState>({ label: "󰕾 N/A", tooltip: "", volume: 0, mute: false }, 200, () => {
     const speaker = wp?.audio.defaultSpeaker
@@ -37,15 +38,17 @@ export function Audio() {
     </button>
   ) as Gtk.Button
 
-  app.observe_property("windows", (a) => {
-    const win = a.get_window("audio-popup")
+  setTimeout(() => {
+    const winName = `audio-popup-${monitorName}`
+    const win = app.get_windows().find(w => w.name === winName)
     if (win) {
-      win.observe_property("visible", (w) => {
+      win.connect("notify::visible", (w) => {
         if (w.visible) btn.add_css_class("active")
         else btn.remove_css_class("active")
       })
+      if (win.visible) btn.add_css_class("active")
     }
-  })
+  }, 500)
 
   const scroll = new Gtk.EventControllerScroll({
     flags: Gtk.EventControllerScrollFlags.VERTICAL | Gtk.EventControllerScrollFlags.DISCRETE,

@@ -1,6 +1,6 @@
 import { createPoll } from "ags/time"
 import { exec } from "ags/process"
-import { Gtk } from "ags/gtk4"
+import { Gtk, Gdk } from "ags/gtk4"
 import GLib from "gi://GLib"
 import { toggleNetworkPopup } from "../NetworkPopup"
 import app from "ags/gtk4/app"
@@ -10,7 +10,8 @@ interface NetworkState {
   tooltip: string
 }
 
-export function NetworkIndicator() {
+export function NetworkIndicator({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
+  const monitorName = gdkmonitor.get_connector() ?? "default"
   const state = createPoll<NetworkState>(
     { text: "🚫", tooltip: "No network connection" },
     5000,
@@ -38,15 +39,19 @@ export function NetworkIndicator() {
     </button>
   ) as Gtk.Button
 
-  app.observe_property("windows", (a) => {
-    const win = a.get_window("network-popup")
+  // Set up observer after windows are likely created
+  setTimeout(() => {
+    const winName = `network-popup-${monitorName}`
+    const win = app.get_windows().find(w => w.name === winName)
     if (win) {
-      win.observe_property("visible", (w) => {
+      win.connect("notify::visible", (w) => {
         if (w.visible) btn.add_css_class("active")
         else btn.remove_css_class("active")
       })
+      // initial check
+      if (win.visible) btn.add_css_class("active")
     }
-  })
+  }, 500)
 
   return btn
 }

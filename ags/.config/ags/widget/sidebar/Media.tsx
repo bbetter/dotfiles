@@ -66,7 +66,7 @@ export function SidebarMedia() {
     },
   )
 
-  const adj = new Gtk.Adjustment({ lower: 0, upper: 1, step_increment: 0.01 })
+  const adj = new Gtk.Adjustment({ lower: 0, upper: 1, step_increment: 1 })
   const slider = new Gtk.Scale({ 
     orientation: Gtk.Orientation.HORIZONTAL, 
     adjustment: adj,
@@ -75,12 +75,16 @@ export function SidebarMedia() {
   slider.add_css_class("sidebar-media-slider")
 
   let isDragging = false
-  slider.connect("button-press-event", () => { isDragging = true; return false })
-  slider.connect("button-release-event", () => { 
-    isDragging = false
-    runPlayerctl(`position ${adj.get_value()}`)
-    return false 
+  
+  const gesture = Gtk.GestureClick.new()
+  gesture.connect("pressed", () => { isDragging = true })
+  gesture.connect("released", () => { 
+    if (isDragging) {
+      isDragging = false
+      runPlayerctl(`position ${adj.get_value()}`)
+    }
   })
+  slider.add_controller(gesture)
 
   state.subscribe(s => {
     if (!isDragging && s.length > 0) {
@@ -93,7 +97,6 @@ export function SidebarMedia() {
   artImage.add_css_class("sidebar-media-art")
   state.subscribe(s => {
     if (s.artUrl) {
-      // Very naive art downloader/loader - in real world we'd cache it
       if (s.artUrl.startsWith("file://")) {
         artImage.set_from_file(s.artUrl.replace("file://", ""))
       } else {

@@ -151,8 +151,6 @@ export function SidebarStatus() {
           <label label={quickState.as(s => s.recording)} class="status-indicator-value" />
         </box>
       </box>
-
-      {SidebarNotificationList()}
     </box>
   )
 }

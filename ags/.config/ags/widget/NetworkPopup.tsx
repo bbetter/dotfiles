@@ -90,13 +90,20 @@ function makePwSection(): PwSection {
 const _handles = new Map<Gdk.Monitor, PopupHandle>()
 
 export function toggleNetworkPopup(sourceWidget?: Gtk.Widget) {
-    const monitor = (sourceWidget?.get_root() as any)?.gdkmonitor as Gdk.Monitor | undefined
-    if (!monitor) return
+    const root = sourceWidget?.get_root() as any
+    const monitor = root?.gdkmonitor || root?.monitor
+    if (!monitor) {
+        console.error("AGS: Could not determine monitor for NetworkPopup")
+        return
+    }
     const handle = _handles.get(monitor)
     if (handle) handle.toggle(sourceWidget)
+    else console.error(`AGS: No NetworkPopup handle for monitor ${monitor.get_connector()}`)
 }
 
 export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
+    const monitorName = gdkmonitor.get_connector() ?? "default"
+    // ... rest of setup code ...
     const network = AstalNetwork.get_default()
     const wifi = network?.get_wifi() ?? null
     const wired = network?.get_wired() ?? null
@@ -161,7 +168,7 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
     ) as Gtk.Widget
 
     const handle = createPopup({
-        name: "network-popup",
+        name: `network-popup-${monitorName}`,
         className: "NetworkPopup",
         baseClassName: "network-popup",
         gdkmonitor,
@@ -170,6 +177,13 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
         child: content
     })
 
+    const win = handle.window
+    win.connect("notify::visible", () => {
+        if (win.visible) {
+            searchEntry.grab_focus()
+        }
+    })
+
     _handles.set(gdkmonitor, handle)
-    return handle.window
+    return win
 }

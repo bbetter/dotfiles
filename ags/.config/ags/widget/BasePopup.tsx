@@ -55,6 +55,7 @@ export function createPopup(props: BasePopupProps): PopupHandle {
             gdkmonitor={gdkmonitor}
             exclusivity={Astal.Exclusivity.NORMAL}
             layer={Astal.Layer.OVERLAY}
+            keymode={Astal.Keymode.ON_DEMAND}
             anchor={anchor}
             application={app}
             class={className}
