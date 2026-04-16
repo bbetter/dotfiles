@@ -1,6 +1,7 @@
 import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
+import { sectionRevealer } from "./utils"
 
 interface UsageState {
   cpu: number
@@ -122,6 +123,13 @@ export function SystemUsage() {
     getUsage
   )
 
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(false)
+
+  state.subscribe(() => {
+    const s = state.peek()
+    summaryLabel.label = `CPU ${Math.round(s.cpu)}% · RAM ${Math.round(s.ram)}%`
+  })
+
   const listContainer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 10 })
   listContainer.add_css_class("sidebar-mini-card")
   listContainer.append(UsageItem("CPU", state.as(s => s.cpu), "󰻠", "cpu"))
@@ -130,38 +138,23 @@ export function SystemUsage() {
   const vramItem = UsageItem("VRAM", state.as(s => s.vram), "󰢮", "vram")
   const vramBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   vramBox.append(vramItem)
-  state.as(s => s.vram > 0).subscribe((v: boolean) => { vramBox.visible = v })
+  const vramVisible = state.as(s => s.vram > 0)
+  vramVisible.subscribe(() => { vramBox.visible = vramVisible.peek() })
   listContainer.append(vramBox)
 
-  const revealer = new Gtk.Revealer({
-    reveal_child: false,
-    transition_type: Gtk.RevealerTransitionType.SLIDE_DOWN,
-    transition_duration: 250,
-  })
   revealer.set_child(listContainer)
-
-  // Keep a ref to the label so we can update it from the JSX button's onClicked
-  const toggleLabel = new Gtk.Label({ label: "Show 󰅀" })
 
   return (
     <box orientation={1} spacing={4} class="sidebar-section">
-      <box hexpand spacing={8}>
+      <box hexpand spacing={6} class="sidebar-section-header">
         <label
           label="SYSTEM PERFORMANCE"
           class="sidebar-section-title"
           hexpand
           halign={Gtk.Align.START}
         />
-        <button
-          class="sidebar-notif-toggle"
-          onClicked={() => {
-            const next = !revealer.get_reveal_child()
-            revealer.set_reveal_child(next)
-            toggleLabel.label = next ? "Hide 󰅃" : "Show 󰅀"
-          }}
-        >
-          {toggleLabel}
-        </button>
+        {summaryLabel}
+        {toggleBtn}
       </box>
       {revealer}
     </box>

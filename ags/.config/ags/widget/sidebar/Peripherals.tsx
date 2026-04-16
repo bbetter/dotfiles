@@ -2,6 +2,7 @@ import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
+import { sectionRevealer } from "./utils"
 
 interface PeripheralsState {
   text: string
@@ -14,7 +15,7 @@ export function SidebarPeripherals() {
 
   const state = createPoll<PeripheralsState>(
     { text: "No devices", tooltip: "", visible: true },
-    5000,
+    2000,
     async () => {
       try {
         const raw = (await execAsync(`python3 ${script}`)).trim()
@@ -31,24 +32,47 @@ export function SidebarPeripherals() {
     }
   )
 
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true)
+
+  state.subscribe(() => {
+    const s = state.peek()
+    // First line only, strip markup tags for summary
+    summaryLabel.label = s.text.split("\n")[0].replace(/<[^>]+>/g, "").trim()
+  })
+
+  const content = (
+    <box orientation={1} spacing={6} class="sidebar-card sidebar-compact-card" marginBottom={6}>
+      <label
+        label={state.as(s => s.text)}
+        useMarkup
+        class="sidebar-peripherals"
+        halign={Gtk.Align.START}
+        wrap
+      />
+      <label
+        label={state.as(s => s.tooltip)}
+        class="sidebar-muted"
+        halign={Gtk.Align.START}
+        wrap
+      />
+    </box>
+  ) as Gtk.Box
+
+  revealer.set_child(content)
+
   return (
     <box orientation={1} spacing={4} class="sidebar-section">
-      <label label="DEVICES" class="sidebar-section-title" halign={Gtk.Align.START} />
-      <box orientation={1} spacing={6} class="sidebar-card sidebar-compact-card">
+      <box hexpand spacing={6} class="sidebar-section-header">
         <label
-          label={state.as(s => s.text)}
-          useMarkup
-          class="sidebar-peripherals"
+          label="DEVICES"
+          class="sidebar-section-title"
+          hexpand
           halign={Gtk.Align.START}
-          wrap
         />
-        <label
-          label={state.as(s => s.tooltip)}
-          class="sidebar-muted"
-          halign={Gtk.Align.START}
-          wrap
-        />
+        {summaryLabel}
+        {toggleBtn}
       </box>
+      {revealer}
     </box>
   )
 }

@@ -2,15 +2,11 @@ import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
-import { closeSidebar } from "./state"
-import { SidebarNotificationList } from "./Notifications"
 
 interface StatusState {
   language: string
   date: string
   time: string
-  notifCount: number
-  dnd: boolean
   printer: number
   recording: string
 }
@@ -24,11 +20,11 @@ export function SidebarStatus() {
   const scriptsPath = `${GLib.get_home_dir()}/.config/ags/scripts`
 
   const quickState = createPoll<StatusState>(
-    { language: "?", date: "", time: "", notifCount: 0, dnd: false, printer: 0, recording: "—" },
+    { language: "?", date: "", time: "", printer: 0, recording: "—" },
     2000,
     async () => {
       const now = new Date()
-      
+
       let language = "?"
       try {
         const output = await execAsync("hyprctl devices -j")
@@ -38,13 +34,6 @@ export function SidebarStatus() {
           const l = keyboard.layout.split(",")[keyboard.active_layout_index] || ""
           language = l.includes("us") ? "EN" : l.includes("ua") ? "UA" : l.toUpperCase()
         }
-      } catch {}
-
-      let notifCount = 0
-      let dnd = false
-      try {
-        notifCount = parseInt((await execAsync("swaync-client -c -sw")).trim(), 10) || 0
-        dnd = (await execAsync("swaync-client -D -sw")).trim().toLowerCase() === "true"
       } catch {}
 
       let printer = 0
@@ -66,8 +55,6 @@ export function SidebarStatus() {
         language,
         date: now.toLocaleDateString("uk-UA", { weekday: "long", day: "2-digit", month: "long" }),
         time: now.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }),
-        notifCount,
-        dnd,
         printer,
         recording,
       }
@@ -76,7 +63,7 @@ export function SidebarStatus() {
 
   const updateState = createPoll<UpdateStatus>(
     { pacman: 0, aur: 0 },
-    600000, 
+    600000,
     async () => {
       try {
         const raw = (await execAsync(`${scriptsPath}/updates.sh`)).trim()
@@ -106,36 +93,6 @@ export function SidebarStatus() {
       <box class="sidebar-separator" />
 
       <box spacing={12} class="sidebar-status-row" hexpand={false}>
-        {/* Notifications */}
-        <button
-          class="sidebar-status-btn"
-          onClicked={() => { execAsync("swaync-client -op -sw"); closeSidebar(); }}
-          hexpand={false}
-          halign={Gtk.Align.START}
-        >
-          <box halign={Gtk.Align.START} hexpand={false}>
-            <box spacing={4} class={quickState.as(s => `status-indicator ${s.notifCount > 0 ? "attention" : ""}`)} hexpand={false}>
-              <label label="󰂚" class="status-indicator-icon" />
-              <label label={quickState.as(s => `${s.notifCount}`)} class="status-indicator-value" />
-            </box>
-          </box>
-        </button>
-
-        {/* DND */}
-        <button
-          class="sidebar-status-btn"
-          onClicked={() => execAsync("swaync-client -d -sw")}
-          hexpand={false}
-          halign={Gtk.Align.END}
-        >
-          <box spacing={6} class={quickState.as(s => s.dnd ? "status-indicator attention" : "status-indicator")} hexpand={false}>
-            <label label={quickState.as(s => s.dnd ? "󰂛" : "󰂚")} class="status-indicator-icon" />
-            <label label={quickState.as(s => s.dnd ? "DND ON" : "DND OFF")} class="status-indicator-value" />
-          </box>
-        </button>
-      </box>
-
-      <box spacing={12} class="sidebar-status-row secondary-status-row" hexpand={false}>
         <box spacing={4} class="status-indicator updates" visible={updateState.as(s => s.pacman > 0)} hexpand={false}>
           <label label="󰇚" class="status-indicator-icon" />
           <label label={updateState.as(s => `${s.pacman}`)} class="status-indicator-value" />

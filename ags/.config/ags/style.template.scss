@@ -471,7 +471,34 @@ tooltip {
   font-weight: 700;
   color: $error;
   letter-spacing: 1.5px;
+}
+
+.sidebar-section-header {
   margin-bottom: 6px;
+  padding-bottom: 2px;
+}
+
+.sidebar-section-summary {
+  font-size: 11px;
+  color: rgba($fg, 0.45);
+  margin-right: 4px;
+}
+
+.sidebar-section-toggle {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba($fg, 0.45);
+  font-size: 14px;
+  min-width: 0;
+  min-height: 0;
+  &:hover {
+    background: rgba($primary, 0.15);
+    color: $fg;
+  }
+  &:active {
+    background: rgba($primary, 0.25);
+  }
 }
 
 .sidebar-card {

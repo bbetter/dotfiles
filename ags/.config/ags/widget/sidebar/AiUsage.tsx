@@ -2,6 +2,7 @@ import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
+import { sectionRevealer } from "./utils"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parsing
@@ -159,19 +160,43 @@ export function SidebarAiUsage() {
     )
   }
 
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(false)
+
+  state.subscribe(() => {
+    const s = state.peek()
+    if (s.claude.visible) summaryLabel.label = s.claude.summary
+    else if (s.codex.visible) summaryLabel.label = s.codex.summary
+    else summaryLabel.label = ""
+  })
+
+  const content = (
+    <box spacing={6} homogeneous class="sidebar-ai-usage-grid" marginBottom={6}>
+      {card("claude")}
+      {card("codex")}
+      {card("qwen")}
+    </box>
+  ) as Gtk.Box
+
+  revealer.set_child(content)
+
   return (
     <box
       orientation={1}
-      spacing={6}
+      spacing={4}
       class="sidebar-section"
       visible={state.as(s => s.visible)}
     >
-      <label label="AI USAGE" class="sidebar-section-title" halign={Gtk.Align.START} />
-      <box spacing={6} homogeneous class="sidebar-ai-usage-grid">
-        {card("claude")}
-        {card("codex")}
-        {card("qwen")}
+      <box hexpand spacing={6} class="sidebar-section-header">
+        <label
+          label="AI USAGE"
+          class="sidebar-section-title"
+          hexpand
+          halign={Gtk.Align.START}
+        />
+        {summaryLabel}
+        {toggleBtn}
       </box>
+      {revealer}
     </box>
   )
 }

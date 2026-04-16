@@ -2,6 +2,7 @@ import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import { closeSidebar } from "./state"
+import { sectionRevealer } from "./utils"
 
 interface SwayNCState {
   count: number
@@ -30,9 +31,68 @@ export function SidebarNotificationList() {
     getSwayncState,
   )
 
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true)
+
+  state.subscribe(() => {
+    const s = state.peek()
+    const parts: string[] = []
+    if (s.count > 0) parts.push(`${s.count}`)
+    if (s.dnd) parts.push("DND")
+    summaryLabel.label = parts.join(" · ")
+  })
+
+  const content = (
+    <box spacing={8} marginBottom={6} class="sidebar-notif-actions">
+      <button
+        class="sidebar-action"
+        hexpand
+        onClicked={() => {
+          execAsync("swaync-client -op -sw").catch(() => {})
+          closeSidebar()
+        }}
+      >
+        <box spacing={10}>
+          <label
+            label={state.as(s => s.count > 0 ? "󰂚" : "󰂜")}
+            class={state.as(s => `sidebar-action-title ${s.count > 0 ? "sidebar-attention" : "sidebar-muted"}`)}
+          />
+          <box orientation={1} hexpand>
+            <label
+              label={state.as(s =>
+                s.count > 0
+                  ? `${s.count} notification${s.count === 1 ? "" : "s"}`
+                  : "No notifications"
+              )}
+              class="sidebar-action-title"
+              halign={Gtk.Align.START}
+            />
+            <label
+              label="Open swaync panel →"
+              class="sidebar-action-subtitle"
+              halign={Gtk.Align.START}
+            />
+          </box>
+        </box>
+      </button>
+
+      <button
+        class={state.as(s => `sidebar-action ${s.dnd ? "sidebar-action-primary" : ""}`)}
+        onClicked={() => execAsync("swaync-client -d -sw").catch(() => {})}
+        tooltipText="Toggle Do Not Disturb"
+      >
+        <label
+          label={state.as(s => s.dnd ? "󰂛" : "󰂚")}
+          class={state.as(s => `sidebar-action-title ${s.dnd ? "sidebar-attention" : "sidebar-muted"}`)}
+        />
+      </button>
+    </box>
+  ) as Gtk.Box
+
+  revealer.set_child(content)
+
   return (
     <box orientation={1} class="sidebar-section">
-      <box class="sidebar-notifications-header" hexpand spacing={8}>
+      <box class="sidebar-section-header" hexpand spacing={6}>
         <label
           label="NOTIFICATIONS"
           class="sidebar-section-title"
@@ -42,7 +102,7 @@ export function SidebarNotificationList() {
         <label
           label={state.as(s => s.count > 0 ? `${s.count}` : "")}
           class="sidebar-notifications-count-small"
-          halign={Gtk.Align.END}
+          visible={state.as(s => s.count > 0)}
         />
         <button
           class="sidebar-notif-clear"
@@ -51,52 +111,10 @@ export function SidebarNotificationList() {
         >
           <label label="Clear" />
         </button>
+        {summaryLabel}
+        {toggleBtn}
       </box>
-
-      <box spacing={8} marginTop={4} class="sidebar-notif-actions">
-        <button
-          class="sidebar-action"
-          hexpand
-          onClicked={() => {
-            execAsync("swaync-client -op -sw").catch(() => {})
-            closeSidebar()
-          }}
-        >
-          <box spacing={10}>
-            <label
-              label={state.as(s => s.count > 0 ? "󰂚" : "󰂜")}
-              class={state.as(s => `sidebar-action-title ${s.count > 0 ? "sidebar-attention" : "sidebar-muted"}`)}
-            />
-            <box orientation={1} hexpand>
-              <label
-                label={state.as(s =>
-                  s.count > 0
-                    ? `${s.count} notification${s.count === 1 ? "" : "s"}`
-                    : "No notifications"
-                )}
-                class="sidebar-action-title"
-                halign={Gtk.Align.START}
-              />
-              <label
-                label="Open swaync panel →"
-                class="sidebar-action-subtitle"
-                halign={Gtk.Align.START}
-              />
-            </box>
-          </box>
-        </button>
-
-        <button
-          class={state.as(s => `sidebar-action ${s.dnd ? "sidebar-action-primary" : ""}`)}
-          onClicked={() => execAsync("swaync-client -d -sw").catch(() => {})}
-          tooltipText="Toggle Do Not Disturb"
-        >
-          <label
-            label={state.as(s => s.dnd ? "󰂛" : "󰂚")}
-            class={state.as(s => `sidebar-action-title ${s.dnd ? "sidebar-attention" : "sidebar-muted"}`)}
-          />
-        </button>
-      </box>
+      {revealer}
     </box>
   )
 }
