@@ -3,22 +3,22 @@
 // Edit style.template.scss to change structure;
 // run gen-theme.sh to regenerate this file.
 // ==================================================
-$bg-alpha:   rgba(33,31,30,0.85);
-$bg-strong:  rgba(33,31,30,0.95);
-$bg-popup:   rgba(33,31,30,0.97);
-$bg-sidebar: rgba(33,31,30,0.98);
+$bg-alpha:   rgba(33,23,15,0.85);
+$bg-strong:  rgba(33,23,15,0.95);
+$bg-popup:   rgba(33,23,15,0.97);
+$bg-sidebar: rgba(33,23,15,0.98);
 
-$primary:   #a47946;
-$secondary: #5182b4;
-$success:   #42529a;
-$error:     #c5997a;
-$alert:     #c5997a;
-$special:   #bc9163;
+$primary:   #c39e74;
+$secondary: #d2b898;
+$success:   #cbb486;
+$error:     #ae754a;
+$alert:     #ae754a;
+$special:   #b88d5b;
 
-$bg:        #211f1e;
-$fg:        #c7c7c6;
-$fg-warm:   #c7c7c6;
-$fg-bright: #c7c7c6;
+$bg:        #21170f;
+$fg:        #c7c5c3;
+$fg-warm:   #c7c5c3;
+$fg-bright: #c7c5c3;
 
 $connected: #9dcc9c;
 $green-bg:  #5c8a5d;
@@ -91,13 +91,54 @@ $green-bg:  #5c8a5d;
       color: rgba($fg, 0.55);
     }
 
-    &:hover {
+    &:hover,
+    &.drop-target {
       background: rgba($fg, 0.08);
+    }
+
+    &.drop-target {
+      border-bottom-color: rgba($primary, 0.5);
+      background: rgba($primary, 0.1);
     }
 
     image {
       margin-left: 2px;
       opacity: 0.8;
+    }
+  }
+
+  .workspace-plus {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    opacity: 0;
+    background: rgba($fg, 0.05);
+    border: 1px dashed rgba($primary, 0.3);
+    border-radius: 6px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    label {
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    &:hover,
+    &.drop-target {
+      background: rgba($primary, 0.15);
+      color: $primary;
+      border-style: solid;
+      border-color: $primary;
+    }
+  }
+
+  &.hover .workspace-plus {
+    padding: 4px 10px;
+    margin: 0 2px;
+    min-width: 24px;
+    opacity: 1;
+
+    label {
+      opacity: 1;
     }
   }
 }

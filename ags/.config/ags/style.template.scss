@@ -91,13 +91,54 @@ $green-bg:  #5c8a5d;
       color: rgba($fg, 0.55);
     }
 
-    &:hover {
+    &:hover,
+    &.drop-target {
       background: rgba($fg, 0.08);
+    }
+
+    &.drop-target {
+      border-bottom-color: rgba($primary, 0.5);
+      background: rgba($primary, 0.1);
     }
 
     image {
       margin-left: 2px;
       opacity: 0.8;
+    }
+  }
+
+  .workspace-plus {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    opacity: 0;
+    background: rgba($fg, 0.05);
+    border: 1px dashed rgba($primary, 0.3);
+    border-radius: 6px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    label {
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    &:hover,
+    &.drop-target {
+      background: rgba($primary, 0.15);
+      color: $primary;
+      border-style: solid;
+      border-color: $primary;
+    }
+  }
+
+  &.hover .workspace-plus {
+    padding: 4px 10px;
+    margin: 0 2px;
+    min-width: 24px;
+    opacity: 1;
+
+    label {
+      opacity: 1;
     }
   }
 }
