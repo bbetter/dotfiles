@@ -58,6 +58,7 @@ $green-bg:  #5c8a5d;
 .bluetooth,
 .network,
 .recording,
+.thunderbird,
 .sidebar-toggle {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -254,6 +255,21 @@ $green-bg:  #5c8a5d;
   color: $alert;
   font-size: 10px;
   font-weight: 700;
+}
+
+/* ==================================================
+   THUNDERBIRD UNREAD
+   ================================================== */
+.thunderbird {
+  padding: 3px 12px;
+  margin: 3px 6px;
+  background: rgba($primary, 0.12);
+  color: $primary;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba($primary, 0.22);
+  }
 }
 
 /* ==================================================

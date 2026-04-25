@@ -9,6 +9,7 @@ import { Clock } from "./bar/Clock"
 import { WindowTitle } from "./bar/WindowTitle"
 import { SidebarToggle } from "./bar/SidebarToggle"
 import { Language } from "./bar/Language"
+import { ThunderbirdUnread } from "./bar/Thunderbird"
 
 export default function Bar(gdkmonitor: Gdk.Monitor) {
   const { TOP, LEFT, RIGHT } = Astal.WindowAnchor
@@ -36,6 +37,7 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
         </box>
 
         <box $type="end" hexpand halign={Gtk.Align.END} spacing={0}>
+          <ThunderbirdUnread />
           <Audio gdkmonitor={gdkmonitor} />
           <BluetoothIndicator gdkmonitor={gdkmonitor} />
           <NetworkIndicator gdkmonitor={gdkmonitor} />
