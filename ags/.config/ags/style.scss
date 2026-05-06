@@ -3,22 +3,22 @@
 // Edit style.template.scss to change structure;
 // run gen-theme.sh to regenerate this file.
 // ==================================================
-$bg-alpha:   rgba(33,12,7,0.85);
-$bg-strong:  rgba(33,12,7,0.95);
-$bg-popup:   rgba(33,12,7,0.97);
-$bg-sidebar: rgba(33,12,7,0.98);
+$bg-alpha:   rgba(33,33,33,0.85);
+$bg-strong:  rgba(33,33,33,0.95);
+$bg-popup:   rgba(33,33,33,0.97);
+$bg-sidebar: rgba(33,33,33,0.98);
 
-$primary:   #b2774c;
-$secondary: #bd9666;
-$success:   #d2bc97;
-$error:     #934c3f;
-$alert:     #934c3f;
-$special:   #ba8060;
+$primary:   #5475b5;
+$secondary: #41609a;
+$success:   #7088c1;
+$error:     #cab985;
+$alert:     #cab985;
+$special:   #d7caa2;
 
-$bg:        #210c07;
-$fg:        #c7c2c1;
-$fg-warm:   #c7c2c1;
-$fg-bright: #c7c2c1;
+$bg:        #212121;
+$fg:        #c7c7c7;
+$fg-warm:   #c7c7c7;
+$fg-bright: #c7c7c7;
 
 $connected: #9dcc9c;
 $green-bg:  #5c8a5d;
