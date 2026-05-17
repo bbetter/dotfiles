@@ -1,0 +1,4 @@
+-- ============================
+-- PLUGINS
+-- ============================
+-- Add plugin configuration here when needed.
