@@ -50,7 +50,7 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   }
 
   const dispatchWorkspaceMove = (targetId: number, address: string) => {
-    const cmd = `hyprctl dispatch movetoworkspacesilent "${targetId},address:${address}"`
+    const cmd = `hyprctl -q dispatch 'hl.dsp.window.move({ workspace = ${targetId}, address = "${address}", silent = true })'`
     try {
       GLib.spawn_command_line_async(cmd)
       refreshAfterMove()
@@ -183,9 +183,11 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
       if (!buttons.has(id)) {
         const iconBox = new Gtk.Box({ spacing: 4 })
         const btn = (
-          <button 
+          <button
             class="workspace-btn"
-            onClicked={() => hypr.dispatch("workspace", `${id}`)}
+            onClicked={() => {
+              try { GLib.spawn_command_line_async(`hyprctl -q dispatch 'hl.dsp.focus({ workspace = ${id} })'`) } catch {}
+            }}
           >
             <box spacing={6}>
               <label label={id === 10 ? "0" : `${id}`} />
