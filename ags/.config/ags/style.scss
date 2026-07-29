@@ -1031,6 +1031,23 @@ tooltip {
   font-size: 13px;
 }
 
+.network-switch {
+  min-width: 34px;
+  min-height: 18px;
+
+  slider {
+    background: $fg-warm;
+    border-radius: 9px;
+    min-width: 14px;
+    min-height: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  &:checked {
+    background: rgba($connected, 0.5);
+  }
+}
+
 .network-scan-btn {
   padding: 2px 8px;
   border-radius: 6px;

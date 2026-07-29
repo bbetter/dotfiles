@@ -1,4 +1,5 @@
 import { Gtk, Gdk, Astal } from "ags/gtk4"
+import { execAsync } from "ags/process"
 import AstalNetwork from "gi://AstalNetwork"
 import { createPopup, PopupHandle } from "./BasePopup"
 
@@ -114,7 +115,59 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
 
     const wiredLabel = new Gtk.Label({ halign: Gtk.Align.END, hexpand: true })
     wiredLabel.add_css_class("network-popup-value")
-    wiredLabel.set_label(wired ? internetText(wired.get_internet()) : "No device")
+
+    function wiredText(): string {
+        if (!wired) return "No device"
+        const base = internetText(wired.get_internet())
+        const speed = wired.get_speed()
+        return speed > 0 ? `${base} · ${speed} Mb/s` : base
+    }
+    wiredLabel.set_label(wiredText())
+
+    // LAN on/off switch — toggles the wired device via nmcli (Astal has no
+    // write API for wired, unlike wifi.enabled below)
+    const wiredSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER })
+    wiredSwitch.add_css_class("network-switch")
+    let wiredSyncing = false
+
+    function syncWiredSwitch() {
+        if (!wired) return
+        const on = wired.get_state() === AstalNetwork.DeviceState.ACTIVATED
+        if (wiredSwitch.get_active() === on) return
+        wiredSyncing = true
+        wiredSwitch.set_active(on)
+        wiredSyncing = false
+    }
+
+    wiredSwitch.connect("notify::active", () => {
+        if (wiredSyncing || !wired) return
+        const iface = wired.get_device()?.get_iface()
+        if (!iface) { syncWiredSwitch(); return }
+        const desired = wiredSwitch.get_active()
+        wiredSwitch.set_sensitive(false)
+        execAsync(["nmcli", "device", desired ? "connect" : "disconnect", iface])
+            .catch(() => { })
+            .then(() => wiredSwitch.set_sensitive(true))
+    })
+
+    // Wi-Fi radio on/off switch — Astal exposes `enabled` directly, no exec needed
+    const wifiSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER })
+    wifiSwitch.add_css_class("network-switch")
+    let wifiSyncing = false
+
+    function syncWifiSwitch() {
+        if (!wifi) return
+        const on = wifi.get_enabled()
+        if (wifiSwitch.get_active() === on) return
+        wifiSyncing = true
+        wifiSwitch.set_active(on)
+        wifiSyncing = false
+    }
+
+    wifiSwitch.connect("notify::active", () => {
+        if (wifiSyncing || !wifi) return
+        wifi.set_enabled(wifiSwitch.get_active())
+    })
 
     const apContainer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 })
     apContainer.add_css_class("network-ap-list")
@@ -139,12 +192,19 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
         wifi.connect("notify::ssid", () => ssidLabel.set_label(wifi.get_ssid() ?? "Not connected"))
         wifi.connect("access-point-added", () => refreshAps(searchEntry.get_text()))
         wifi.connect("access-point-removed", () => refreshAps(searchEntry.get_text()))
-        wifi.connect("notify::active-access-point", () => { 
+        wifi.connect("notify::active-access-point", () => {
             ssidLabel.set_label(wifi.get_ssid() ?? "Not connected")
-            refreshAps(searchEntry.get_text()) 
+            refreshAps(searchEntry.get_text())
         })
+        wifi.connect("notify::enabled", syncWifiSwitch)
+        syncWifiSwitch()
     }
-    if (wired) wired.connect("notify::internet", () => wiredLabel.set_label(internetText(wired.get_internet())))
+    if (wired) {
+        wired.connect("notify::internet", () => wiredLabel.set_label(wiredText()))
+        wired.connect("notify::speed", () => wiredLabel.set_label(wiredText()))
+        wired.connect("notify::state", syncWiredSwitch)
+        syncWiredSwitch()
+    }
     refreshAps()
 
     const scanBtn = new Gtk.Button(); scanBtn.add_css_class("network-scan-btn"); scanBtn.set_label("↺"); scanBtn.connect("clicked", () => wifi?.scan())
@@ -156,11 +216,13 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
             <box spacing={8} class="network-popup-card network-popup-row">
                 <label label="LAN" class="network-popup-label" />
                 {wiredLabel}
+                {wiredSwitch}
             </box>
             <box spacing={8} class="network-popup-card network-popup-row">
                 <label label="Wi-Fi" class="network-popup-label" />
                 {ssidLabel}
                 {scanBtn}
+                {wifiSwitch}
             </box>
             {apContainer}
             {pw.widget}
