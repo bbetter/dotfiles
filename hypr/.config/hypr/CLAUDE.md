@@ -39,14 +39,28 @@ stage without hunting through git log.
 - Secondary diagnostic if unstable: temporarily set `misc.vrr = 0` to check
   whether adaptive sync is the trigger.
 
-### `hypr-stage-b-hdr` — HDR on top of stage A
-- Change: add `cm = hdredid` to the DP-2 monitor rule (uses the panel's real
-  EDID luminance values rather than a generic HDR preset).
-- Diagnostic: test with `blur`/`shadows` temporarily disabled first — that
-  combination is a known Hyprland artifact source under HDR output.
-- Expected, not a bug: SDR/non-HDR-aware apps (most browsers, XWayland apps)
-  will look washed out or overly bright once the output switches to HDR —
-  general Wayland color-management state right now, not fixable via config.
+### `hypr-stage-b-hdr` — fullscreen-only auto-HDR (revised from original plan)
+- Original plan was `cm = hdredid` on the DP-2 monitor rule (desktop-wide
+  HDR, always on). Changed after research: AMD/amdgpu has a known,
+  unresolved bug (see github.com/hyprwm/Hyprland discussion #10240) where
+  desktop-wide HDR makes the cursor and window borders render way too
+  bright — matching artifacts already seen on this system. Went with the
+  lower-risk option instead.
+- Actual change: `render.cm_auto_hdr = 2` in `look.lua`'s `hl.config` table.
+  Checked Hyprland source (`src/config/values/ConfigValues.cpp`) directly:
+  `render:cm_auto_hdr` already defaults to `1` ("hdr") in this Hyprland
+  version, so fullscreen auto-HDR was already active before this change —
+  `2` ("hdredid") just switches it to use the EX2510S's real EDID luminance
+  (~418 cd/m²) instead of a generic wide-gamut guess.
+- Scope: only affects fullscreen apps/games that request HDR. The desktop
+  and normal windowed use stay plain SDR (`cm` was deliberately left
+  untouched on the monitor rule — default `srgb`), so the AMD cursor/border
+  brightness bug shouldn't show up outside of fullscreen HDR content.
+  Also avoids a separate known bug (Hyprland issue #12971) where changing
+  monitor `cm` away from default breaks auto-HDR reset on fullscreen exit.
+- No `bitdepth = 10` set — not required for this fullscreen-only path.
+- Test with an actual HDR-capable fullscreen game or `mpv` HDR video file;
+  ordinary desktop/browser use is not expected to look any different.
 
 ## Rolling back
 
