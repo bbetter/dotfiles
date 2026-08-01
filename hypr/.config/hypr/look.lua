@@ -62,8 +62,18 @@ hl.config({
         vrr                     = 1,
     },
 
+    -- HDR disabled (2026-08-01): tested with two genuinely HDR-capable paths (Pragmata's native
+    -- HDR, Gothic 1 Remake's RenoDX mod) and Hyprland never actually engaged real HDR either way
+    -- (hyprctl monitors kept reporting colorManagementPreset=srgb/currentFormat=XRGB8888 no matter
+    -- what the game's own HDR toggle said). When the game-side tonemap did visibly change, it just
+    -- looked worse (brighter/blurrier), not better, since the compositor was never really in HDR.
+    -- On top of that, the BenQ EX2510S is only DisplayHDR 400 with no local dimming (~1136:1
+    -- contrast), so even working HDR wouldn't look meaningfully different here anyway. Don't
+    -- re-enable this without a real HDR panel and a less experimental Hyprland HDR implementation.
+    -- Explicitly 0/disable, not just omitted: Hyprland's own default for this is 1 ("hdr"),
+    -- so leaving it unset would still silently retry fullscreen auto-HDR.
     render = {
-        cm_auto_hdr = 2, -- "hdredid": use BenQ EX2510S's real EDID luminance/primaries for fullscreen auto-HDR instead of generic wide-gamut (default 1)
+        cm_auto_hdr = 0,
     },
 })
 

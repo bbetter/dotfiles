@@ -62,13 +62,54 @@ stage without hunting through git log.
 - Test with an actual HDR-capable fullscreen game or `mpv` HDR video file;
   ordinary desktop/browser use is not expected to look any different.
 
+## Conclusion (2026-08-01): HDR abandoned, 165Hz kept
+
+Tested `cm_auto_hdr` against two genuinely HDR-capable paths on real games:
+- **Pragmata**, native HDR, once its compat tool was switched from Proton
+  Experimental to GE-Proton10-27 (required — `PROTON_ENABLE_WAYLAND`/
+  `PROTON_ENABLE_HDR` are GE-Proton-only patches, no-ops on stock/Experimental
+  Proton). The in-game HDR toggle became selectable, but `hyprctl monitors`
+  kept reporting `colorManagementPreset: srgb` / `currentFormat: XRGB8888`
+  regardless of the toggle state. Turning HDR on in-game made the image
+  brighter and blurrier (not better) with zero change at the compositor
+  level — confirms the game was tonemapping for HDR while still presenting
+  an SDR swapchain, not a Hyprland-side detection failure.
+- **Gothic 1 Remake**, native HDR is broken/greyed-out for most users; tried
+  the RenoDX ReShade addon instead (community mirror, since Nexus pulled the
+  official file — `marat569.github.io/renodx/renodx-ue-extended.addon64`).
+  Loaded and showed a genuine "UE Filmic Extended (HDR)" tone mapper, but
+  same result: `hyprctl monitors` never left `srgb`/`XRGB8888`. ReShade
+  addons hook the swapchain *after* the engine creates it, so they can
+  tonemap/grade the image but can't retroactively make an SDR-format
+  swapchain into a real 10-bit HDR10/PQ surface — that has to be requested
+  by the engine at swapchain creation.
+
+Both failures point at the same thing: Hyprland's HDR pipeline (explicitly
+experimental, see `render:cm_enabled`/`cm_auto_hdr` in
+`src/config/values/ConfigValues.cpp`) plus AMD's Wayland HDR stack aren't
+reliably completing the handshake with real games on this system, independent
+of which game or mod is used.
+
+On top of that, the BenQ EX2510S is only **DisplayHDR 400** (~410 cd/m² peak,
+1136:1 contrast, **no local dimming** — confirmed via Tom's Hardware /
+PCMonitors.info reviews). Even if the software worked flawlessly, this panel
+tier isn't capable of a meaningfully different HDR picture. Not worth further
+effort until: (a) upgrading to a real HDR panel (local dimming or OLED), and
+(b) Hyprland's HDR support matures past experimental.
+
+Decision: `render.cm_auto_hdr` set explicitly to `0` (disabled) in
+`look.lua` — see the comment there for the same reasoning. 165Hz
+(`hypr-stage-a-165hz`) is kept; it works fine and is unrelated to the HDR
+problems.
+
 ## Rolling back
 
 ```
 cd ~/.dotfiles/hypr/.config/hypr
 ./fallback.sh hypr-baseline-2026-08-01   # back to 144Hz/SDR, no HDR
 ./fallback.sh hypr-stage-a-165hz         # back to 165Hz/SDR, no HDR
-./fallback.sh hypr-stage-b-hdr           # re-apply HDR stage if reverted
+./fallback.sh hypr-stage-b-hdr           # re-apply the old auto-HDR attempt (not recommended, see Conclusion)
+./fallback.sh hypr-hdr-abandoned         # current state: 165Hz, HDR explicitly disabled
 ```
 
 The script restores `monitors.lua`/`look.lua` from the tag and runs
