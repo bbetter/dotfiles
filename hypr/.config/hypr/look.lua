@@ -61,6 +61,10 @@ hl.config({
         disable_hyprland_logo   = true,
         vrr                     = 1,
     },
+
+    render = {
+        cm_auto_hdr = 2, -- "hdredid": use BenQ EX2510S's real EDID luminance/primaries for fullscreen auto-HDR instead of generic wide-gamut (default 1)
+    },
 })
 
 -- Bezier curves
