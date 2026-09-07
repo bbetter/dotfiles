@@ -47,7 +47,7 @@ cd "$DOTFILES_DIR"
 
 # Backup існуючих конфігів (якщо є)
 BACKUP_DIR="$HOME/config-backup-$(date +%Y-%m-%d_%H-%M-%S)"
-for dir in hypr ags wofi ghostty swaync swaylock cava neofetch mpv; do
+for dir in hypr ags wofi ghostty swaync swaylock cava neofetch mpv scripts theme fastfetch; do
     if [ -e "$HOME/.config/$dir" ] && [ ! -L "$HOME/.config/$dir" ]; then
         echo "📦 Backing up existing $dir config..."
         mkdir -p "$BACKUP_DIR"
