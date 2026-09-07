@@ -74,17 +74,6 @@ export function SidebarNotificationList() {
           </box>
         </box>
       </button>
-
-      <button
-        class={state.as(s => `sidebar-action ${s.dnd ? "sidebar-action-primary" : ""}`)}
-        onClicked={() => execAsync("swaync-client -d -sw").catch(() => {})}
-        tooltipText="Toggle Do Not Disturb"
-      >
-        <label
-          label={state.as(s => s.dnd ? "󰂛" : "󰂚")}
-          class={state.as(s => `sidebar-action-title ${s.dnd ? "sidebar-attention" : "sidebar-muted"}`)}
-        />
-      </button>
     </box>
   ) as Gtk.Box
 
