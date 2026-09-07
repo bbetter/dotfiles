@@ -3,6 +3,7 @@ import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 import { sectionRevealer } from "./utils"
+import { isSidebarOpen } from "./state"
 
 interface PeripheralsState {
   text: string
@@ -16,7 +17,8 @@ export function SidebarPeripherals() {
   const state = createPoll<PeripheralsState>(
     { text: "No devices", tooltip: "", visible: true },
     2000,
-    async () => {
+    async (prev) => {
+      if (!isSidebarOpen()) return prev
       try {
         const raw = (await execAsync(`python3 ${script}`)).trim()
         if (!raw) return { text: "No devices", tooltip: "", visible: true }

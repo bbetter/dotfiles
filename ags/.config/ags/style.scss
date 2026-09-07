@@ -51,7 +51,6 @@ $green-bg:  #5c8a5d;
    MODULE PILL - shared base for all bar widgets
    ================================================== */
 .clock,
-.tray,
 .language,
 .window-title,
 .audio,
@@ -140,30 +139,6 @@ $green-bg:  #5c8a5d;
 
     label {
       opacity: 1;
-    }
-  }
-}
-
-/* ==================================================
-   TRAY
-   ================================================== */
-.tray {
-  padding: 3px 8px;
-  margin: 3px 6px;
-  margin-left: 16px;
-  background: rgba($fg, 0.1);
-
-  button {
-    padding: 4px;
-    margin: 0 2px;
-    background: transparent;
-    border-radius: 4px;
-    opacity: 0.55;
-    transition: all 0.2s ease;
-
-    &:hover {
-      opacity: 1;
-      background: rgba($fg, 0.08);
     }
   }
 }
@@ -576,12 +551,6 @@ tooltip {
   margin-bottom: 6px;
 }
 
-.sidebar-summary-grid,
-.sidebar-utility-grid,
-.sidebar-quick-grid {
-  margin-top: 4px;
-}
-
 .sidebar-mini-card {
   padding: 12px;
   border-radius: 12px;
@@ -715,11 +684,6 @@ tooltip {
   font-size: 11px;
 }
 
-.sidebar-lead {
-  font-size: 12px;
-  line-height: 1.3;
-}
-
 .sidebar-peripherals {
   color: $secondary;
   font-size: 14px;
@@ -728,11 +692,6 @@ tooltip {
 .sidebar-jarvis {
   color: $success;
   font-size: 14px;
-}
-
-.sidebar-aiush {
-  color: $secondary;
-  font-size: 13px;
 }
 
 .sidebar-ai-usage-card {
@@ -1153,6 +1112,10 @@ tooltip {
 
   &:hover {
     background: rgba($fg, 0.08);
+  }
+
+  &.bt-off {
+    opacity: 0.4;
   }
 }
 

@@ -1,43 +1,66 @@
-import { createPoll } from "ags/time"
+import { createExternal } from "gnim"
 import { toggleCalendarPopup } from "../CalendarPopup"
 import { Gtk, Gdk } from "ags/gtk4"
-import app from "ags/gtk4/app"
+import GLib from "gi://GLib"
+import { bindActiveClass } from "../utils/popupActiveClass"
+
+interface ClockText {
+  label: string
+  tooltip: string
+}
+
+function snapshot(): ClockText {
+  const now = new Date()
+  return {
+    label:
+      now.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }) +
+      "  " +
+      now.toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit", year: "numeric" }),
+    // Tooltip carries what the pill omits: weekday + spelled-out month.
+    tooltip: now.toLocaleDateString("uk-UA", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+  }
+}
 
 export function Clock({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const monitorName = gdkmonitor.get_connector() ?? "default"
-  const time = createPoll("", 1000, () => {
-    const now = new Date()
-    return now.toLocaleTimeString("uk-UA", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }) + "  " + now.toLocaleDateString("uk-UA", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+
+  // Self-realigning: one wake-up per minute, on the minute — not 60 wasted
+  // repaints per displayed minute.
+  const clock = createExternal<ClockText>(snapshot(), (set) => {
+    let id = 0
+    const tick = () => {
+      set(snapshot())
+      id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60000 - (Date.now() % 60000), () => {
+        tick()
+        return GLib.SOURCE_REMOVE
+      })
+      return GLib.SOURCE_REMOVE
+    }
+    id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60000 - (Date.now() % 60000), () => {
+      tick()
+      return GLib.SOURCE_REMOVE
     })
+    return () => {
+      if (id) GLib.source_remove(id)
+    }
   })
 
   const btn = (
-    <button 
-      class="clock" 
-      tooltipText={time}
+    <button
+      class="clock"
+      tooltipText={clock.as(c => c.tooltip)}
       onClicked={() => toggleCalendarPopup(btn)}
     >
-      <label label={time} />
+      <label label={clock.as(c => c.label)} />
     </button>
   ) as Gtk.Button
 
-  setTimeout(() => {
-    const winName = `calendar-popup-${monitorName}`
-    const win = app.get_windows().find(w => w.name === winName)
-    if (win) {
-      win.connect("notify::visible", (w) => {
-        if (w.visible) btn.add_css_class("active")
-        else btn.remove_css_class("active")
-      })
-      if (win.visible) btn.add_css_class("active")
-    }
-  }, 500)
+  bindActiveClass(btn, "calendar-popup", monitorName)
 
   return btn
 }

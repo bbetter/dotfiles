@@ -1,30 +1,25 @@
-import { createPoll } from "ags/time"
+import { createBinding, createComputed } from "gnim"
 import { Gtk, Gdk } from "ags/gtk4"
 import Wp from "gi://AstalWp"
 import { toggleAudioPopup } from "../AudioPopup"
-import app from "ags/gtk4/app"
-
-interface AudioState {
-  label: string
-  tooltip: string
-  volume: number
-  mute: boolean
-}
+import { bindActiveClass } from "../utils/popupActiveClass"
 
 export function Audio({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
-  const wp = Wp.get_default()
+  const wp = Wp.get_default()!
   const monitorName = gdkmonitor.get_connector() ?? "default"
 
-  const state = createPoll<AudioState>({ label: "󰕾 N/A", tooltip: "", volume: 0, mute: false }, 200, () => {
-    const speaker = wp?.audio.defaultSpeaker
-    if (!speaker) return { label: "󰕾 N/A", tooltip: "", volume: 0, mute: false }
+  // Nested bindings follow the default speaker across device switches and fire
+  // on volume/mute changes — no polling.
+  const volume = createBinding(wp.audio, "defaultSpeaker", "volume")
+  const mute = createBinding(wp.audio, "defaultSpeaker", "mute")
 
-    const vol = Math.round(speaker.volume * 100)
+  const state = createComputed(() => {
+    const v = volume()
+    if (v == null) return { label: "󰕾 N/A", tooltip: "" }
+    const pct = Math.round(v * 100)
     return {
-      label: speaker.mute ? "󰝟 Muted" : `󰕾 ${vol}%`,
-      tooltip: `Volume: ${vol}%`,
-      volume: speaker.volume,
-      mute: speaker.mute
+      label: mute() ? "󰝟 Muted" : `󰕾 ${pct}%`,
+      tooltip: `Volume: ${pct}%`,
     }
   })
 
@@ -38,17 +33,7 @@ export function Audio({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     </button>
   ) as Gtk.Button
 
-  setTimeout(() => {
-    const winName = `audio-popup-${monitorName}`
-    const win = app.get_windows().find(w => w.name === winName)
-    if (win) {
-      win.connect("notify::visible", (w) => {
-        if (w.visible) btn.add_css_class("active")
-        else btn.remove_css_class("active")
-      })
-      if (win.visible) btn.add_css_class("active")
-    }
-  }, 500)
+  bindActiveClass(btn, "audio-popup", monitorName)
 
   const scroll = new Gtk.EventControllerScroll({
     flags: Gtk.EventControllerScrollFlags.VERTICAL | Gtk.EventControllerScrollFlags.DISCRETE,

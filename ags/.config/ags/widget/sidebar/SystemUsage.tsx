@@ -2,6 +2,7 @@ import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import { sectionRevealer } from "./utils"
+import { isSidebarOpen } from "./state"
 
 interface UsageState {
   cpu: number
@@ -43,12 +44,18 @@ async function getUsage(): Promise<UsageState> {
     }
 
     try {
-      const vramRaw = await execAsync(["bash", "-c", "nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits"])
-      if (vramRaw && vramRaw.includes(",")) {
-        const parts = vramRaw.split(",").map(s => parseInt(s.trim()))
-        if (parts.length >= 2 && parts[1] > 0) {
-          vram = (parts[0] / parts[1]) * 100
-        }
+      // amdgpu VRAM via DRM sysfs — pick the card with the most VRAM
+      // (the RX 9070 XT dGPU, not the small integrated GPU).
+      const vramRaw = await execAsync(["bash", "-c",
+        'for d in /sys/class/drm/card[0-9]*/device; do ' +
+        '[ -r "$d/mem_info_vram_total" ] || continue; ' +
+        't=$(cat "$d/mem_info_vram_total"); ' +
+        '[ "$t" -gt "${bt:-0}" ] && { bt=$t; bu=$(cat "$d/mem_info_vram_used"); }; ' +
+        'done; [ -n "${bt:-}" ] && echo "$bu $bt"',
+      ])
+      const parts = vramRaw.trim().split(/\s+/).map(s => parseInt(s))
+      if (parts.length >= 2 && parts[1] > 0) {
+        vram = (parts[0] / parts[1]) * 100
       }
     } catch {
       vram = 0
@@ -120,7 +127,7 @@ export function SystemUsage() {
   const state = createPoll<UsageState>(
     { cpu: 0, ram: 0, vram: 0 },
     2000,
-    getUsage
+    async (prev) => (isSidebarOpen() ? getUsage() : prev),
   )
 
   const { revealer, toggleBtn, summaryLabel } = sectionRevealer(false)

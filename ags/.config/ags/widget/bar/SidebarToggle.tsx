@@ -4,7 +4,7 @@ import { toggleSidebar } from "../sidebar/state"
 import { Gdk } from "ags/gtk4"
 
 export function SidebarToggle({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
-  const hasNotifications = createPoll(false, 1000, () => {
+  const hasNotifications = createPoll(false, 2000, () => {
     try {
       const count = Number.parseInt(exec("swaync-client -c -sw").trim(), 10)
       return Number.isFinite(count) && count > 0

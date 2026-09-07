@@ -27,9 +27,11 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   let externalPressStartY = 0
   let externalPressDragged = false
   const debugLogPath = `/tmp/ags-workspaces-${connector || "unknown"}-poll.log`
+  const debugEnabled = !!GLib.getenv("AGS_WS_DEBUG")
   let lastDebugLine = ""
 
   const debugLog = (message: string) => {
+    if (!debugEnabled) return
     try {
       if (message === lastDebugLine) return
       lastDebugLine = message

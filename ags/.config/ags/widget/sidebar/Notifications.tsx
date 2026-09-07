@@ -1,7 +1,7 @@
 import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
-import { closeSidebar } from "./state"
+import { closeSidebar, isSidebarOpen } from "./state"
 import { sectionRevealer } from "./utils"
 
 interface SwayNCState {
@@ -28,7 +28,7 @@ export function SidebarNotificationList() {
   const state = createPoll<SwayNCState>(
     { count: 0, dnd: false },
     3000,
-    getSwayncState,
+    async (prev) => (isSidebarOpen() ? getSwayncState() : prev),
   )
 
   const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true)

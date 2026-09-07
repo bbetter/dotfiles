@@ -3,6 +3,7 @@ import GLib from "gi://GLib"
 import GdkPixbuf from "gi://GdkPixbuf"
 import Mpris from "gi://AstalMpris"
 import { sectionRevealer } from "./utils"
+import { isSidebarOpen } from "./state"
 
 function formatTime(seconds: number): string {
   if (seconds < 0) return "0:00"
@@ -408,9 +409,11 @@ export function SidebarMedia() {
 
   // Start polling at a higher refresh rate (200ms) for smoother seekbar visuals,
   // but we also rely on player notify signals (connected above) for immediate updates.
+  // The seekbar is only visible while the sidebar drawer is open, so skip the
+  // work (but keep the timer) whenever it's closed.
   pollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
     try {
-      updateOnce()
+      if (isSidebarOpen()) updateOnce()
     } catch {}
     return true
   })

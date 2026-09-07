@@ -1,46 +1,43 @@
-import { createPoll } from "ags/time"
+import { createBinding, createComputed } from "gnim"
 import { Gtk, Gdk } from "ags/gtk4"
 import AstalBluetooth from "gi://AstalBluetooth"
 import { toggleBluetoothPopup } from "../BluetoothPopup"
-import app from "ags/gtk4/app"
+import { bindActiveClass } from "../utils/popupActiveClass"
 
 export function BluetoothIndicator({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const bt = AstalBluetooth.get_default()
   const monitorName = gdkmonitor.get_connector() ?? "default"
 
-  const label = createPoll("", 500, () => {
-    if (!bt.get_is_powered()) return ""
-    const connected = bt.get_devices().filter(d => d.get_connected())
+  // Updates on adapter power and on the device list changing (connect/disconnect).
+  // Battery % refreshes on those events rather than ticking live — good enough
+  // for a bar pill and avoids a 2 Hz poll.
+  const powered = createBinding(bt, "isPowered")
+  const devices = createBinding(bt, "devices")
+
+  const label = createComputed(() => {
+    if (!powered()) return "󰂲"
+    const connected = devices().filter(d => d.connected)
     if (connected.length === 0) return "󰂯"
     const d = connected[0]
-    const bat = d.get_battery_percentage()
+    const bat = d.batteryPercentage
     const batStr = bat >= 0 ? ` ${Math.round(bat)}%` : ""
-    return `󰂱 ${d.get_alias() ?? d.get_name() ?? ""}${batStr}`
+    return `󰂱 ${d.alias ?? d.name ?? ""}${batStr}`
   })
 
-  const visible = createPoll(false, 500, () => bt.get_is_powered())
+  // Stay visible when the adapter is off (dimmed) so the popup — and the
+  // power toggle inside it — is still reachable.
+  const cssClass = createComputed(() => powered() ? "bluetooth" : "bluetooth bt-off")
 
   const btn = (
     <button
-      class="bluetooth"
-      visible={visible}
+      class={cssClass}
       onClicked={() => toggleBluetoothPopup(btn)}
     >
       <label label={label} />
     </button>
   ) as Gtk.Button
 
-  setTimeout(() => {
-    const winName = `bluetooth-popup-${monitorName}`
-    const win = app.get_windows().find(w => w.name === winName)
-    if (win) {
-      win.connect("notify::visible", (w) => {
-        if (w.visible) btn.add_css_class("active")
-        else btn.remove_css_class("active")
-      })
-      if (win.visible) btn.add_css_class("active")
-    }
-  }, 500)
+  bindActiveClass(btn, "bluetooth-popup", monitorName)
 
   return btn
 }

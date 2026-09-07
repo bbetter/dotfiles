@@ -1,32 +1,47 @@
-import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { createConnection } from "gnim"
+import { exec, execAsync } from "ags/process"
+import Hyprland from "gi://AstalHyprland"
+
+const KBD = "󰌌" // nf-md-keyboard
+
+function codeFor(layout: string): string {
+  if (layout === "us") return "EN"
+  if (layout === "ua" || layout === "uk") return "UA"
+  return layout.toUpperCase()
+}
+
+function readLayout(): string {
+  try {
+    const devices = JSON.parse(exec("hyprctl devices -j"))
+    const keyboard =
+      devices.keyboards?.find((k: { main?: boolean }) => k.main) || devices.keyboards?.[0]
+    if (keyboard) {
+      const active = keyboard.layout.split(",")[keyboard.active_layout_index]
+      return `${KBD} ${codeFor(String(active))}`
+    }
+  } catch {
+    // keep fallback
+  }
+  return KBD
+}
 
 export function Language() {
-  const layoutText = createPoll("⌨️", 200, () => {
-    try {
-      const output = exec("hyprctl devices -j")
-      const devices = JSON.parse(output)
+  const hypr = Hyprland.get_default()
 
-      const keyboard = devices.keyboards?.find((k: { main?: boolean }) => k.main) || devices.keyboards?.[0]
-
-      if (keyboard) {
-        const layouts = keyboard.layout.split(",")
-        const activeIndex = keyboard.active_layout_index
-        const activeLayout = layouts[activeIndex]
-
-        if (activeLayout === "us") return "🇺🇸"
-        if (activeLayout === "ua" || activeLayout === "uk") return "🇺🇦"
-
-        return activeLayout.toUpperCase()
-      }
-    } catch {
-      // keep fallback
-    }
-    return "⌨️"
-  })
+  // Re-read only when Hyprland reports a layout switch (a few times a day),
+  // instead of spawning `hyprctl devices -j` five times a second.
+  const layoutText = createConnection(readLayout(), [
+    hypr,
+    "keyboard-layout",
+    () => readLayout(),
+  ])
 
   return (
-    <button class="language" tooltipText="Keyboard layout">
+    <button
+      class="language"
+      tooltipText="Click to switch keyboard layout"
+      onClicked={() => execAsync(["hyprctl", "switchxkblayout", "current", "next"]).catch(() => {})}
+    >
       <label label={layoutText} />
     </button>
   )

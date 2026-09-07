@@ -16,8 +16,22 @@ def run(cmd):
 
 
 def no_network():
-    print(json.dumps({"text": "🚫", "tooltip": "No network connection"}))
+    print(json.dumps({"text": "󰤭", "tooltip": "No network connection"}, ensure_ascii=False))
     sys.exit(0)
+
+
+def wifi_icon(signal):
+    try:
+        s = int(signal)
+    except (TypeError, ValueError):
+        return "󰤨"
+    if s >= 75:
+        return "󰤨"
+    if s >= 50:
+        return "󰤥"
+    if s >= 25:
+        return "󰤢"
+    return "󰤟"
 
 
 lines = run(["nmcli", "-t", "-f", "TYPE,NAME,DEVICE", "connection", "show", "--active"]).strip().splitlines()
@@ -57,7 +71,7 @@ for line in lines:
                     signal = wifi_parts[1]
                 break
 
-        text = f"📶 {ssid}"
+        text = f"{wifi_icon(signal)} {ssid}"
         tooltip = (
             f"Wi-Fi\n"
             f"SSID: {ssid}\n"

@@ -1,33 +1,55 @@
-import { createPoll } from "ags/time"
-import { exec } from "ags/process"
+import { createBinding, createComputed } from "gnim"
 import { Gtk, Gdk } from "ags/gtk4"
-import GLib from "gi://GLib"
+import AstalNetwork from "gi://AstalNetwork"
 import { toggleNetworkPopup } from "../NetworkPopup"
-import app from "ags/gtk4/app"
+import { bindActiveClass } from "../utils/popupActiveClass"
 
 interface NetworkState {
   text: string
   tooltip: string
 }
 
+function wifiIcon(strength: number): string {
+  if (strength >= 75) return "󰤨"
+  if (strength >= 50) return "󰤥"
+  if (strength >= 25) return "󰤢"
+  return "󰤟"
+}
+
+function internetText(v: AstalNetwork.Internet): string {
+  if (v === AstalNetwork.Internet.CONNECTED) return "Connected"
+  if (v === AstalNetwork.Internet.CONNECTING) return "Connecting…"
+  return "Disconnected"
+}
+
 export function NetworkIndicator({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const monitorName = gdkmonitor.get_connector() ?? "default"
-  const state = createPoll<NetworkState>(
-    { text: "🚫", tooltip: "No network connection" },
-    5000,
-    () => {
-      try {
-        const raw = exec(`python3 ${GLib.get_home_dir()}/.config/ags/scripts/network.py`).trim()
-        const data = JSON.parse(raw) as { text?: string; tooltip?: string }
-        return {
-          text: data.text ?? "🚫",
-          tooltip: data.tooltip ?? "No network connection",
-        }
-      } catch {
-        return { text: "🚫", tooltip: "No network connection" }
+  const network = AstalNetwork.get_default()
+
+  // Event-driven via AstalNetwork (same binding the NetworkPopup uses) —
+  // no more `python3 network.py` every 5 seconds.
+  const primary = createBinding(network, "primary")
+  const ssid = createBinding(network, "wifi", "ssid")
+  const strength = createBinding(network, "wifi", "strength")
+  const wiredInternet = createBinding(network, "wired", "internet")
+  const wiredSpeed = createBinding(network, "wired", "speed")
+
+  const state = createComputed<NetworkState>(() => {
+    const p = primary()
+    if (p === AstalNetwork.Primary.WIRED) {
+      const speed = wiredSpeed() ?? 0
+      return {
+        text: "󰈀 LAN",
+        tooltip: `Ethernet · ${internetText(wiredInternet())}` + (speed > 0 ? ` · ${speed} Mb/s` : ""),
       }
-    },
-  )
+    }
+    if (p === AstalNetwork.Primary.WIFI) {
+      const s = strength() ?? 0
+      const name = ssid() ?? "Wi-Fi"
+      return { text: `${wifiIcon(s)} ${name}`, tooltip: `Wi-Fi\nSSID: ${name}\nSignal: ${s}%` }
+    }
+    return { text: "󰤭", tooltip: "No network connection" }
+  })
 
   const btn = (
     <button
@@ -39,19 +61,7 @@ export function NetworkIndicator({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     </button>
   ) as Gtk.Button
 
-  // Set up observer after windows are likely created
-  setTimeout(() => {
-    const winName = `network-popup-${monitorName}`
-    const win = app.get_windows().find(w => w.name === winName)
-    if (win) {
-      win.connect("notify::visible", (w) => {
-        if (w.visible) btn.add_css_class("active")
-        else btn.remove_css_class("active")
-      })
-      // initial check
-      if (win.visible) btn.add_css_class("active")
-    }
-  }, 500)
+  bindActiveClass(btn, "network-popup", monitorName)
 
   return btn
 }

@@ -1,8 +1,8 @@
-import { createPoll } from "ags/time"
+import { createBinding, createComputed } from "gnim"
 import Hyprland from "gi://AstalHyprland"
 
 const APP_REWRITES: Record<string, string> = {
-  "firefox":  "🌐",
+  "firefox":  "󰈹 Firefox",
   "code":     " Code",
   "thunar":   " Files",
   "kitty":    " Terminal",
@@ -20,11 +20,15 @@ function rewrite(title: string, wm_class: string): string {
 export function WindowTitle() {
   const hypr = Hyprland.get_default()
 
-  const state = createPoll({ text: "", visible: false }, 500, () => {
-    if (!hypr) return { text: "", visible: false }
-    const win = hypr.focusedClient
-    if (!win?.title) return { text: "", visible: false }
-    return { text: rewrite(win.title, win["class"] as string), visible: true }
+  // Nested bindings re-attach to the new focused client automatically and also
+  // fire on that client's title/class changes — no polling.
+  const titleB = createBinding(hypr, "focusedClient", "title")
+  const classB = createBinding(hypr, "focusedClient", "class")
+
+  const state = createComputed(() => {
+    const t = titleB()
+    if (!t) return { text: "", visible: false }
+    return { text: rewrite(t, classB() ?? ""), visible: true }
   })
 
   return (

@@ -2,6 +2,7 @@ import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
+import { isSidebarOpen } from "./state"
 
 interface StatusState {
   language: string
@@ -22,7 +23,11 @@ export function SidebarStatus() {
   const quickState = createPoll<StatusState>(
     { language: "?", date: "", time: "", printer: 0, recording: "—" },
     2000,
-    async () => {
+    async (prev) => {
+      // The sidebar is a drawer — don't spawn hyprctl/lpstat/recording probes
+      // every 2s while it's closed and nobody can see the result.
+      if (!isSidebarOpen()) return prev
+
       const now = new Date()
 
       let language = "?"
