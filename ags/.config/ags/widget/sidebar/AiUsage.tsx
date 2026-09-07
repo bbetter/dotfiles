@@ -182,7 +182,7 @@ export function SidebarAiUsage() {
     )
   }
 
-  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(false)
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(false, "aiusage")
 
   state.subscribe(() => {
     const s = state.peek()

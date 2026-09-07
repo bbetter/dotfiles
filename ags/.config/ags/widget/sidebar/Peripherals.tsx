@@ -34,7 +34,7 @@ export function SidebarPeripherals() {
     }
   )
 
-  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true)
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true, "peripherals")
 
   state.subscribe(() => {
     const s = state.peek()

@@ -31,7 +31,7 @@ export function SidebarNotificationList() {
     async (prev) => (isSidebarOpen() ? getSwayncState() : prev),
   )
 
-  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true)
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true, "notifications")
 
   state.subscribe(() => {
     const s = state.peek()

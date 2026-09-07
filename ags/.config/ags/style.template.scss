@@ -380,15 +380,15 @@ tooltip {
 }
 
 .sidebar-power-row {
-  padding-bottom: 2px;
+  padding: 0;
 }
 
 .sidebar-power-btn {
-  padding: 8px 0;
-  border-radius: 10px;
+  padding: 4px 7px;
+  border-radius: 8px;
   background: rgba($fg, 0.05);
-  color: rgba($fg, 0.75);
-  font-size: 16px;
+  color: rgba($fg, 0.7);
+  font-size: 13px;
   transition: background 0.15s ease, color 0.15s ease;
 
   &:hover {
@@ -407,6 +407,70 @@ tooltip {
 
   &.armed:hover {
     background: rgba($alert, 0.26);
+  }
+}
+
+.sidebar-toggle-row {
+  padding-bottom: 2px;
+}
+
+.sidebar-toggle-pill {
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: rgba($fg, 0.06);
+  color: rgba($fg, 0.7);
+  font-size: 13px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba($fg, 0.1);
+    color: $fg;
+  }
+
+  &.active {
+    background: rgba($special, 0.18);
+    color: $special;
+  }
+
+  &.active:hover {
+    background: rgba($special, 0.26);
+  }
+}
+
+.sidebar-audio-icon {
+  font-size: 15px;
+  color: $secondary;
+  min-width: 20px;
+}
+
+.sidebar-audio-mute {
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: transparent;
+
+  &:hover {
+    background: rgba($fg, 0.08);
+  }
+}
+
+.sidebar-audio-slider {
+  trough {
+    background: rgba($fg, 0.12);
+    border-radius: 4px;
+    min-height: 4px;
+  }
+
+  highlight {
+    background: $secondary;
+    border-radius: 4px;
+  }
+
+  slider {
+    background: $fg-warm;
+    border-radius: 50%;
+    min-width: 12px;
+    min-height: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   }
 }
 

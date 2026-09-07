@@ -8,6 +8,8 @@ import { SidebarAiUsage } from "./sidebar/AiUsage"
 import { SystemUsage } from "./sidebar/SystemUsage"
 import { SidebarNotificationList } from "./sidebar/Notifications"
 import { SidebarPower } from "./sidebar/Power"
+import { SidebarToggles } from "./sidebar/Toggles"
+import { SidebarAudio } from "./sidebar/AudioControls"
 import { closeSidebar, registerSidebar } from "./sidebar/state"
 
 export const SIDEBAR_WIDTH = 390
@@ -46,12 +48,20 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
           hexpand={false}
           halign={Gtk.Align.FILL}
         >
-          <box class="sidebar-header" hexpand={false}>
-            <label label="CONTROL CENTER" class="sidebar-title" hexpand halign={Gtk.Align.START} />
+          <box class="sidebar-header" hexpand={false} spacing={8}>
+            <label
+              label="CONTROL CENTER"
+              class="sidebar-title"
+              hexpand
+              halign={Gtk.Align.START}
+              valign={Gtk.Align.CENTER}
+            />
+            {SidebarPower()}
             {closeBtn}
           </box>
-          {SidebarPower()}
           {SidebarStatus()}
+          {SidebarToggles()}
+          {SidebarAudio()}
           {SidebarNotificationList()}
           {SystemUsage()}
           {SidebarMedia()}

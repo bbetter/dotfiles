@@ -5,6 +5,10 @@ import Mpris from "gi://AstalMpris"
 import { sectionRevealer } from "./utils"
 import { isSidebarOpen } from "./state"
 
+// One reused path for decoded data: URI artwork, rewritten only when the
+// cover actually changes (not every 200ms tick).
+const COVER_TMP = `${GLib.get_tmp_dir()}/ags-media-cover.img`
+
 function formatTime(seconds: number): string {
   if (seconds < 0) return "0:00"
   const s = Math.floor(seconds)
@@ -21,7 +25,7 @@ export function SidebarMedia() {
 
   // Use the sectionRevealer helper to get a revealer, the toggle button and a summary label widget.
   // We'll update these widgets imperatively on a timer instead of using reactive Bindings.
-  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true)
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(true, "media")
 
   // Imperative widgets
   const artImage = new Gtk.Image()
@@ -183,6 +187,7 @@ export function SidebarMedia() {
   // State
   let currentPlayer: any = null
   let pollId: number | null = null
+  let renderedCover = ""
 
   function chooseActivePlayer(players: any[]) {
     // Prefer players that are playing/paused and also expose metadata (title or artist),
@@ -213,6 +218,7 @@ export function SidebarMedia() {
         mediaCard.visible = false
         summaryLabel.set_label("")
         currentPlayer = null
+        renderedCover = ""
         return
       }
 
@@ -276,64 +282,53 @@ export function SidebarMedia() {
       artistLabel.set_text(artist)
       summaryLabel.set_label(artist ? `${artist} – ${title}` : title)
 
-      // Artwork — handle file paths, file:// URIs, and data: URIs (base64)
+      // Artwork — handle file paths, file:// URIs, and data: URIs (base64).
+      // Only rebuild when the cover URL changes; updateOnce() runs at 5 Hz.
       const cover = player.coverArt ?? ""
-      try {
-        if (cover && cover.startsWith("data:")) {
-          // Data URI — decode base64 payload and write to a temp file, then load a scaled pixbuf
-          const comma = cover.indexOf(",")
-          if (comma > 0) {
-            const meta = cover.slice(5, comma) // after 'data:'
-            const isBase64 = meta.includes(";base64")
-            const payload = cover.slice(comma + 1)
-            if (isBase64 && payload.length > 0) {
-              try {
-                const bytes = GLib.base64_decode(payload)
-                const tmp = `${GLib.get_tmp_dir()}/ags-cover-${Date.now()}.img`
-                // write raw bytes to temporary file
-                GLib.file_set_contents(tmp, bytes)
+      if (cover !== renderedCover) {
+        renderedCover = cover
+        try {
+          if (cover && cover.startsWith("data:")) {
+            // Data URI — decode base64 payload, write it to one reused temp
+            // file, then load a scaled pixbuf.
+            const comma = cover.indexOf(",")
+            if (comma > 0) {
+              const meta = cover.slice(5, comma) // after 'data:'
+              const isBase64 = meta.includes(";base64")
+              const payload = cover.slice(comma + 1)
+              if (isBase64 && payload.length > 0) {
                 try {
-                  const pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                    tmp,
-                    56,
-                    56,
-                    true,
-                  )
-                  artImage.set_from_pixbuf(pb)
+                  const bytes = GLib.base64_decode(payload)
+                  GLib.file_set_contents(COVER_TMP, bytes)
+                  try {
+                    const pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(COVER_TMP, 56, 56, true)
+                    artImage.set_from_pixbuf(pb)
+                  } catch {
+                    artImage.set_from_file(COVER_TMP)
+                  }
                 } catch {
-                  artImage.set_from_file(tmp)
+                  artImage.set_from_icon_name("audio-x-generic-symbolic")
                 }
-              } catch {
+              } else {
                 artImage.set_from_icon_name("audio-x-generic-symbolic")
               }
             } else {
               artImage.set_from_icon_name("audio-x-generic-symbolic")
             }
+          } else if (cover && (cover.startsWith("/") || cover.startsWith("file://"))) {
+            const path = cover.replace("file://", "")
+            try {
+              const pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 56, 56, true)
+              artImage.set_from_pixbuf(pb)
+            } catch {
+              artImage.set_from_icon_name("audio-x-generic-symbolic")
+            }
           } else {
             artImage.set_from_icon_name("audio-x-generic-symbolic")
           }
-        } else if (
-          cover &&
-          (cover.startsWith("/") || cover.startsWith("file://"))
-        ) {
-          const path = cover.replace("file://", "")
-          try {
-            const pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-              path,
-              56,
-              56,
-              true,
-            )
-            artImage.set_from_pixbuf(pb)
-          } catch {
-            // fallback to icon if file cannot be loaded/scaled
-            artImage.set_from_icon_name("audio-x-generic-symbolic")
-          }
-        } else {
+        } catch {
           artImage.set_from_icon_name("audio-x-generic-symbolic")
         }
-      } catch {
-        artImage.set_from_icon_name("audio-x-generic-symbolic")
       }
 
       // Playback status
@@ -421,11 +416,16 @@ export function SidebarMedia() {
   // Run one immediate update
   updateOnce()
 
-  // Cleanup when the widget is destroyed: clear the timer
+  // Cleanup when the widget is destroyed: clear the timer, drop the temp cover
   revealer.connect("unmap", () => {
     if (pollId !== null) {
       GLib.Source.remove(pollId)
       pollId = null
+    }
+    try {
+      GLib.unlink(COVER_TMP)
+    } catch {
+      /* best effort */
     }
   })
 

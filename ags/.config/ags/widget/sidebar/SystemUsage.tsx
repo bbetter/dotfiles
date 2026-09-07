@@ -155,7 +155,7 @@ export function SystemUsage() {
     async (prev) => (isSidebarOpen() ? getUsage() : prev),
   )
 
-  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(false)
+  const { revealer, toggleBtn, summaryLabel } = sectionRevealer(false, "system")
 
   state.subscribe(() => {
     const s = state.peek()

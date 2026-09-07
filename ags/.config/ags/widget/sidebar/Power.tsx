@@ -21,7 +21,7 @@ const ACTIONS: PowerAction[] = [
 const ARMED_ICON = "󰀦"
 
 export function SidebarPower() {
-  const row = (<box spacing={8} homogeneous class="sidebar-power-row" />) as Gtk.Box
+  const row = (<box spacing={4} class="sidebar-power-row" />) as Gtk.Box
 
   for (const action of ACTIONS) {
     const icon = new Gtk.Label({ label: action.icon })
