@@ -5,6 +5,18 @@
 -- Layer rules
 hl.layer_rule({ match = { namespace = "vicinae" }, blur = true, ignore_alpha = 0, no_anim = true })
 
+-- AGS bar / sidebar / popups (all AGS windows share this namespace). Frosted
+-- glass behind the translucent bar pills; ignore_alpha keeps fully-transparent
+-- bar gaps from picking up a blur haze.
+hl.layer_rule({ match = { namespace = "gtk4-layer-shell" }, blur = true, ignore_alpha = 0.05, xray = false })
+
+-- Notification centre + toasts
+hl.layer_rule({ match = { namespace = "swaync-control-center" },     blur = true, ignore_alpha = 0.2 })
+hl.layer_rule({ match = { namespace = "swaync-notification-window" }, blur = true, ignore_alpha = 0.2 })
+
+-- wofi launcher
+hl.layer_rule({ match = { namespace = "wofi" }, blur = true, ignore_alpha = 0 })
+
 -- Suppress maximize events globally
 hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
 

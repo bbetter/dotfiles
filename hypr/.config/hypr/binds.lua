@@ -11,7 +11,9 @@ local fileManager = "thunar"
 -- SYSTEM / SESSION
 -- ==================================================
 
-hl.bind(mainMod .. " + SHIFT + L", hl.dsp.exec_cmd("swaylock"))
+-- Lock: NOT on SUPER+SHIFT+L — that keysym collides with the SUPER+SHIFT+l
+-- window-swap bind (Hyprland matches letter keys case-insensitively).
+hl.bind(mainMod .. " + SHIFT + ESCAPE", hl.dsp.exec_cmd("swaylock"))
 hl.bind(mainMod .. " + Q",         hl.dsp.window.close())
 hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exit())
 hl.bind(mainMod .. " + W",         hl.dsp.exec_cmd(home .. "/.config/hypr/toggle-ags.sh"))
@@ -153,4 +155,5 @@ hl.bind("mouse:276",               hl.dsp.window.drag(),   { mouse = true })
 -- HELP
 -- ==================================================
 
-hl.bind(mainMod .. " + SHIFT + H", hl.dsp.exec_cmd(home .. "/.config/hypr/show-binds.sh"))
+-- Help: NOT on SUPER+SHIFT+H — collides with the SUPER+SHIFT+h window-swap bind.
+hl.bind(mainMod .. " + slash", hl.dsp.exec_cmd(home .. "/.config/hypr/show-binds.sh"))
