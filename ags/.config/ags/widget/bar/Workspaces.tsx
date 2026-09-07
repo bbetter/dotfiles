@@ -183,21 +183,21 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
 
     ids.forEach(id => {
       if (!buttons.has(id)) {
+        // Built with plain constructors, not JSX — update() runs from a timer
+        // with no component tracking context, so `<button>` here would log
+        // "out of tracking context: will not be able to cleanup" every rebuild.
         const iconBox = new Gtk.Box({ spacing: 4 })
-        const btn = (
-          <button
-            class="workspace-btn"
-            onClicked={() => {
-              try { GLib.spawn_command_line_async(`hyprctl -q dispatch 'hl.dsp.focus({ workspace = ${id} })'`) } catch {}
-            }}
-          >
-            <box spacing={6}>
-              <label label={id === 10 ? "0" : `${id}`} />
-              {iconBox}
-            </box>
-          </button>
-        ) as Gtk.Button
-        
+        const inner = new Gtk.Box({ spacing: 6 })
+        inner.append(new Gtk.Label({ label: id === 10 ? "0" : `${id}` }))
+        inner.append(iconBox)
+
+        const btn = new Gtk.Button()
+        btn.add_css_class("workspace-btn")
+        btn.set_child(inner)
+        btn.connect("clicked", () => {
+          try { GLib.spawn_command_line_async(`hyprctl -q dispatch 'hl.dsp.focus({ workspace = ${id} })'`) } catch {}
+        })
+
         buttons.set(id, btn)
         iconBoxes.set(id, iconBox)
         changed = true
