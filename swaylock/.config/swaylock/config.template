@@ -15,25 +15,25 @@ indicator-radius=100
 indicator-thickness=10
 
 # Кольори індикатора (з wal)
-inside-color=1c2023cc
-ring-color=ae95c7
+inside-color=__BG__cc
+ring-color=__PRIMARY_HEX__
 line-color=00000000
-key-hl-color=95aec7
-bs-hl-color=c7ae95
+key-hl-color=__SUCCESS_HEX__
+bs-hl-color=__ERROR_HEX__
 separator-color=00000000
 
 # При перевірці
-inside-ver-color=ae95c7cc
-ring-ver-color=ae95c7
+inside-ver-color=__PRIMARY_HEX__cc
+ring-ver-color=__PRIMARY_HEX__
 
 # При помилці
-inside-wrong-color=c7ae95cc
-ring-wrong-color=c7ae95
+inside-wrong-color=__ERROR_HEX__cc
+ring-wrong-color=__ERROR_HEX__
 
 # Текст
-text-color=c7ccd1
-text-ver-color=c7ccd1
-text-wrong-color=1c2023
+text-color=__FG__
+text-ver-color=__FG__
+text-wrong-color=__BG__
 
 # Шрифт
 font="JetBrainsMono Nerd Font"

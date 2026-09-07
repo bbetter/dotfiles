@@ -17,14 +17,14 @@
 }
 
 .notification-content {
-  background: rgba(28,32,35,0.95);
+  background: __BG_STRONG__;
   padding: 6px;
   border-radius: 10px;
 }
 
 .close-button {
-  background: #c7ae95;
-  color: #1c2023;
+  background: __ERROR__;
+  color: #__BG__;
   text-shadow: none;
   padding: 0;
   border-radius: 100%;
@@ -37,23 +37,23 @@
   padding: 4px;
   margin: 0;
   box-shadow: none;
-  background: rgba(174,149,199,0.1);
-  border: 1px solid rgba(174,149,199,0.3);
-  color: #c7ccd1;
+  background: __PRIMARY_A10__;
+  border: 1px solid __PRIMARY_A30__;
+  color: __FG_CSS__;
   transition: all 0.15s ease-in-out;
 }
 
 .notification-default-action:hover,
 .notification-action:hover {
   -gtk-icon-effect: none;
-  background: rgba(174,149,199,0.2);
+  background: __PRIMARY_A20__;
 }
 
 .summary {
   font-size: 14px;
   font-weight: bold;
   background: transparent;
-  color: #ae95c7;
+  color: __PRIMARY__;
   text-shadow: none;
 }
 
@@ -61,7 +61,7 @@
   font-size: 11px;
   font-weight: bold;
   background: transparent;
-  color: rgba(199,204,209,0.45);
+  color: __FG_DIM__;
   text-shadow: none;
   margin-right: 18px;
 }
@@ -70,13 +70,13 @@
   font-size: 13px;
   font-weight: 400;
   background: transparent;
-  color: #c7ccd1;
+  color: __FG_CSS__;
   text-shadow: none;
 }
 
 .control-center {
-  background: rgba(28,32,35,0.95);
-  border: 2px solid rgba(174,149,199,0.5);
+  background: __BG_STRONG__;
+  border: 2px solid __PRIMARY_A50__;
   border-radius: 10px;
 }
 
@@ -97,8 +97,8 @@
 }
 
 .widget-title {
-  color: #ae95c7;
-  background: rgba(174,149,199,0.1);
+  color: __PRIMARY__;
+  background: __PRIMARY_A10__;
   padding: 5px 10px;
   margin: 10px 10px 5px 10px;
   font-size: 1.2rem;
@@ -106,12 +106,12 @@
 }
 
 .widget-dnd {
-  background: rgba(174,149,199,0.1);
+  background: __PRIMARY_A10__;
   padding: 5px 10px;
   margin: 10px 10px 5px 10px;
   border-radius: 8px;
   font-size: large;
-  color: #ae95c7;
+  color: __PRIMARY__;
 }
 
 .widget-label {
@@ -120,7 +120,7 @@
 
 .widget-label > label {
   font-size: 1.2rem;
-  color: #c7ccd1;
+  color: __FG_CSS__;
 }
 
 .widget-menubar > box > .menu-button-bar > button {
