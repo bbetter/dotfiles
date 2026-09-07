@@ -1,8 +1,7 @@
-import { createExternal } from "gnim"
 import { toggleCalendarPopup } from "../CalendarPopup"
 import { Gtk, Gdk } from "ags/gtk4"
-import GLib from "gi://GLib"
 import { bindActiveClass } from "../utils/popupActiveClass"
+import { createMinuteClock } from "../utils/minuteClock"
 
 interface ClockText {
   label: string
@@ -29,26 +28,7 @@ function snapshot(): ClockText {
 export function Clock({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const monitorName = gdkmonitor.get_connector() ?? "default"
 
-  // Self-realigning: one wake-up per minute, on the minute — not 60 wasted
-  // repaints per displayed minute.
-  const clock = createExternal<ClockText>(snapshot(), (set) => {
-    let id = 0
-    const tick = () => {
-      set(snapshot())
-      id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60000 - (Date.now() % 60000), () => {
-        tick()
-        return GLib.SOURCE_REMOVE
-      })
-      return GLib.SOURCE_REMOVE
-    }
-    id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60000 - (Date.now() % 60000), () => {
-      tick()
-      return GLib.SOURCE_REMOVE
-    })
-    return () => {
-      if (id) GLib.source_remove(id)
-    }
-  })
+  const clock = createMinuteClock<ClockText>(snapshot)
 
   const btn = (
     <button

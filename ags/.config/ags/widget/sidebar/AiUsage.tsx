@@ -1,8 +1,9 @@
-import { createPoll } from "ags/time"
+import { createExternal } from "gnim"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
 import GLib from "gi://GLib"
 import { sectionRevealer } from "./utils"
+import { isSidebarOpen, onSidebarOpen } from "./state"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parsing
@@ -121,17 +122,38 @@ const empty: AiState = {
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function fetchAiState(): Promise<AiState> {
+  try {
+    const raw = (await execAsync(`python3 ${GLib.get_home_dir()}/.local/lib/aiush/aiush.py --once`)).trim()
+    if (!raw) return empty
+    const data = JSON.parse(raw) as { tooltip?: string }
+    const providers = parseTooltip(data.tooltip ?? "")
+    const visible = providers.claude.visible || providers.codex.visible || providers.qwen.visible
+    return { ...providers, visible }
+  } catch {
+    return empty
+  }
+}
+
 export function SidebarAiUsage() {
-  const state = createPoll<AiState>(empty, 60_000, async () => {
-    try {
-      const raw = (await execAsync(`python3 ${GLib.get_home_dir()}/.local/lib/aiush/aiush.py --once`)).trim()
-      if (!raw) return empty
-      const data = JSON.parse(raw) as { tooltip?: string }
-      const providers = parseTooltip(data.tooltip ?? "")
-      const visible = providers.claude.visible || providers.codex.visible || providers.qwen.visible
-      return { ...providers, visible }
-    } catch {
-      return empty
+  // aiush.py is an external API call — only run it while the drawer is open,
+  // and fire one immediately each time it opens instead of waiting out the
+  // 60s interval.
+  const state = createExternal<AiState>(empty, (set) => {
+    let running = false
+    const refresh = () => {
+      if (running || !isSidebarOpen()) return
+      running = true
+      fetchAiState()
+        .then(v => { set(v); running = false })
+        .catch(() => { running = false })
+    }
+    const intervalId = setInterval(refresh, 60_000)
+    const unhook = onSidebarOpen(refresh)
+    refresh()
+    return () => {
+      clearInterval(intervalId)
+      unhook()
     }
   })
 

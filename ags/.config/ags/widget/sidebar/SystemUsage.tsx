@@ -1,6 +1,7 @@
 import { createPoll } from "ags/time"
 import { execAsync } from "ags/process"
 import { Gtk } from "ags/gtk4"
+import GLib from "gi://GLib"
 import { sectionRevealer } from "./utils"
 import { isSidebarOpen } from "./state"
 
@@ -18,56 +19,77 @@ const history = {
   vram: new Array(HISTORY_SIZE).fill(0),
 }
 
+function readFile(path: string): string | null {
+  try {
+    const [ok, bytes] = GLib.file_get_contents(path)
+    return ok ? new TextDecoder().decode(bytes) : null
+  } catch {
+    return null
+  }
+}
+
+// amdgpu VRAM sysfs paths — resolved once (the dGPU with the most VRAM, not the
+// small integrated GPU). The `for` loop over /sys/class/drm runs a single time.
+let vramFiles: { used: string; total: string } | null | undefined
+async function resolveVramFiles() {
+  if (vramFiles !== undefined) return vramFiles
+  vramFiles = null
+  try {
+    const dir = (
+      await execAsync(["bash", "-c",
+        'best=""; bt=0; for d in /sys/class/drm/card[0-9]*/device; do ' +
+        '[ -r "$d/mem_info_vram_total" ] || continue; ' +
+        't=$(cat "$d/mem_info_vram_total"); ' +
+        '[ "$t" -gt "$bt" ] && { bt=$t; best=$d; }; done; ' +
+        '[ -n "$best" ] && printf %s "$best"',
+      ])
+    ).trim()
+    if (dir) vramFiles = { used: `${dir}/mem_info_vram_used`, total: `${dir}/mem_info_vram_total` }
+  } catch {
+    /* leave null */
+  }
+  return vramFiles
+}
+
 async function getUsage(): Promise<UsageState> {
   let cpu = 0
   let ram = 0
   let vram = 0
 
-  try {
-    const statRaw = await execAsync(["bash", "-c", "grep '^cpu ' /proc/stat"])
-    const vals = statRaw.trim().split(/\s+/).slice(1).map(Number)
-    const idle = vals[3] + vals[4]
-    const total = vals.reduce((a, b) => a + b, 0)
+  const stat = readFile("/proc/stat")
+  const cpuLine = stat?.split("\n").find(l => l.startsWith("cpu "))
+  if (cpuLine) {
+    const v = cpuLine.trim().split(/\s+/).slice(1).map(Number)
+    const idle = v[3] + (v[4] || 0)
+    const total = v.reduce((a, b) => a + b, 0)
     const dtotal = total - prevCpu.total
     const didle = idle - prevCpu.idle
     prevCpu = { total, idle }
-    cpu = dtotal > 0 ? (100 * (dtotal - didle)) / dtotal : 0
+    if (dtotal > 0) cpu = (100 * (dtotal - didle)) / dtotal
+  }
 
-    const memRaw = await execAsync(["bash", "-c", "LANG=C free -m"])
-    const lines = memRaw.split("\n")
-    const memLine = lines.find(l => l.startsWith("Mem:"))
-    if (memLine) {
-      const parts = memLine.split(/\s+/).filter(Boolean)
-      const total = parseInt(parts[1])
-      const used = parseInt(parts[2])
-      if (total > 0) ram = (used / total) * 100
+  const mem = readFile("/proc/meminfo")
+  if (mem) {
+    const get = (k: string) => {
+      const m = mem.match(new RegExp(`^${k}:\\s+(\\d+)`, "m"))
+      return m ? Number(m[1]) : 0
     }
+    const total = get("MemTotal")
+    const avail = get("MemAvailable")
+    if (total > 0) ram = ((total - avail) / total) * 100
+  }
 
-    try {
-      // amdgpu VRAM via DRM sysfs — pick the card with the most VRAM
-      // (the RX 9070 XT dGPU, not the small integrated GPU).
-      const vramRaw = await execAsync(["bash", "-c",
-        'for d in /sys/class/drm/card[0-9]*/device; do ' +
-        '[ -r "$d/mem_info_vram_total" ] || continue; ' +
-        't=$(cat "$d/mem_info_vram_total"); ' +
-        '[ "$t" -gt "${bt:-0}" ] && { bt=$t; bu=$(cat "$d/mem_info_vram_used"); }; ' +
-        'done; [ -n "${bt:-}" ] && echo "$bu $bt"',
-      ])
-      const parts = vramRaw.trim().split(/\s+/).map(s => parseInt(s))
-      if (parts.length >= 2 && parts[1] > 0) {
-        vram = (parts[0] / parts[1]) * 100
-      }
-    } catch {
-      vram = 0
-    }
-  } catch (e) {
-    console.error("Failed to get system usage:", e)
+  const vf = await resolveVramFiles()
+  if (vf) {
+    const used = Number(readFile(vf.used)?.trim())
+    const total = Number(readFile(vf.total)?.trim())
+    if (total > 0 && Number.isFinite(used)) vram = (used / total) * 100
   }
 
   const result = {
-    cpu: Number.isFinite(cpu) ? cpu : 0,
+    cpu: Number.isFinite(cpu) ? Math.max(0, Math.min(100, cpu)) : 0,
     ram: Number.isFinite(ram) ? ram : 0,
-    vram: Number.isFinite(vram) ? vram : 0
+    vram: Number.isFinite(vram) ? vram : 0,
   }
 
   history.cpu.shift(); history.cpu.push(result.cpu)
@@ -82,12 +104,15 @@ function UsageChart(key: keyof typeof history) {
     height_request: 36,
     hexpand: true,
   })
+  drawingArea.add_css_class("usage-chart")
 
-  drawingArea.set_draw_func((_area, cr, width, height) => {
+  drawingArea.set_draw_func((area, cr, width, height) => {
     const data = history[key]
     const step = width / (HISTORY_SIZE - 1)
+    // Follows the theme: `.usage-chart { color: ... }` in the stylesheet.
+    const c = area.get_color()
 
-    cr.setSourceRGBA(0.75, 0.54, 0.41, 0.8)
+    cr.setSourceRGBA(c.red, c.green, c.blue, 0.85)
     cr.setLineWidth(1.5)
 
     cr.moveTo(0, height)
@@ -100,7 +125,7 @@ function UsageChart(key: keyof typeof history) {
 
     cr.lineTo(width, height)
     cr.lineTo(0, height)
-    cr.setSourceRGBA(0.75, 0.54, 0.41, 0.1)
+    cr.setSourceRGBA(c.red, c.green, c.blue, 0.12)
     cr.fill()
   })
 

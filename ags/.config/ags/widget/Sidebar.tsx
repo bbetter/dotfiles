@@ -7,9 +7,11 @@ import { SidebarJarvis } from "./sidebar/Jarvis"
 import { SidebarAiUsage } from "./sidebar/AiUsage"
 import { SystemUsage } from "./sidebar/SystemUsage"
 import { SidebarNotificationList } from "./sidebar/Notifications"
-import { closeSidebar } from "./sidebar/state"
+import { SidebarPower } from "./sidebar/Power"
+import { closeSidebar, registerSidebar } from "./sidebar/state"
 
 export const SIDEBAR_WIDTH = 390
+const SLIDE_MS = 260
 
 export function Sidebar(gdkmonitor: Gdk.Monitor) {
   const { TOP, RIGHT, BOTTOM } = Astal.WindowAnchor
@@ -17,9 +19,56 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
 
   const closeBtn = (
     <button class="sidebar-close" onClicked={closeSidebar}>
-      <label label="✕" />
+      <label label="󰅖" />
     </button>
   ) as Gtk.Button
+
+  const container = (
+    <box
+      class="sidebar-window-container"
+      widthRequest={SIDEBAR_WIDTH}
+      halign={Gtk.Align.END}
+      hexpand={false}
+    >
+      <scrolledwindow
+        vexpand
+        hexpand={false}
+        hscrollbarPolicy={Gtk.PolicyType.NEVER}
+        vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
+        widthRequest={SIDEBAR_WIDTH}
+        minContentWidth={SIDEBAR_WIDTH}
+      >
+        <box
+          orientation={Gtk.Orientation.VERTICAL}
+          spacing={12}
+          class="sidebar-content"
+          widthRequest={SIDEBAR_WIDTH}
+          hexpand={false}
+          halign={Gtk.Align.FILL}
+        >
+          <box class="sidebar-header" hexpand={false}>
+            <label label="CONTROL CENTER" class="sidebar-title" hexpand halign={Gtk.Align.START} />
+            {closeBtn}
+          </box>
+          {SidebarPower()}
+          {SidebarStatus()}
+          {SidebarNotificationList()}
+          {SystemUsage()}
+          {SidebarMedia()}
+          {SidebarPeripherals()}
+          {SidebarJarvis()}
+          {SidebarAiUsage()}
+        </box>
+      </scrolledwindow>
+    </box>
+  ) as Gtk.Box
+
+  const slide = new Gtk.Revealer({
+    transition_type: Gtk.RevealerTransitionType.SLIDE_LEFT,
+    transition_duration: SLIDE_MS,
+    reveal_child: false,
+    child: container,
+  })
 
   const win = (
     <window
@@ -33,52 +82,14 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
       application={app}
       class="Sidebar"
     >
-      <box
-        class="sidebar-window-container"
-        widthRequest={SIDEBAR_WIDTH}
-        halign={Gtk.Align.END}
-        hexpand={false}
-      >
-        <scrolledwindow
-          vexpand
-          hexpand={false}
-          hscrollbarPolicy={Gtk.PolicyType.NEVER}
-          vscrollbarPolicy={Gtk.PolicyType.AUTOMATIC}
-          widthRequest={SIDEBAR_WIDTH}
-          minContentWidth={SIDEBAR_WIDTH}
-        >
-          <box
-            orientation={Gtk.Orientation.VERTICAL}
-            spacing={12}
-            class="sidebar-content"
-            widthRequest={SIDEBAR_WIDTH}
-            hexpand={false}
-            halign={Gtk.Align.FILL}
-          >
-            <box class="sidebar-header" hexpand={false}>
-              <box orientation={Gtk.Orientation.VERTICAL} hexpand>
-                <label label="CONTROL CENTER" class="sidebar-title" halign={Gtk.Align.START} />
-                <label
-                  label="extra status and quick checks"
-                  class="sidebar-subtitle"
-                  halign={Gtk.Align.START}
-                  wrap
-                />
-              </box>
-              {closeBtn}
-            </box>
-            {SidebarStatus()}
-            {SidebarNotificationList()}
-            {SystemUsage()}
-            {SidebarMedia()}
-            {SidebarPeripherals()}
-            {SidebarJarvis()}
-            {SidebarAiUsage()}
-          </box>
-        </scrolledwindow>
-      </box>
+      {slide}
     </window>
   ) as Gtk.Window
+
+  // state.ts drives the slide on open/close.
+  registerSidebar(monitorName, (shown) => {
+    slide.reveal_child = shown
+  })
 
   // Esc closes the drawer. keymode EXCLUSIVE means the window holds the
   // keyboard while visible, so a capture-phase handler reliably sees the key.
