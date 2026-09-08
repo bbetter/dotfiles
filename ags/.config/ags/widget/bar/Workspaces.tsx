@@ -1,7 +1,6 @@
 import Hyprland from "gi://AstalHyprland"
 import { Gtk, Gdk } from "ags/gtk4"
 import GLib from "gi://GLib"
-import GObject from "gi://GObject"
 
 // class substring -> themed icon name
 const ICON_MAP: Array<[string, string]> = [
@@ -39,6 +38,9 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const box = (<box spacing={4} class="workspaces" />) as Gtk.Box
   const buttons = new Map<number, Gtk.Button>()
   const iconBoxes = new Map<number, Gtk.Box>()
+
+  // Address of the window whose icon is currently being dragged (internal DnD).
+  let dragAddr: string | null = null
 
   const freeSlot = (existing: number[]): number | undefined =>
     RANGE.find(i => !existing.includes(i))
@@ -81,12 +83,22 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
 
     const addr = normAddr(client.address)
     if (addr) {
-      const src = Gtk.DragSource.new()
-      src.set_actions(Gdk.DragAction.MOVE)
-      src.connect("prepare", () => Gdk.ContentProvider.new_for_value(addr))
-      src.connect("drag-begin", () => img.add_css_class("dragging"))
-      src.connect("drag-end", () => img.remove_css_class("dragging"))
-      img.add_controller(src)
+      // Gtk.GestureDrag as a plain drag detector — the drop is resolved from
+      // the pointer position, so no ContentProvider / DropTarget marshalling.
+      const g = new Gtk.GestureDrag()
+      g.connect("drag-begin", () => {
+        dragAddr = addr
+        img.add_css_class("dragging")
+      })
+      g.connect("drag-update", () => markDropVisual(pointerWorkspace()?.w ?? null))
+      g.connect("drag-end", () => {
+        img.remove_css_class("dragging")
+        const target = pointerWorkspace()
+        if (dragAddr && target && target.id != null) moveToWorkspace(target.id, dragAddr)
+        dragAddr = null
+        clearDropVisuals()
+      })
+      img.add_controller(g)
     }
     return img
   }
@@ -109,29 +121,6 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     }
   }
 
-  // ── native drop target (address string) ─────────────────────────────────
-  const attachDropTarget = (widget: Gtk.Widget, resolveWsId: () => number | null) => {
-    const dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
-    dt.connect("enter", () => {
-      widget.add_css_class("drop-target")
-      box.add_css_class("hover")
-      return Gdk.DragAction.MOVE
-    })
-    dt.connect("leave", () => {
-      widget.remove_css_class("drop-target")
-      box.remove_css_class("hover")
-    })
-    dt.connect("drop", (_dt: any, value: string) => {
-      widget.remove_css_class("drop-target")
-      box.remove_css_class("hover")
-      const wsId = resolveWsId()
-      const addr = normAddr(value)
-      if (wsId != null && addr) moveToWorkspace(wsId, addr)
-      return true
-    })
-    widget.add_controller(dt)
-  }
-
   // ── the "+" button (spill onto a fresh workspace) ───────────────────────
   const plusBtn = (
     <button
@@ -146,7 +135,6 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
       <label label="+" />
     </button>
   ) as Gtk.Button
-  attachDropTarget(plusBtn, () => freeSlot(onThisMonitor()) ?? null)
 
   // ── main render ────────────────────────────────────────────────────────
   const update = () => {
@@ -180,7 +168,6 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
         btn.add_css_class("workspace-btn")
         btn.set_child(inner)
         btn.connect("clicked", () => focusWorkspace(id))
-        attachDropTarget(btn, () => id)
 
         buttons.set(id, btn)
         iconBoxes.set(id, iconBox)
@@ -217,14 +204,7 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     plusBtn.set_visible(freeSlot(ids) != null)
   }
 
-  // ── external drag: a Hyprland window dragged from the desktop onto the ──
-  // bar is NOT a GTK drag, so there is nothing to hook. Poll the GDK pointer
-  // position + button mask (cheap, no Hyprland IPC) and, on a press→release
-  // over a workspace button, move the focused client there. Real work only
-  // happens while a button is held over the bar.
-  let lastMask = 0
-  let pressWsId: number | null = null
-
+  // Which workspace button (or "+") is under a root-space point?
   const widgetUnder = (px: number, py: number): { id: number | null; w: Gtk.Widget } | null => {
     const root = box.get_root() as Gtk.Window | null
     if (!root) return null
@@ -239,36 +219,62 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     return null
   }
 
-  const extPoll = () => {
-    const root = box.get_root() as Gtk.Window | null
-    const surface = root?.get_surface()
+  const pointerState = (): { x: number; y: number; mask: number } | null => {
+    const surface = (box.get_root() as Gtk.Window | null)?.get_surface()
     const pointer = Gdk.Display.get_default()?.get_default_seat()?.get_pointer()
-    if (!surface || !pointer) return true
+    if (!surface || !pointer) return null
+    const [, x, y, mask] = surface.get_device_position(pointer)
+    return { x, y, mask }
+  }
 
-    const [, px, py, mask] = surface.get_device_position(pointer)
+  const pointerWorkspace = () => {
+    const p = pointerState()
+    return p ? widgetUnder(p.x, p.y) : null
+  }
+
+  const clearDropVisuals = () => {
+    for (const btn of buttons.values()) btn.remove_css_class("drop-target")
+    plusBtn.remove_css_class("drop-target")
+    box.remove_css_class("hover")
+  }
+  const markDropVisual = (w: Gtk.Widget | null) => {
+    for (const btn of buttons.values()) btn[btn === w ? "add_css_class" : "remove_css_class"]("drop-target")
+    plusBtn[plusBtn === w ? "add_css_class" : "remove_css_class"]("drop-target")
+    box[w ? "add_css_class" : "remove_css_class"]("hover")
+  }
+
+  // ── external drag ─────────────────────────────────────────────────────────
+  // A Hyprland window dragged from the desktop onto the bar is NOT a GTK drag.
+  // Poll the GDK button mask (cheap, no Hyprland IPC); on a *real* drag (moved
+  // > threshold) released over a workspace button, move the focused client
+  // there. Inert while an internal icon drag (Gtk.GestureDrag) is running, and
+  // a plain click can't trigger it.
+  let lastMask = 0
+  let pressX = 0
+  let pressY = 0
+  const DRAG_THRESHOLD = 24
+
+  const extPoll = () => {
+    const p = pointerState()
+    const mask = p?.mask ?? 0
     const pressed = (mask & ANY_BUTTON) !== 0
     const wasPressed = (lastMask & ANY_BUTTON) !== 0
     lastMask = mask
 
-    // Idle: just the mask read above. Do no hit-testing / CSS churn.
-    if (!pressed && !wasPressed) return true
+    if (dragAddr) return true // internal icon drag owns the drop
+    if (!p || (!pressed && !wasPressed)) return true
 
-    const under = widgetUnder(px, py)
-
-    for (const btn of buttons.values()) {
-      btn[under?.w === btn && pressed ? "add_css_class" : "remove_css_class"]("drop-target")
+    if (pressed && !wasPressed) {
+      pressX = p.x
+      pressY = p.y
     }
-    plusBtn[under?.w === plusBtn && pressed ? "add_css_class" : "remove_css_class"]("drop-target")
-    box[pressed && under ? "add_css_class" : "remove_css_class"]("hover")
-
-    if (pressed && pressWsId == null && under) pressWsId = under.id
     if (wasPressed && !pressed) {
-      if (pressWsId != null && under && under.id === pressWsId) {
+      const moved = Math.abs(p.x - pressX) + Math.abs(p.y - pressY)
+      const under = widgetUnder(p.x, p.y)
+      if (moved > DRAG_THRESHOLD && under && under.id != null) {
         const addr = normAddr(hypr.get_focused_client()?.address)
-        if (addr) moveToWorkspace(pressWsId, addr)
+        if (addr) moveToWorkspace(under.id, addr)
       }
-      pressWsId = null
-      box.remove_css_class("hover")
     }
     return true
   }
