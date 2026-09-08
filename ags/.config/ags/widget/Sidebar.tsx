@@ -90,6 +90,8 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
       keymode={Astal.Keymode.EXCLUSIVE}
       anchor={TOP | RIGHT | BOTTOM}
       marginTop={8}
+      marginRight={8}
+      marginBottom={8}
       application={app}
       class="Sidebar"
     >

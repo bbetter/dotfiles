@@ -337,13 +337,21 @@ tooltip {
    SIDEBAR WINDOW
    ================================================== */
 .Sidebar {
-  background: $bg-sidebar;
-  border-left: 1px solid rgba($primary, 0.3);
+  background: transparent;
   color: $fg;
+}
+
+// The visible card — floats like the bar (matching 8px inset + 16px radius).
+.sidebar-window-container {
+  background: $bg-sidebar;
+  border-radius: 16px;
+  border: 1px solid rgba($fg, 0.08);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
 }
 
 .Sidebar scrolledwindow {
   min-width: 380px;
+  background: transparent;
 }
 
 .sidebar-content {
