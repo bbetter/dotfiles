@@ -165,6 +165,11 @@ generate "$HOME/.config/fuzzel/fuzzel.template.ini" \
 
 generate "$HOME/.config/ags/style.template.scss" \
   "$HOME/.config/ags/style.scss"
+# compiled CSS for the live-reload path (`ags request css`).
+# Expanded, not compressed — Gtk.CssProvider's parser is stricter than a
+# browser's and rejects the one-line compressed form.
+sass "$HOME/.config/ags/style.scss" "$HOME/.config/ags/.style.css" \
+  --no-source-map --style expanded 2>/dev/null || true
 
 generate "$HOME/.config/swaync/style.template.css" \
   "$HOME/.config/swaync/style.css"
@@ -215,15 +220,20 @@ vicinae theme set wal 2>/dev/null || true  # re-apply the regenerated vicinae th
 
 
 # ================================
-# reload ags
+# reload ags — live CSS swap, no restart
 # ================================
 if ags list 2>/dev/null | grep -q "^ags$"; then
-  ags request reload
-  # wait for instance to fully quit before starting fresh
-  for i in $(seq 1 30); do
-    ags list 2>/dev/null | grep -q "^ags$" || break
-    sleep 0.1
-  done
+  if [ "$(ags request css 2>/dev/null)" != "ok" ]; then
+    # running instance predates the `css` handler — fall back to a restart
+    ags request reload 2>/dev/null || true
+    for i in $(seq 1 30); do
+      ags list 2>/dev/null | grep -q "^ags$" || break
+      sleep 0.1
+    done
+    ags run "$HOME/.config/ags" &
+    disown
+  fi
+else
+  ags run "$HOME/.config/ags" &
+  disown
 fi
-ags run "$HOME/.config/ags" &
-disown

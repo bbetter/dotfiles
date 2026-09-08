@@ -1,5 +1,6 @@
 import app from "ags/gtk4/app"
 import { Gdk } from "ags/gtk4"
+import GLib from "gi://GLib"
 import style from "./style.scss"
 import Bar from "./widget/Bar"
 import { Sidebar } from "./widget/Sidebar"
@@ -45,6 +46,18 @@ app.start({
     if (argv[0] === "reload") {
       res("ok")
       setTimeout(() => app.quit(), 100)
+      return
+    }
+
+    // Live stylesheet swap (theme change) — no process restart, no flicker.
+    // gen-theme.sh compiles style.scss -> .style.css and calls this.
+    if (argv[0] === "css") {
+      try {
+        app.apply_css(`${GLib.get_home_dir()}/.config/ags/.style.css`, true)
+        res("ok")
+      } catch (e) {
+        res(`css reload failed: ${e}`)
+      }
       return
     }
 
