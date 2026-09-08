@@ -44,7 +44,11 @@ $green-bg:  #5c8a5d;
 }
 
 .bar-content {
-  padding: 0;
+  padding: 3px 5px;
+  background: $bg-alpha;
+  border-radius: 16px;
+  border: 1px solid rgba($fg, 0.06);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
 }
 
 /* ==================================================
