@@ -179,6 +179,10 @@ generate "$HOME/.config/hypr/hyprlock.template.conf" \
 generate "$HOME/.config/fastfetch/config.template.jsonc" \
   "$HOME/.config/fastfetch/config.jsonc"
 
+mkdir -p "$HOME/.local/share/vicinae/themes"
+generate "$HOME/.config/theme/vicinae-wal.toml.template" \
+  "$HOME/.local/share/vicinae/themes/wal.toml"
+
 # ghostty — palette straight from wal; ghostty/config pulls it in via
 # `config-file = theme-wal`.
 {
@@ -200,8 +204,9 @@ echo "✅ theme generated"
 # ================================
 # reload the rest
 # ================================
-swaync-client -rs 2>/dev/null || true    # reload swaync css
-pkill -USR2 ghostty 2>/dev/null || true  # ghostty live config reload (newer builds)
+swaync-client -rs 2>/dev/null || true      # reload swaync css
+pkill -USR2 ghostty 2>/dev/null || true    # ghostty live config reload (newer builds)
+vicinae theme set wal 2>/dev/null || true  # re-apply the regenerated vicinae theme
 
 
 # ================================

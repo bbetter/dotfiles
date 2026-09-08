@@ -89,6 +89,7 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
       layer={Astal.Layer.OVERLAY}
       keymode={Astal.Keymode.EXCLUSIVE}
       anchor={TOP | RIGHT | BOTTOM}
+      marginTop={8}
       application={app}
       class="Sidebar"
     >

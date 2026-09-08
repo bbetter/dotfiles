@@ -29,6 +29,7 @@ export function SidebarBackdrop(gdkmonitor: Gdk.Monitor) {
       exclusivity={Astal.Exclusivity.NORMAL}
       layer={Astal.Layer.OVERLAY}
       anchor={TOP | RIGHT | BOTTOM | LEFT}
+      marginTop={8}
       marginRight={SIDEBAR_WIDTH}
       application={app}
       class="SidebarBackdrop"
