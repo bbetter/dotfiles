@@ -13,7 +13,7 @@ local fileManager = "thunar"
 
 -- Lock: NOT on SUPER+SHIFT+L — that keysym collides with the SUPER+SHIFT+l
 -- window-swap bind (Hyprland matches letter keys case-insensitively).
-hl.bind(mainMod .. " + SHIFT + ESCAPE", hl.dsp.exec_cmd("swaylock"))
+hl.bind(mainMod .. " + SHIFT + ESCAPE", hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind(mainMod .. " + Q",         hl.dsp.window.close())
 hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exit())
 hl.bind(mainMod .. " + W",         hl.dsp.exec_cmd(home .. "/.config/hypr/toggle-ags.sh"))
