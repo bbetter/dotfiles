@@ -179,6 +179,11 @@ generate "$HOME/.config/hypr/hyprlock.template.conf" \
 generate "$HOME/.config/fastfetch/config.template.jsonc" \
   "$HOME/.config/fastfetch/config.jsonc"
 
+# GTK3 + GTK4: same accent overrides (each @import "colors.css" resolves
+# relative to its own dir). Recolours new app windows.
+generate "$HOME/.config/theme/gtk.template.css" "$HOME/.config/gtk-3.0/gtk.css"
+generate "$HOME/.config/theme/gtk.template.css" "$HOME/.config/gtk-4.0/gtk.css"
+
 mkdir -p "$HOME/.local/share/vicinae/themes"
 generate "$HOME/.config/theme/vicinae-wal.toml.template" \
   "$HOME/.local/share/vicinae/themes/wal.toml"
