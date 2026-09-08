@@ -1,174 +1,160 @@
 import Hyprland from "gi://AstalHyprland"
 import { Gtk, Gdk } from "ags/gtk4"
 import GLib from "gi://GLib"
-import Gio from "gi://Gio"
+import GObject from "gi://GObject"
+
+// class substring -> themed icon name
+const ICON_MAP: Array<[string, string]> = [
+  ["firefox", "firefox"],
+  ["code", "visual-studio-code"],
+  ["telegram", "telegram"],
+  ["spotify", "spotify"],
+  ["terminal", "terminal"],
+  ["foot", "terminal"],
+  ["kitty", "terminal"],
+  ["ghostty", "terminal"],
+]
+
+function iconName(cls: string): string {
+  const l = cls.toLowerCase()
+  for (const [k, v] of ICON_MAP) if (l.includes(k)) return v
+  return l
+}
+
+function normAddr(a?: string | null): string | null {
+  if (!a) return null
+  return a.startsWith("0x") ? a : `0x${a}`
+}
+
+// Buttons mask (any mouse button held) for GdkModifierType.
+const ANY_BUTTON = 0x7fffff00
 
 export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const hypr = Hyprland.get_default()
-  if (!hypr) return <box class="workspaces" />
+  if (!hypr) return (<box class="workspaces" />) as Gtk.Box
 
-  const box = <box spacing={4} class="workspaces" /> as Gtk.Box
   const connector = gdkmonitor.get_connector() ?? ""
+  const RANGE = connector === "DP-2" ? [1, 2, 3, 4, 5] : [6, 7, 8, 9, 10]
 
+  const box = (<box spacing={4} class="workspaces" />) as Gtk.Box
   const buttons = new Map<number, Gtk.Button>()
   const iconBoxes = new Map<number, Gtk.Box>()
-  
-  // Track current drop target for visual feedback
-  let currentTarget: Gtk.Widget | null = null
-  let internalDragClient: any = null
-  let lastActiveAddress: string | null = null
-  let lastActivePos = ""
-  let lastActiveMoveMs = 0
-  let lastExternalDropTarget: number | null = null
-  let lastExternalDropMs = 0
-  let externalPressAddress: string | null = null
-  let externalPressHovered: number | null = null
-  let externalPressStartX = 0
-  let externalPressStartY = 0
-  let externalPressDragged = false
-  const debugLogPath = `/tmp/ags-workspaces-${connector || "unknown"}-poll.log`
-  const debugEnabled = !!GLib.getenv("AGS_WS_DEBUG")
-  let lastDebugLine = ""
 
-  const debugLog = (message: string) => {
-    if (!debugEnabled) return
+  const freeSlot = (existing: number[]): number | undefined =>
+    RANGE.find(i => !existing.includes(i))
+
+  const onThisMonitor = (): number[] =>
+    hypr
+      .get_workspaces()
+      .filter(ws => ws.id > 0 && ws.monitor && ws.monitor.name === connector)
+      .map(ws => ws.id)
+
+  const focusWorkspace = (id: number) => {
     try {
-      if (message === lastDebugLine) return
-      lastDebugLine = message
-      const line = `${new Date().toISOString()} [${connector || "unknown"}] ${message}\n`
-      const file = Gio.File.new_for_path(debugLogPath)
-      const out = file.query_exists(null)
-        ? file.append_to(Gio.FileCreateFlags.NONE, null)
-        : file.create(Gio.FileCreateFlags.NONE, null)
-      const bytes = new TextEncoder().encode(line)
-      out.write_all(bytes, null)
-      out.close(null)
-    } catch {}
-  }
-
-  const normalizeAddress = (address: string | null | undefined) => {
-    if (!address) return null
-    return address.startsWith("0x") ? address : `0x${address}`
-  }
-
-  const dispatchWorkspaceMove = (targetId: number, address: string) => {
-    const cmd = `hyprctl -q dispatch 'hl.dsp.window.move({ workspace = ${targetId}, address = "${address}", silent = true })'`
-    try {
-      GLib.spawn_command_line_async(cmd)
-      refreshAfterMove()
-    } catch (e) {
-      debugLog(`dispatch-error target=${targetId} address=${address} err=${e}`)
+      GLib.spawn_command_line_async(`hyprctl -q dispatch 'hl.dsp.focus({ workspace = ${id} })'`)
+    } catch {
+      /* ignore */
     }
   }
 
-  const getIconName = (className: string) => {
-    const lower = className.toLowerCase()
-    if (lower.includes("firefox")) return "firefox"
-    if (lower.includes("code")) return "visual-studio-code"
-    if (lower.includes("telegram")) return "telegram"
-    if (lower.includes("spotify")) return "spotify"
-    if (lower.includes("terminal") || lower.includes("foot") || lower.includes("kitty")) return "terminal"
-    return lower
-  }
-
-  const createIcon = (client: any) => {
-    const img = new Gtk.Image({
-      iconName: getIconName(client.class || ""),
-      pixelSize: 14,
-    })
-    img.add_css_class("workspace-icon")
-
-    // Support dragging the icon itself
-    const drag = new Gtk.GestureDrag()
-    drag.connect("drag-begin", () => {
-      internalDragClient = client
-      img.add_css_class("dragging")
-    })
-    drag.connect("drag-end", () => {
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-        internalDragClient = null
-        img.remove_css_class("dragging")
+  const moveToWorkspace = (wsId: number, address: string) => {
+    try {
+      GLib.spawn_command_line_async(
+        `hyprctl -q dispatch 'hl.dsp.window.move({ workspace = ${wsId}, address = "${address}", silent = true })'`,
+      )
+    } catch {
+      /* ignore */
+    }
+    // notify::clients/workspaces lands slightly after; nudge a few times.
+    for (const delay of [40, 160, 360]) {
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+        update()
         return false
       })
-    })
-    img.add_controller(drag)
-    
+    }
+  }
+
+  // ── icons ────────────────────────────────────────────────────────────────
+  const createIcon = (client: any) => {
+    const img = new Gtk.Image({ iconName: iconName(client.class || ""), pixelSize: 14 })
+    img.add_css_class("workspace-icon")
+
+    const addr = normAddr(client.address)
+    if (addr) {
+      const src = Gtk.DragSource.new()
+      src.set_actions(Gdk.DragAction.MOVE)
+      src.connect("prepare", () => Gdk.ContentProvider.new_for_value(addr))
+      src.connect("drag-begin", () => img.add_css_class("dragging"))
+      src.connect("drag-end", () => img.remove_css_class("dragging"))
+      img.add_controller(src)
+    }
     return img
   }
 
   const updateIcons = (id: number) => {
     const iconBox = iconBoxes.get(id)
     if (!iconBox) return
-
     let child = iconBox.get_first_child()
     while (child) {
       const next = child.get_next_sibling()
       iconBox.remove(child)
       child = next
     }
-
-    const clients = hypr.get_clients().filter(c => c.workspace && c.workspace.id === id)
     const seen = new Set<string>()
-
-    for (const client of clients) {
+    for (const client of hypr.get_clients()) {
+      if (!client.workspace || client.workspace.id !== id) continue
       if (!client.class || seen.has(client.class)) continue
       seen.add(client.class)
       iconBox.append(createIcon(client))
     }
   }
 
-  const getNextId = (ids: number[]) => {
-    const range = connector === "DP-2" ? [1, 2, 3, 4, 5] : [6, 7, 8, 9, 10]
-    return range.find(i => !ids.includes(i))
+  // ── native drop target (address string) ─────────────────────────────────
+  const attachDropTarget = (widget: Gtk.Widget, resolveWsId: () => number | null) => {
+    const dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
+    dt.connect("enter", () => {
+      widget.add_css_class("drop-target")
+      box.add_css_class("hover")
+      return Gdk.DragAction.MOVE
+    })
+    dt.connect("leave", () => {
+      widget.remove_css_class("drop-target")
+      box.remove_css_class("hover")
+    })
+    dt.connect("drop", (_dt: any, value: string) => {
+      widget.remove_css_class("drop-target")
+      box.remove_css_class("hover")
+      const wsId = resolveWsId()
+      const addr = normAddr(value)
+      if (wsId != null && addr) moveToWorkspace(wsId, addr)
+      return true
+    })
+    widget.add_controller(dt)
   }
 
-  const refreshAfterMove = () => {
-    update()
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 75, () => {
-      update()
-      return false
-    })
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
-      update()
-      return false
-    })
-  }
-
-  const plusButton = (
+  // ── the "+" button (spill onto a fresh workspace) ───────────────────────
+  const plusBtn = (
     <button
       class="workspace-plus"
       visible={false}
       onClicked={() => {
-        const ids = hypr.get_workspaces()
-          .filter(ws => ws.id > 0 && ws.monitor && ws.monitor.name === connector)
-          .map(ws => ws.id)
-        const nextId = getNextId(ids)
-        if (nextId) {
-          const active = hypr.focusedClient
-          if (active) {
-            const address = normalizeAddress(active.address)
-            if (address) dispatchWorkspaceMove(nextId, address)
-          }
-        }
+        const next = freeSlot(onThisMonitor())
+        const addr = normAddr(hypr.get_focused_client()?.address)
+        if (next != null && addr) moveToWorkspace(next, addr)
       }}
     >
       <label label="+" />
     </button>
   ) as Gtk.Button
+  attachDropTarget(plusBtn, () => freeSlot(onThisMonitor()) ?? null)
 
+  // ── main render ────────────────────────────────────────────────────────
   const update = () => {
     const activeId = hypr.focusedWorkspace?.id ?? -1
-    const workspaces = hypr.get_workspaces()
-      .filter(ws => ws.id > 0 && ws.monitor && ws.monitor.name === connector)
-    
-    const ids = workspaces.map(ws => ws.id).sort((a, b) => a - b)
-
-    if (activeId > 0 && !ids.includes(activeId)) {
-      const activeWs = hypr.get_workspaces().find(ws => ws.id === activeId)
-      if (activeWs && activeWs.monitor && activeWs.monitor.name === connector) {
-        ids.push(activeId)
-        ids.sort((a, b) => a - b)
-      }
+    const ids = onThisMonitor().sort((a, b) => a - b)
+    if (activeId > 0 && !ids.includes(activeId) && RANGE.includes(activeId)) {
+      ids.push(activeId)
+      ids.sort((a, b) => a - b)
     }
 
     let changed = false
@@ -181,11 +167,10 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
       }
     }
 
-    ids.forEach(id => {
+    for (const id of ids) {
       if (!buttons.has(id)) {
-        // Built with plain constructors, not JSX — update() runs from a timer
-        // with no component tracking context, so `<button>` here would log
-        // "out of tracking context: will not be able to cleanup" every rebuild.
+        // Plain constructors, not JSX — update() runs outside a component
+        // tracking context (timers / signal handlers).
         const iconBox = new Gtk.Box({ spacing: 4 })
         const inner = new Gtk.Box({ spacing: 6 })
         inner.append(new Gtk.Label({ label: id === 10 ? "0" : `${id}` }))
@@ -194,9 +179,8 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
         const btn = new Gtk.Button()
         btn.add_css_class("workspace-btn")
         btn.set_child(inner)
-        btn.connect("clicked", () => {
-          try { GLib.spawn_command_line_async(`hyprctl -q dispatch 'hl.dsp.focus({ workspace = ${id} })'`) } catch {}
-        })
+        btn.connect("clicked", () => focusWorkspace(id))
+        attachDropTarget(btn, () => id)
 
         buttons.set(id, btn)
         iconBoxes.set(id, iconBox)
@@ -204,248 +188,88 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
       }
 
       const btn = buttons.get(id)!
-      if (id === activeId) btn.add_css_class("active")
-      else btn.remove_css_class("active")
-
+      btn[id === activeId ? "add_css_class" : "remove_css_class"]("active")
+      const occupied = hypr.get_clients().some(c => c.workspace && c.workspace.id === id)
+      btn[occupied ? "add_css_class" : "remove_css_class"]("occupied")
       updateIcons(id)
-
-      const clients = hypr.get_clients().filter(c => c.workspace && c.workspace.id === id)
-      if (clients.length > 0) btn.add_css_class("occupied")
-      else btn.remove_css_class("occupied")
-    })
-
-    let child = box.get_first_child()
-    let currentIds: number[] = []
-    while (child) {
-      if (child !== plusButton) {
-        for (const [id, btn] of buttons) {
-          if (btn === child) {
-            currentIds.push(id)
-            break
-          }
-        }
-      }
-      child = child.get_next_sibling()
     }
 
-    if (changed || currentIds.length !== ids.length || currentIds.some((id, i) => id !== ids[i]) || plusButton.get_parent() !== box) {
-      let c = box.get_first_child()
-      while (c) {
+    // Re-order the box if the id sequence or membership changed.
+    const domIds: number[] = []
+    for (let c = box.get_first_child(); c; c = c.get_next_sibling()) {
+      for (const [id, btn] of buttons) if (btn === c) domIds.push(id)
+    }
+    if (
+      changed ||
+      domIds.length !== ids.length ||
+      domIds.some((id, i) => id !== ids[i]) ||
+      plusBtn.get_parent() !== box
+    ) {
+      for (let c = box.get_first_child(); c; ) {
         const next = c.get_next_sibling()
         box.remove(c)
         c = next
       }
-      ids.forEach(id => {
-        const b = buttons.get(id)
-        if (b) box.append(b)
-      })
-      box.append(plusButton)
+      for (const id of ids) box.append(buttons.get(id)!)
+      box.append(plusBtn)
     }
 
-    const nextId = getNextId(ids)
-    plusButton.set_visible(!!nextId)
+    plusBtn.set_visible(freeSlot(ids) != null)
   }
 
-  // GDK modifier mask — only correct when bar surface actually holds the pointer.
-  // NOTE: GJS returns [ok, x, y, mask] for gdk_surface_get_device_position (4 values),
-  // so we must destructure 4 elements to get the real mask in position [3].
-  let lastGdkMask = 0
+  // ── external drag: a Hyprland window dragged from the desktop onto the ──
+  // bar is NOT a GTK drag, so there is nothing to hook. Poll the GDK pointer
+  // position + button mask (cheap, no Hyprland IPC) and, on a press→release
+  // over a workspace button, move the focused client there. Real work only
+  // happens while a button is held over the bar.
+  let lastMask = 0
+  let pressWsId: number | null = null
 
-  const getHoveredButton = (
-    curPos = hypr.cursorPosition,
-    opts: { allowHyprFallback?: boolean; preferHyprCoords?: boolean } = {},
-  ): Gtk.Widget | null => {
-    const root = box.get_root() as Gtk.Window
-    if (!root?.get_surface()) return null
-
-    const [success, bx, by] = box.translate_coordinates(root, 0, 0)
-    if (!success) return null
-
-    const alloc = box.get_allocation()
-    let isOverBox = false
-    let pickX = 0
-    let pickY = 0
-
-    if (opts.preferHyprCoords) {
-      const monRect = gdkmonitor.get_geometry()
-      const scaleFactor = gdkmonitor.get_scale_factor()
-      const hyprRelX = curPos.x / scaleFactor - monRect.x - bx
-      const hyprRelY = curPos.y / scaleFactor - monRect.y - by
-      if (hyprRelX >= -10 && hyprRelX <= alloc.width + 10 &&
-          hyprRelY >= -5  && hyprRelY <= alloc.height + 5) {
-        isOverBox = true
-        pickX = hyprRelX
-        pickY = hyprRelY
-      }
-    } else {
-      const display = Gdk.Display.get_default()
-      const seat = display?.get_default_seat()
-      const pointer = seat?.get_pointer()
-      if (!pointer) return null
-
-      const [_ok, gdkX, gdkY, gdkMask] = root.get_surface().get_device_position(pointer)
-      lastGdkMask = gdkMask
-
-      isOverBox = gdkX >= bx - 10 && gdkX <= bx + alloc.width + 10 &&
-                  gdkY >= by - 5  && gdkY <= by + alloc.height + 5
-      pickX = gdkX - bx
-      pickY = gdkY - by
-
-      if (!isOverBox && opts.allowHyprFallback) {
-        const monRect = gdkmonitor.get_geometry()
-        const scaleFactor = gdkmonitor.get_scale_factor()
-        const hyprRelX = curPos.x / scaleFactor - monRect.x - bx
-        const hyprRelY = curPos.y / scaleFactor - monRect.y - by
-        if (hyprRelX >= -10 && hyprRelX <= alloc.width + 10 &&
-            hyprRelY >= -5  && hyprRelY <= alloc.height + 5) {
-          isOverBox = true
-          pickX = hyprRelX
-          pickY = hyprRelY
-        }
-      }
+  const widgetUnder = (px: number, py: number): { id: number | null; w: Gtk.Widget } | null => {
+    const root = box.get_root() as Gtk.Window | null
+    if (!root) return null
+    const [ok, bx, by] = box.translate_coordinates(root, 0, 0)
+    if (!ok) return null
+    const hit = (w: Gtk.Widget) => {
+      const a = w.get_allocation()
+      return px >= bx + a.x && px <= bx + a.x + a.width && py >= by + a.y && py <= by + a.y + a.height
     }
-
-    if (!isOverBox) return null
-
-    const within = (widget: Gtk.Widget) => {
-      const alloc = widget.get_allocation()
-      return (
-        pickX >= alloc.x &&
-        pickX <= alloc.x + alloc.width &&
-        pickY >= alloc.y &&
-        pickY <= alloc.y + alloc.height
-      )
-    }
-
-    for (const id of [...buttons.keys()].sort((a, b) => a - b)) {
-      const btn = buttons.get(id)
-      if (btn && within(btn)) return btn
-    }
-
-    if (plusButton.get_visible() && within(plusButton)) return plusButton
-
+    for (const [id, btn] of buttons) if (hit(btn)) return { id, w: btn }
+    if (plusBtn.get_visible() && hit(plusBtn)) return { id: freeSlot([...buttons.keys()]) ?? null, w: plusBtn }
     return null
   }
 
-  const findTargetId = (widget: Gtk.Widget | null): number | null => {
-    if (!widget) return null
-    if (widget === plusButton) {
-      const ids = hypr.get_workspaces()
-        .filter(ws => ws.id > 0 && ws.monitor && ws.monitor.name === connector)
-        .map(ws => ws.id)
-      return getNextId(ids) ?? null
+  const extPoll = () => {
+    const root = box.get_root() as Gtk.Window | null
+    const surface = root?.get_surface()
+    const pointer = Gdk.Display.get_default()?.get_default_seat()?.get_pointer()
+    if (!surface || !pointer) return true
+
+    const [, px, py, mask] = surface.get_device_position(pointer)
+    const pressed = (mask & ANY_BUTTON) !== 0
+    const wasPressed = (lastMask & ANY_BUTTON) !== 0
+    lastMask = mask
+
+    const under = pressed || wasPressed ? widgetUnder(px, py) : null
+
+    for (const btn of buttons.values()) {
+      btn[under?.w === btn && pressed ? "add_css_class" : "remove_css_class"]("drop-target")
     }
-    for (const [id, btn] of buttons) {
-      if (btn === widget) return id
+    plusBtn[under?.w === plusBtn && pressed ? "add_css_class" : "remove_css_class"]("drop-target")
+    box[pressed && under ? "add_css_class" : "remove_css_class"]("hover")
+
+    if (pressed && pressWsId == null && under) pressWsId = under.id
+    if (wasPressed && !pressed) {
+      if (pressWsId != null && under && under.id === pressWsId) {
+        const addr = normAddr(hypr.get_focused_client()?.address)
+        if (addr) moveToWorkspace(pressWsId, addr)
+      }
+      pressWsId = null
+      box.remove_css_class("hover")
     }
-    return null
-  }
-
-  const poll = () => {
-    try {
-      const curPos = hypr.cursorPosition
-      const active = hypr.focusedClient as any
-      const activeAddress = normalizeAddress(active?.address ?? null)
-      const activeX = active?.x ?? active?.at?.[0]
-      const activeY = active?.y ?? active?.at?.[1]
-      const activePos = activeAddress && typeof activeX === "number" && typeof activeY === "number"
-        ? `${activeX},${activeY}`
-        : ""
-
-      if (activeAddress !== lastActiveAddress) {
-        lastActiveAddress = activeAddress
-        lastActivePos = activePos
-        lastActiveMoveMs = 0
-        lastExternalDropTarget = null
-      } else if (activePos && activePos !== lastActivePos) {
-        lastActivePos = activePos
-        lastActiveMoveMs = GLib.get_monotonic_time() / 1000
-      }
-
-      const nowMs = GLib.get_monotonic_time() / 1000
-      const recentExternalMotion = !!activeAddress && !!lastActiveMoveMs && nowMs - lastActiveMoveMs < 5000
-      const provisionalDrag = recentExternalMotion || internalDragClient !== null
-      const buttonsMask = 0x7FFFFF00
-      const prevGdkMask = lastGdkMask
-      const hoveredButton = recentExternalMotion
-        ? getHoveredButton(curPos, { preferHyprCoords: true })
-        : getHoveredButton(curPos, { allowHyprFallback: provisionalDrag })
-      const isGdkPressed = (lastGdkMask & buttonsMask) !== 0
-      const wasGdkPressed = (prevGdkMask & buttonsMask) !== 0
-      const hoveredId = findTargetId(hoveredButton)
-      const isExternalDrag = !!activeAddress && hoveredId !== null && (recentExternalMotion || isGdkPressed)
-      const isActualDrag = isExternalDrag || internalDragClient !== null
-
-      if (isExternalDrag || hoveredId !== null) {
-        debugLog(
-          `drag=${isExternalDrag} recentMotion=${recentExternalMotion} active=${activeAddress ?? "none"} pos=${activePos || "none"} cursor=${curPos.x},${curPos.y} hovered=${hoveredId ?? "none"} gdkPressed=${isGdkPressed}`,
-        )
-      }
-
-      if (hoveredButton) {
-        box.add_css_class("hover")
-
-        if (isGdkPressed && activeAddress && !externalPressAddress) {
-          externalPressAddress = activeAddress
-          externalPressStartX = curPos.x
-          externalPressStartY = curPos.y
-          externalPressDragged = false
-        }
-
-        if (isGdkPressed && externalPressAddress) {
-          if (Math.abs(curPos.x - externalPressStartX) + Math.abs(curPos.y - externalPressStartY) > 12)
-            externalPressDragged = true
-          externalPressHovered = hoveredId
-        }
-
-        if (hoveredButton !== currentTarget) {
-          if (currentTarget) currentTarget.remove_css_class("drop-target")
-          currentTarget = hoveredButton
-        }
-        if (currentTarget) {
-          if (isActualDrag) currentTarget.add_css_class("drop-target")
-          else currentTarget.remove_css_class("drop-target")
-        }
-
-        if (wasGdkPressed && !isGdkPressed && externalPressDragged && externalPressAddress && currentTarget) {
-          const targetId = findTargetId(currentTarget)
-          if (targetId !== null) {
-            debugLog(`release-dispatch target=${targetId} address=${externalPressAddress}`)
-            dispatchWorkspaceMove(targetId, externalPressAddress)
-          }
-        }
-
-        // Drop: icon drag within the bar — GDK surface has pointer focus so mask is correct
-        if (wasGdkPressed && !isGdkPressed && internalDragClient && currentTarget) {
-          const targetId = findTargetId(currentTarget)
-          if (targetId !== null) {
-            const draggedAddress = normalizeAddress(internalDragClient.address)
-            if (draggedAddress)
-              dispatchWorkspaceMove(targetId, draggedAddress)
-          }
-        }
-      } else {
-        if (!isActualDrag) box.remove_css_class("hover")
-        if (currentTarget) {
-          currentTarget.remove_css_class("drop-target")
-          currentTarget = null
-        }
-      }
-
-      if (!isGdkPressed) {
-        externalPressAddress = null
-        externalPressHovered = null
-        externalPressDragged = false
-        lastExternalDropTarget = null
-      }
-    } catch (e) {
-      // console.error("Workspaces poller error:", e)
-    }
-
     return true
   }
-
-  GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, poll)
+  GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, extPoll)
 
   update()
   hypr.connect("notify::focused-workspace", update)
