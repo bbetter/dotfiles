@@ -1,24 +1,40 @@
 #!/bin/bash
 
-LAST_ID=""
+# Watches the active wallpaper(s) and re-runs apply-theme.sh when they change.
+# Only does anything in the dynamic family:
+#   dynamic       — watches DP-2's wallpaper id
+#   dynamic-blend — watches every monitor's id (recolor on any change)
+
+LAST_SIG=""
+
+sig_for_mode() {
+  case "$1" in
+  dynamic)
+    wall status | awk '/monitor: DP-2/{f=1} f && /id:/{print $2; exit}'
+    ;;
+  dynamic-blend)
+    wall status | awk '/id:/{print $2}' | paste -sd, -
+    ;;
+  esac
+}
 
 while true; do
   MODE=$(cat ~/.config/theme/current_mode 2>/dev/null || echo "dynamic")
 
-  # ❗ працює тільки в dynamic
-  if [ "$MODE" != "dynamic" ]; then
+  case "$MODE" in
+  dynamic | dynamic-blend) ;;
+  *)
     sleep 2
     continue
-  fi
+    ;;
+  esac
 
-  CURRENT_ID=$(wall status | awk '/DP-2/{f=1} f && /id:/{print $2; exit}')
+  SIG=$(sig_for_mode "$MODE")
 
-  if [ -n "$CURRENT_ID" ] && [ "$CURRENT_ID" != "$LAST_ID" ]; then
-    echo "🎨 Wallpaper changed: $CURRENT_ID"
-
+  if [ -n "$SIG" ] && [ "$SIG" != "$LAST_SIG" ]; then
+    echo "🎨 Wallpaper changed ($MODE): $SIG"
     ~/.config/scripts/apply-theme.sh
-
-    LAST_ID="$CURRENT_ID"
+    LAST_SIG="$SIG"
   fi
 
   sleep 1

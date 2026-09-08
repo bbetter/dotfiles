@@ -22,9 +22,10 @@ WAL_THEMES=$(echo "$WAL_THEMES" |
   grep -v "^random")
 
 # ================================
-# 3. додаємо dynamic
+# 3. dynamic варіанти зверху
 # ================================
-OPTIONS="dynamic
+OPTIONS="dynamic (mirrored)
+dynamic (per-monitor experimental)
 $WAL_THEMES"
 
 # ================================
@@ -34,4 +35,11 @@ CHOICE=$(echo "$OPTIONS" | fuzzel --dmenu --prompt "Theme > ")
 
 [ -z "$CHOICE" ] && exit 0
 
-~/.config/scripts/set-theme-mode.sh "$CHOICE"
+# label → internal mode token
+case "$CHOICE" in
+"dynamic (mirrored)") MODE="dynamic" ;;
+"dynamic (per-monitor experimental)") MODE="dynamic-blend" ;;
+*) MODE="$CHOICE" ;;
+esac
+
+~/.config/scripts/set-theme-mode.sh "$MODE"
