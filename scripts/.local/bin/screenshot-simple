@@ -17,7 +17,7 @@ case "$1" in
         grim -g "$(slurp)" - | satty -f - \
             --copy-command wl-copy --early-exit \
             --output-filename "$SAVE_DIR/$(date +'satty_%Y-%m-%d_%H-%M-%S.png')" \
-            --actions-on-enter save-to-clipboard exit \
+            --actions-on-enter save-to-clipboard \
             --initial-tool arrow
         ;;
     full-clip)
