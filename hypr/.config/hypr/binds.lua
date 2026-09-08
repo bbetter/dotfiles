@@ -126,6 +126,7 @@ hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:mag
 -- ==================================================
 
 hl.bind("Print",                hl.dsp.exec_cmd(home .. "/.local/bin/screenshot-simple area-clip"))
+hl.bind("SUPER + Print",        hl.dsp.exec_cmd(home .. "/.local/bin/screenshot-simple area-edit"))
 hl.bind("SHIFT + Print",        hl.dsp.exec_cmd(home .. "/.local/bin/screenshot-simple area-file"))
 hl.bind("CTRL + Print",         hl.dsp.exec_cmd(home .. "/.local/bin/screenshot-simple full-clip"))
 hl.bind("CTRL + SHIFT + Print", hl.dsp.exec_cmd(home .. "/.local/bin/screenshot-simple full-file"))

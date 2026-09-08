@@ -59,6 +59,18 @@ export function SidebarToggles() {
   })
   row.append(ka.btn)
 
+  // Night light (hyprsunset) ------------------------------------------------
+  const NIGHT_TEMP = 3800
+  const nl = makeToggle("󰖔", "󰖙", "Night light")
+  nl.click(() => {
+    const next = !nl.get()
+    execAsync(
+      next ? ["hyprctl", "hyprsunset", "temperature", `${NIGHT_TEMP}`] : ["hyprctl", "hyprsunset", "identity"],
+    ).catch(() => {})
+    nl.set(next)
+  })
+  row.append(nl.btn)
+
   // Do Not Disturb (swaync) ---------------------------------------------- -
   const dnd = makeToggle("󰂛", "󰂚", "Do Not Disturb")
   const refreshDnd = () =>

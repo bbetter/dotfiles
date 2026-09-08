@@ -13,6 +13,13 @@ case "$1" in
         grim -g "$(slurp)" "$FILE"
         notify-send "💾 Screenshot" "Saved to:\n$FILE"
         ;;
+    area-edit)
+        grim -g "$(slurp)" - | satty -f - \
+            --copy-command wl-copy --early-exit \
+            --output-filename "$SAVE_DIR/$(date +'satty_%Y-%m-%d_%H-%M-%S.png')" \
+            --actions-on-enter save-to-clipboard exit \
+            --initial-tool arrow
+        ;;
     full-clip)
         grim - | wl-copy
         notify-send "📋 Screenshot" "Screen copied to clipboard"
