@@ -108,6 +108,20 @@ $green-bg:  #5c8a5d;
     image {
       margin-left: 2px;
       opacity: 0.8;
+
+      &.dragging {
+        opacity: 0.3;
+      }
+    }
+
+    .workspace-icon-count {
+      font-size: 8px;
+      font-weight: 700;
+      color: $bg;
+      background: $primary;
+      border-radius: 5px;
+      padding: 0 2px;
+      margin: -3px -4px 0 0;
     }
   }
 

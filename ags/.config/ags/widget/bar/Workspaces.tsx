@@ -71,18 +71,36 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     }
   }
 
-  const moveToWorkspace = (wsId: number, address: string) => {
-    const cli = hypr.get_clients().find(c => normAddr(c.address) === address)
-    wsLog(`  -> MOVE ${cli?.class ?? "?"} ${address}  toWs=${wsId}`)
+  const dispatchMove = (addr: string, wsId: number) => {
     try {
-      // `window = "address:0x…"` targets a specific window; `address`/`silent`
-      // keys are silently ignored (it would move the *active* window instead).
+      // `window = "address:0x…"` targets a specific window; an `address` key is
+      // silently ignored (it would move the *active* window instead).
       GLib.spawn_command_line_async(
-        `hyprctl -q dispatch 'hl.dsp.window.move({ window = "address:${address}", workspace = ${wsId}, follow = false })'`,
+        `hyprctl -q dispatch 'hl.dsp.window.move({ window = "address:${addr}", workspace = ${wsId}, follow = false })'`,
       )
     } catch {
       /* ignore */
     }
+  }
+
+  // Group move: the icon represents every window of that class on that
+  // workspace (main window + its dialogs / image viewers), so drag them all.
+  const moveToWorkspace = (wsId: number, repAddr: string) => {
+    const rep = hypr.get_clients().find(c => normAddr(c.address) === repAddr)
+    const group =
+      rep?.class && rep.workspace
+        ? hypr.get_clients().filter(c => c.class === rep.class && c.workspace?.id === rep.workspace.id)
+        : rep
+          ? [rep]
+          : []
+
+    wsLog(`  -> MOVE ${rep?.class ?? "?"} x${group.length}  fromWs=${rep?.workspace?.id ?? "?"} toWs=${wsId}`)
+    for (const c of group) {
+      const a = normAddr(c.address)
+      if (a) dispatchMove(a, wsId)
+    }
+    if (group.length === 0 && repAddr) dispatchMove(repAddr, wsId)
+
     // notify::clients/workspaces lands slightly after; nudge a few times.
     for (const delay of [40, 160, 360]) {
       GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
@@ -112,29 +130,42 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     }
   }
 
-  const createIcon = (client: any) => {
-    const img = new Gtk.Image({ iconName: iconName(client.class || ""), pixelSize: 14 })
+  // One icon per app class on a workspace; `addrs` is every window of that
+  // class there. Drag = move the whole group (see moveToWorkspace).
+  const createIcon = (cls: string, addrs: string[], fromWs: number) => {
+    const img = new Gtk.Image({ iconName: iconName(cls), pixelSize: 14 })
     img.add_css_class("workspace-icon")
 
-    const addr = normAddr(client.address)
-    const cls = client.class || "?"
-    if (addr) {
+    let widget: Gtk.Widget = img
+    if (addrs.length > 1) {
+      const ov = new Gtk.Overlay()
+      ov.set_child(img)
+      const badge = new Gtk.Label({ label: `${addrs.length}` })
+      badge.add_css_class("workspace-icon-count")
+      badge.set_halign(Gtk.Align.END)
+      badge.set_valign(Gtk.Align.START)
+      ov.add_overlay(badge)
+      widget = ov
+    }
+
+    const rep = addrs[0]
+    if (rep) {
       const src = new Gtk.DragSource({ actions: Gdk.DragAction.MOVE })
-      src.connect("prepare", () => stringContent(addr))
+      src.connect("prepare", () => stringContent(rep))
       src.connect("drag-begin", () => {
         const p = dragIcon(cls)
         if (p) src.set_icon(p, 12, 12)
         img.add_css_class("dragging")
-        wsLog(`ICON drag-begin  grabbed=${cls} ${addr} fromWs=${client.workspace?.id ?? "?"}`)
+        wsLog(`ICON drag-begin  grabbed=${cls} x${addrs.length} rep=${rep} fromWs=${fromWs}`)
       })
       src.connect("drag-end", () => img.remove_css_class("dragging"))
       src.connect("drag-cancel", () => {
         img.remove_css_class("dragging")
         return false
       })
-      img.add_controller(src)
+      widget.add_controller(src)
     }
-    return img
+    return widget
   }
 
   // ── drop target on a workspace button / the "+" ─────────────────────────
@@ -170,12 +201,17 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
       iconBox.remove(child)
       child = next
     }
-    const seen = new Set<string>()
-    for (const client of hypr.get_clients()) {
-      if (!client.workspace || client.workspace.id !== id) continue
-      if (!client.class || seen.has(client.class)) continue
-      seen.add(client.class)
-      iconBox.append(createIcon(client))
+    const byClass = new Map<string, string[]>()
+    for (const c of hypr.get_clients()) {
+      if (!c.workspace || c.workspace.id !== id || !c.class) continue
+      const a = normAddr(c.address)
+      if (!a) continue
+      const list = byClass.get(c.class)
+      if (list) list.push(a)
+      else byClass.set(c.class, [a])
+    }
+    for (const [cls, addrs] of byClass) {
+      iconBox.append(createIcon(cls, addrs, id))
     }
   }
 
