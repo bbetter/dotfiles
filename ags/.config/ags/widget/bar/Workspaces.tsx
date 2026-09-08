@@ -4,9 +4,11 @@ import GLib from "gi://GLib"
 import GObject from "gi://GObject"
 import Gio from "gi://Gio"
 
-// Drag debug log — `tail -f /tmp/ags-ws.log`
+// Drag debug log — set AGS_WS_DEBUG=1 then `tail -f /tmp/ags-ws.log`.
 const WS_LOG = "/tmp/ags-ws.log"
+const WS_DEBUG = !!GLib.getenv("AGS_WS_DEBUG")
 function wsLog(msg: string) {
+  if (!WS_DEBUG) return
   try {
     const f = Gio.File.new_for_path(WS_LOG)
     const s = f.query_exists(null)
