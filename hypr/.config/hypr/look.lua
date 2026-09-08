@@ -87,7 +87,9 @@ hl.curve("linear",         { type = "bezier", points = { { 0.0,  0.0  }, { 1.0, 
 hl.animation({ leaf = "windows",          enabled = true, speed = 4.5, bezier = "easeOutQuint",    style = "popin 80%" })
 hl.animation({ leaf = "windowsMove",      enabled = true, speed = 5.0, bezier = "quick"                                })
 hl.animation({ leaf = "fade",             enabled = true, speed = 2.5, bezier = "quick"                                })
-hl.animation({ leaf = "layers",           enabled = true, speed = 3.5, bezier = "easeOutQuint",    style = "slide"     })
+-- fade (not slide) — `layers` also covers the wallpaper-engine background
+-- surface, and a slide there looks wrong on a wallpaper swap.
+hl.animation({ leaf = "layers",           enabled = true, speed = 3.5, bezier = "easeOutQuint",    style = "fade"      })
 hl.animation({ leaf = "workspaces",       enabled = true, speed = 2.2, bezier = "easeInOutCubic",  style = "slide"     })
 hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 3.0, bezier = "easeOutQuint",    style = "slidevert" })
 hl.animation({ leaf = "border",           enabled = true, speed = 3.0, bezier = "default"                              })
