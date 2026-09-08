@@ -13,8 +13,9 @@ wall (linux-wallpaperengine)         зміна шпалери
 theme-watcher.sh        цикл 1с: стежить за `wall status` (id на DP-2) і
   │                     ~/.config/theme/current_mode; на зміну → apply-theme.sh
   ▼
-apply-theme.sh          MODE=dynamic → wal -i <preview кадр> --backend colorz
-  │                     MODE=static  → wal --theme <name>
+apply-theme.sh          dynamic       → wal -i <кадр DP-2> --backend colorz
+  │                     dynamic-blend → wal -i <монтаж усіх моніторів>
+  │                     static        → wal --theme <name>
   │                     далі: gen-theme.sh, потім `hyprctl reload`
   ▼
 gen-theme.sh            читає ~/.cache/wal/colors → підставляє в *.template.*
@@ -25,6 +26,17 @@ swaync-client -rs · pkill -USR2 ghostty · ags reload · hyprctl reload
 
 `~/.cache/wal/colors` — 16 рядків `#rrggbb`. gen-theme бере: `1=bg 2=error
 4=special 5=primary 6=secondary 7=success 8=fg` (ghostty бере всі 16 як palette).
+
+## Режими (`~/.config/theme/current_mode`)
+
+| значення | що робить |
+|---|---|
+| `dynamic` | **mirrored** — шпалера DP-2 копіюється на решту моніторів (на перемиканні режиму + після кожного recolor), одна палітра. При виборі — `notify-send`. `theme-watcher` стежить лише за id DP-2. |
+| `dynamic-blend` | **per-monitor (experimental)** — кожен монітор лишає свою шпалеру. `apply-theme.sh` бере по кадру з кожного, склеює `magick ... -resize x1080 +append`, `wal -i` по монтажу → палітра = суміш усіх екранів. `theme-watcher` стежить за id **всіх** моніторів. |
+| `<wal theme name>` | static — `wal --theme <name>`, watcher no-op. |
+
+`theme-menu.sh` показує `dynamic (mirrored)` / `dynamic (per-monitor
+experimental)` і мапить лейбл на токен перед `set-theme-mode.sh`.
 
 ## Як додати нового споживача
 
