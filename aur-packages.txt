@@ -9,6 +9,7 @@ protonup-qt
 python-inputs
 python-steam
 python-vdf
+rose-pine-cursor
 scangearmp2
 vesktop
 visual-studio-code-bin
