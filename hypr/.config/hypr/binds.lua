@@ -109,7 +109,9 @@ hl.bind(mainMod .. " + ALT + l",     hl.dsp.window.move({ monitor = "r" }))
 -- WALLPAPERS
 -- ==================================================
 
-hl.bind(mainMod .. " + p",         hl.dsp.exec_cmd(home .. "/.local/bin/wall-gui"))
+-- Explicit /usr/bin/python3: env.lua puts ~/.pyenv/shims on PATH, and the
+-- pyenv interpreter has no `gi` (python-gobject is a system package).
+hl.bind(mainMod .. " + p",         hl.dsp.exec_cmd("/usr/bin/python3 " .. home .. "/.local/bin/wall-gui"))
 hl.bind(mainMod .. " + SHIFT + p", hl.dsp.exec_cmd(home .. "/.local/bin/wall random"))
 
 -- ==================================================
