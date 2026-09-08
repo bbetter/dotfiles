@@ -1,6 +1,23 @@
 import Hyprland from "gi://AstalHyprland"
 import { Gtk, Gdk } from "ags/gtk4"
 import GLib from "gi://GLib"
+import GObject from "gi://GObject"
+import Gio from "gi://Gio"
+
+// Drag debug log — `tail -f /tmp/ags-ws.log`
+const WS_LOG = "/tmp/ags-ws.log"
+function wsLog(msg: string) {
+  try {
+    const f = Gio.File.new_for_path(WS_LOG)
+    const s = f.query_exists(null)
+      ? f.append_to(Gio.FileCreateFlags.NONE, null)
+      : f.create(Gio.FileCreateFlags.NONE, null)
+    s.write_all(new TextEncoder().encode(`${new Date().toISOString().slice(11, 23)}  ${msg}\n`), null)
+    s.close(null)
+  } catch {
+    /* ignore */
+  }
+}
 
 // class substring -> themed icon name
 const ICON_MAP: Array<[string, string]> = [
@@ -25,8 +42,6 @@ function normAddr(a?: string | null): string | null {
   return a.startsWith("0x") ? a : `0x${a}`
 }
 
-// Buttons mask (any mouse button held) for GdkModifierType.
-const ANY_BUTTON = 0x7fffff00
 
 export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const hypr = Hyprland.get_default()
@@ -38,9 +53,6 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   const box = (<box spacing={4} class="workspaces" />) as Gtk.Box
   const buttons = new Map<number, Gtk.Button>()
   const iconBoxes = new Map<number, Gtk.Box>()
-
-  // Address of the window whose icon is currently being dragged (internal DnD).
-  let dragAddr: string | null = null
 
   const freeSlot = (existing: number[]): number | undefined =>
     RANGE.find(i => !existing.includes(i))
@@ -60,9 +72,13 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
   }
 
   const moveToWorkspace = (wsId: number, address: string) => {
+    const cli = hypr.get_clients().find(c => normAddr(c.address) === address)
+    wsLog(`  -> MOVE ${cli?.class ?? "?"} ${address}  toWs=${wsId}`)
     try {
+      // `window = "address:0x…"` targets a specific window; `address`/`silent`
+      // keys are silently ignored (it would move the *active* window instead).
       GLib.spawn_command_line_async(
-        `hyprctl -q dispatch 'hl.dsp.window.move({ workspace = ${wsId}, address = "${address}", silent = true })'`,
+        `hyprctl -q dispatch 'hl.dsp.window.move({ window = "address:${address}", workspace = ${wsId}, follow = false })'`,
       )
     } catch {
       /* ignore */
@@ -76,31 +92,73 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     }
   }
 
-  // ── icons ────────────────────────────────────────────────────────────────
+  // ── icons (native Gtk.DragSource) ────────────────────────────────────────
+  const stringContent = (s: string) => {
+    const v = new GObject.Value()
+    v.init(GObject.TYPE_STRING)
+    v.set_string(s)
+    return Gdk.ContentProvider.new_for_value(v)
+  }
+
+  const dragIcon = (cls: string): Gdk.Paintable | null => {
+    try {
+      const disp = Gdk.Display.get_default()
+      if (!disp) return null
+      return Gtk.IconTheme.get_for_display(disp).lookup_icon(
+        iconName(cls), null, 24, 1, Gtk.TextDirection.NONE, 0,
+      ) as unknown as Gdk.Paintable
+    } catch {
+      return null
+    }
+  }
+
   const createIcon = (client: any) => {
     const img = new Gtk.Image({ iconName: iconName(client.class || ""), pixelSize: 14 })
     img.add_css_class("workspace-icon")
 
     const addr = normAddr(client.address)
+    const cls = client.class || "?"
     if (addr) {
-      // Gtk.GestureDrag as a plain drag detector — the drop is resolved from
-      // the pointer position, so no ContentProvider / DropTarget marshalling.
-      const g = new Gtk.GestureDrag()
-      g.connect("drag-begin", () => {
-        dragAddr = addr
+      const src = new Gtk.DragSource({ actions: Gdk.DragAction.MOVE })
+      src.connect("prepare", () => stringContent(addr))
+      src.connect("drag-begin", () => {
+        const p = dragIcon(cls)
+        if (p) src.set_icon(p, 12, 12)
         img.add_css_class("dragging")
+        wsLog(`ICON drag-begin  grabbed=${cls} ${addr} fromWs=${client.workspace?.id ?? "?"}`)
       })
-      g.connect("drag-update", () => markDropVisual(pointerWorkspace()?.w ?? null))
-      g.connect("drag-end", () => {
+      src.connect("drag-end", () => img.remove_css_class("dragging"))
+      src.connect("drag-cancel", () => {
         img.remove_css_class("dragging")
-        const target = pointerWorkspace()
-        if (dragAddr && target && target.id != null) moveToWorkspace(target.id, dragAddr)
-        dragAddr = null
-        clearDropVisuals()
+        return false
       })
-      img.add_controller(g)
+      img.add_controller(src)
     }
     return img
+  }
+
+  // ── drop target on a workspace button / the "+" ─────────────────────────
+  const attachDrop = (widget: Gtk.Widget, resolveWsId: () => number | null) => {
+    const dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
+    dt.connect("enter", () => {
+      widget.add_css_class("drop-target")
+      box.add_css_class("hover")
+      return Gdk.DragAction.MOVE
+    })
+    dt.connect("leave", () => {
+      widget.remove_css_class("drop-target")
+      box.remove_css_class("hover")
+    })
+    dt.connect("drop", (_dt: any, value: string) => {
+      widget.remove_css_class("drop-target")
+      box.remove_css_class("hover")
+      const wsId = resolveWsId()
+      const addr = normAddr(value)
+      wsLog(`ICON drop        value=${value}  targetWs=${wsId ?? "none"}`)
+      if (wsId != null && addr) moveToWorkspace(wsId, addr)
+      return true
+    })
+    widget.add_controller(dt)
   }
 
   const updateIcons = (id: number) => {
@@ -135,6 +193,7 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
       <label label="+" />
     </button>
   ) as Gtk.Button
+  attachDrop(plusBtn, () => freeSlot(onThisMonitor()) ?? null)
 
   // ── main render ────────────────────────────────────────────────────────
   const update = () => {
@@ -168,6 +227,7 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
         btn.add_css_class("workspace-btn")
         btn.set_child(inner)
         btn.connect("clicked", () => focusWorkspace(id))
+        attachDrop(btn, () => id)
 
         buttons.set(id, btn)
         iconBoxes.set(id, iconBox)
@@ -203,82 +263,6 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
 
     plusBtn.set_visible(freeSlot(ids) != null)
   }
-
-  // Which workspace button (or "+") is under a root-space point?
-  const widgetUnder = (px: number, py: number): { id: number | null; w: Gtk.Widget } | null => {
-    const root = box.get_root() as Gtk.Window | null
-    if (!root) return null
-    const [ok, bx, by] = box.translate_coordinates(root, 0, 0)
-    if (!ok) return null
-    const hit = (w: Gtk.Widget) => {
-      const a = w.get_allocation()
-      return px >= bx + a.x && px <= bx + a.x + a.width && py >= by + a.y && py <= by + a.y + a.height
-    }
-    for (const [id, btn] of buttons) if (hit(btn)) return { id, w: btn }
-    if (plusBtn.get_visible() && hit(plusBtn)) return { id: freeSlot([...buttons.keys()]) ?? null, w: plusBtn }
-    return null
-  }
-
-  const pointerState = (): { x: number; y: number; mask: number } | null => {
-    const surface = (box.get_root() as Gtk.Window | null)?.get_surface()
-    const pointer = Gdk.Display.get_default()?.get_default_seat()?.get_pointer()
-    if (!surface || !pointer) return null
-    const [, x, y, mask] = surface.get_device_position(pointer)
-    return { x, y, mask }
-  }
-
-  const pointerWorkspace = () => {
-    const p = pointerState()
-    return p ? widgetUnder(p.x, p.y) : null
-  }
-
-  const clearDropVisuals = () => {
-    for (const btn of buttons.values()) btn.remove_css_class("drop-target")
-    plusBtn.remove_css_class("drop-target")
-    box.remove_css_class("hover")
-  }
-  const markDropVisual = (w: Gtk.Widget | null) => {
-    for (const btn of buttons.values()) btn[btn === w ? "add_css_class" : "remove_css_class"]("drop-target")
-    plusBtn[plusBtn === w ? "add_css_class" : "remove_css_class"]("drop-target")
-    box[w ? "add_css_class" : "remove_css_class"]("hover")
-  }
-
-  // ── external drag ─────────────────────────────────────────────────────────
-  // A Hyprland window dragged from the desktop onto the bar is NOT a GTK drag.
-  // Poll the GDK button mask (cheap, no Hyprland IPC); on a *real* drag (moved
-  // > threshold) released over a workspace button, move the focused client
-  // there. Inert while an internal icon drag (Gtk.GestureDrag) is running, and
-  // a plain click can't trigger it.
-  let lastMask = 0
-  let pressX = 0
-  let pressY = 0
-  const DRAG_THRESHOLD = 24
-
-  const extPoll = () => {
-    const p = pointerState()
-    const mask = p?.mask ?? 0
-    const pressed = (mask & ANY_BUTTON) !== 0
-    const wasPressed = (lastMask & ANY_BUTTON) !== 0
-    lastMask = mask
-
-    if (dragAddr) return true // internal icon drag owns the drop
-    if (!p || (!pressed && !wasPressed)) return true
-
-    if (pressed && !wasPressed) {
-      pressX = p.x
-      pressY = p.y
-    }
-    if (wasPressed && !pressed) {
-      const moved = Math.abs(p.x - pressX) + Math.abs(p.y - pressY)
-      const under = widgetUnder(p.x, p.y)
-      if (moved > DRAG_THRESHOLD && under && under.id != null) {
-        const addr = normAddr(hypr.get_focused_client()?.address)
-        if (addr) moveToWorkspace(under.id, addr)
-      }
-    }
-    return true
-  }
-  GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, extPoll)
 
   update()
   hypr.connect("notify::focused-workspace", update)
