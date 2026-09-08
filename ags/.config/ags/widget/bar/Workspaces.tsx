@@ -250,7 +250,10 @@ export function Workspaces({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     const wasPressed = (lastMask & ANY_BUTTON) !== 0
     lastMask = mask
 
-    const under = pressed || wasPressed ? widgetUnder(px, py) : null
+    // Idle: just the mask read above. Do no hit-testing / CSS churn.
+    if (!pressed && !wasPressed) return true
+
+    const under = widgetUnder(px, py)
 
     for (const btn of buttons.values()) {
       btn[under?.w === btn && pressed ? "add_css_class" : "remove_css_class"]("drop-target")
