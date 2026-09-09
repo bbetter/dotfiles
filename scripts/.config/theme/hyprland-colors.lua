@@ -4,21 +4,21 @@
 
 hl.config({
     general = {
-        ["col.active_border"]   = { colors = { "rgba(ae95c7ff)", "rgba(c795aeff)" }, angle = 45 },
-        ["col.inactive_border"] = "rgba(1c2023ff)",
+        ["col.active_border"]   = { colors = { "rgba(b87dc7ff)", "rgba(843883ff)" }, angle = 45 },
+        ["col.inactive_border"] = "rgba(231513ff)",
     },
     decoration = {
         shadow = {
-            color          = "rgba(ae95c7ff)",
-            color_inactive = "rgba(1c2023ff)",
+            color          = "rgba(b87dc7ff)",
+            color_inactive = "rgba(231513ff)",
         },
     },
     group = {
-        ["col.border_active"]   = { colors = { "rgba(ae95c7ff)", "rgba(c795aeff)" }, angle = 45 },
-        ["col.border_inactive"] = "rgba(1c2023ff)",
+        ["col.border_active"]   = { colors = { "rgba(b87dc7ff)", "rgba(843883ff)" }, angle = 45 },
+        ["col.border_inactive"] = "rgba(231513ff)",
         groupbar = {
-            ["col.active"]   = "rgba(ae95c7ff)",
-            ["col.inactive"] = "rgba(1c2023ff)",
+            ["col.active"]   = "rgba(b87dc7ff)",
+            ["col.inactive"] = "rgba(231513ff)",
         },
     },
 })
