@@ -16,8 +16,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
     hl.exec_cmd("sleep 10 && " .. home .. "/MyScripts/release_monitor.sh")
     hl.exec_cmd("hyprsunset -t 6000")
-    hl.exec_cmd("wall shuffle 900 DP-2")
-    hl.exec_cmd("wall shuffle 900 HDMI-A-1")
+    -- No monitor arg: `wall` shuffles every monitor independently, or (when
+    -- `wall mirror` is on) the primary only and fans out. Matches the theme mode.
+    hl.exec_cmd("wall shuffle 900")
     hl.exec_cmd("vicinae server")
     hl.exec_cmd("snappy-switcher --daemon")
     hl.exec_cmd(home .. "/.config/scripts/theme-watcher.sh")

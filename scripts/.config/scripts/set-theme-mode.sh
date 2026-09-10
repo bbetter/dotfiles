@@ -20,21 +20,17 @@ dynamic | dynamic-blend)
   ;;
 esac
 
-# mode-switch side effects
-if [ "$MODE" = "dynamic" ]; then
-  # mirror DP-2's wallpaper onto every other monitor for one shared palette
-  DP2_ID=$(wall status | awk '/monitor: DP-2/{f=1} f && /id:/{print $2; exit}')
-  if [ -n "$DP2_ID" ]; then
-    for m in $(wall monitors); do
-      [ "$m" = "DP-2" ] && continue
-      wall "$DP2_ID" "$m" >/dev/null 2>&1 || true
-    done
-  fi
+# mode-switch notifications. The actual mirror on/off is reconciled in
+# apply-theme.sh so it also self-heals on boot / watcher tick.
+case "$MODE" in
+dynamic)
   notify-send -a theme "Dynamic theme" \
     "Wallpaper mirrored across monitors — one shared palette." 2>/dev/null || true
-elif [ "$MODE" = "dynamic-blend" ]; then
+  ;;
+dynamic-blend)
   notify-send -a theme "Dynamic theme · per-monitor (experimental)" \
     "Palette blended from every monitor's wallpaper. Per-monitor wallpapers left as they are." 2>/dev/null || true
-fi
+  ;;
+esac
 
 ~/.config/scripts/apply-theme.sh

@@ -39,6 +39,17 @@ STEAM_LIB="${STEAM_LIB:-$HOME/.local/share/Steam/steamapps}"
 WORKSHOP="$STEAM_LIB/workshop/content/431960"
 TS=$(date +%s)
 
+# Reconcile the wallpaper engine's mirror flag with the theme mode:
+#   dynamic       → one wallpaper on every monitor  (wall mirror on)
+#   dynamic-blend → each monitor keeps its own      (wall mirror off)
+# `wall mirror` persists the setting and fans the primary's wallpaper out,
+# so shuffle/random/next all stay mirrored without any per-monitor loop here.
+if [ "$MODE" = "dynamic" ]; then
+  wall mirror on >/dev/null 2>&1 || true
+else
+  wall mirror off >/dev/null 2>&1 || true
+fi
+
 # id of the wallpaper currently on <monitor>
 wall_id_for() {
   wall status | awk -v m="monitor: $1" '
@@ -78,21 +89,6 @@ frame_for_monitor() {
   fi
 
   [ -s "$out" ]
-}
-
-# keep every non-DP-2 monitor on DP-2's wallpaper (mirror mode only).
-# best-effort — a failure here must not abort the recolor.
-mirror_wallpaper() {
-  local dp2 cur m
-  dp2=$(wall_id_for "DP-2")
-  [ -z "$dp2" ] && return 0
-  for m in $(wall monitors); do
-    [ "$m" = "DP-2" ] && continue
-    cur=$(wall_id_for "$m")
-    [ "$cur" = "$dp2" ] && continue
-    wall "$dp2" "$m" >/dev/null 2>&1 || true
-  done
-  return 0
 }
 
 if [ "$MODE" = "dynamic-blend" ]; then
@@ -141,9 +137,5 @@ wal -i "$IMG" --backend colorz --saturate 0.4 -n
 ~/.config/scripts/gen-theme.sh
 
 hyprctl reload
-
-# re-sync the other monitors after the recolor so a slow `wall` call
-# never delays the visible theme change
-[ "$MODE" = "dynamic" ] && mirror_wallpaper
 
 echo "✅ Dynamic theme applied ($MODE)"

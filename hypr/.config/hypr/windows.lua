@@ -14,9 +14,6 @@ hl.layer_rule({ match = { namespace = "gtk4-layer-shell" }, blur = true, ignore_
 hl.layer_rule({ match = { namespace = "swaync-control-center" },     blur = true, ignore_alpha = 0.2 })
 hl.layer_rule({ match = { namespace = "swaync-notification-window" }, blur = true, ignore_alpha = 0.2 })
 
--- wofi launcher
-hl.layer_rule({ match = { namespace = "wofi" }, blur = true, ignore_alpha = 0 })
-
 -- Suppress maximize events globally
 hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
 

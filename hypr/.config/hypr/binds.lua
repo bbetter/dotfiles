@@ -112,9 +112,9 @@ hl.bind(mainMod .. " + ALT + l",     hl.dsp.window.move({ monitor = "r" }))
 -- Explicit /usr/bin/python3: env.lua puts ~/.pyenv/shims on PATH, and the
 -- pyenv interpreter has no `gi` (python-gobject is a system package).
 hl.bind(mainMod .. " + p",         hl.dsp.exec_cmd("/usr/bin/python3 " .. home .. "/.local/bin/wall-gui"))
--- mode-aware: one wallpaper on every monitor in "dynamic (mirrored)",
--- per-monitor random otherwise. See ~/.config/scripts/wall-random.sh.
-hl.bind(mainMod .. " + SHIFT + p", hl.dsp.exec_cmd(home .. "/.config/scripts/wall-random.sh"))
+-- `wall` is mode-aware itself now: with `wall mirror on` a bare `wall random`
+-- rolls the primary and fans out to every monitor; otherwise it's per-monitor.
+hl.bind(mainMod .. " + SHIFT + p", hl.dsp.exec_cmd(home .. "/.local/bin/wall random"))
 
 -- ==================================================
 -- SCRATCHPADS

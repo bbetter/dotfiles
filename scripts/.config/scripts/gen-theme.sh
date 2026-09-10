@@ -157,9 +157,6 @@ generate() {
 generate "$HOME/.config/theme/hyprland-colors.template.lua" \
   "$HOME/.config/theme/hyprland-colors.lua"
 
-generate "$HOME/.config/wofi/style.template.css" \
-  "$HOME/.config/wofi/style.css"
-
 generate "$HOME/.config/fuzzel/fuzzel.template.ini" \
   "$HOME/.config/fuzzel/fuzzel.ini"
 
