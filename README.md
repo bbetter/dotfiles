@@ -1,114 +1,76 @@
-# 🏠 My Dotfiles
+# dotfiles
 
-Personal dotfiles for EndeavourOS/Arch Linux + Hyprland setup
+Hyprland rice for Arch / EndeavourOS. Wallpaper-driven theming across the whole
+desktop.
 
-## 🎨 Rice Preview
+## Screenshots
 
-- **WM**: Hyprland
-- **Bar**: AGS  
-- **Launcher**: Wofi
-- **Terminal**: Ghostty
-- **Notifications**: SwayNC
-- **Lock Screen**: Swaylock
-- **Extras**: Cava, MPV, Neofetch, MangoHud
+<!-- add: ./assets/desktop.png, ./assets/sidebar.png, ./assets/theme-switch.gif -->
+_TODO_
 
-## 🚀 Fresh Install (Clean Arch)
+## Stack
+
+| | |
+|---|---|
+| Compositor | **Hyprland** — native Lua config (`~/.config/hypr/*.lua`, no `hyprland.conf`) |
+| Bar + sidebar | **AGS** (Aylur's GTK Shell / Astal, GTK4) |
+| Launcher | **vicinae** (`SUPER+SPACE`); **fuzzel** for dmenu prompts |
+| Terminal | **ghostty** |
+| Notifications | **swaync** |
+| Lock / idle | **hyprlock** + **hypridle** |
+| Wallpapers | **[wall](https://github.com/bbetter/wall)** (linux-wallpaperengine manager) |
+| Theme engine | **pywal** — palette from the current wallpaper, pushed to AGS, Hyprland borders, swaync, ghostty, fuzzel, hyprlock, fastfetch, GTK |
+| Night light | **hyprsunset** |
+| Screenshots | grim + slurp + **satty** |
+| Cursor / font | rose-pine-hyprcursor · JetBrainsMono Nerd Font |
+| Extras | cava, mpv, fastfetch |
+
+## Theme pipeline
+
+`wall` changes wallpaper → `theme-watcher.sh` notices → `apply-theme.sh` runs
+`wal` → `gen-theme.sh` renders every `*.template.*` into the real config and
+reloads the consumers live (no restarts). Mode lives in
+`~/.config/theme/current_mode`:
+
+- `dynamic` — one wallpaper mirrored across monitors, one palette
+- `dynamic (per-monitor experimental)` — each monitor its own wallpaper, palette blended from all
+- any wal theme name — static
+
+Switch with `SUPER+F1`. The rendered outputs are git-ignored (regenerated on
+every wallpaper change); only the `*.template.*` sources are tracked. Recreate
+them with `~/.config/scripts/apply-theme.sh`.
+
+## Layout
+
+Stow packages, one per app:
+
+```
+hypr ags ghostty swaync swaylock cava mpv neofetch scripts
+```
+
+`scripts` also carries `~/.config/{scripts,theme,fastfetch}` and
+`~/.local/bin` helpers.
+
+## Install (configs only)
+
 ```bash
-# 1. Clone dotfiles
-git clone https://github.com/USERNAME/dotfiles.git ~/.dotfiles
-
-# 2. Run install script (installs packages + stow configs)
+sudo pacman -S --needed stow
+git clone https://github.com/bbetter/dotfiles ~/.dotfiles
 cd ~/.dotfiles
-./install.sh
-
-# 3. Logout and login to Hyprland
+stow -v hypr ags ghostty swaync swaylock cava mpv neofetch scripts
+~/.config/scripts/apply-theme.sh   # seed the generated theme files
 ```
 
-## 🔧 Manual Setup
+Then install the packages the stack needs (Hyprland, aylurs-gtk-shell,
+vicinae, hyprlock, hypridle, hyprsunset, satty, python-pywal, imagemagick,
+jq, socat, dart-sass, playerctl, …) and `npm install` inside `~/.config/ags`.
 
-### Install packages:
-```bash
-# Official packages
-sudo pacman -S --needed - < packages.txt
+## Full machine provisioning
 
-# AUR packages (requires yay)
-yay -S --needed - < aur-packages.txt
-```
+The one-command "fresh Arch → working rice" bootstrap (package sets,
+services, secrets, host-specific config) lives in a separate private repo,
+`bbetter/arch-setup`. This repo is just the configs.
 
-### Link configs:
-```bash
-cd ~/.dotfiles
-stow -v hypr ags wofi ghostty swaync swaylock cava neofetch mpv scripts
-```
+## Auto-commit
 
-## 📦 Core Packages
-
-### Window Manager:
-- hyprland, aylurs-gtk-shell, wofi, swaync, swaylock
-
-### Terminal & Shell:
-- ghostty, zsh/bash
-
-### Media:
-- mpv, vlc, cava
-
-### Gaming:
-- mangohud, goverlay, vkbasalt
-
-### System:
-- btop, neofetch, thunar
-
-## 🤖 Auto-Backup
-
-Configs are auto-committed daily at 23:00 via systemd timer.
-
-### Manual operations:
-```bash
-# Check status
-cd ~/.dotfiles && git status
-
-# Push to GitHub
-cd ~/.dotfiles && git push
-
-# View commit history
-cd ~/.dotfiles && git log --oneline -10
-```
-
-## 📝 Adding New Configs
-```bash
-# 1. Create stow structure
-mkdir -p ~/.dotfiles/newapp/.config/newapp
-
-# 2. Copy config
-cp ~/.config/newapp/* ~/.dotfiles/newapp/.config/newapp/
-
-# 3. Backup original
-cp -r ~/.config/newapp ~/config-backup/
-
-# 4. Remove original
-rm -rf ~/.config/newapp
-
-# 5. Stow it
-cd ~/.dotfiles
-stow -v newapp
-
-# 6. Commit
-git add .
-git commit -m "Add newapp config"
-git push
-```
-
-## 🔄 Updating on Another Machine
-```bash
-cd ~/.dotfiles
-git pull
-stow -R */  # Restow all configs
-```
-
-## 📸 Screenshots
-
-*TODO: Add screenshots*
-
-## 📄 License
-
-MIT
+`dotfiles-auto-commit.timer` (systemd user) commits changes daily at 23:00.

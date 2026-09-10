@@ -14,7 +14,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("swaync")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
-    hl.exec_cmd("sleep 10 && " .. home .. "/MyScripts/release_monitor.sh")
     hl.exec_cmd("hyprsunset -t 6000")
     -- No monitor arg: `wall` shuffles every monitor independently, or (when
     -- `wall mirror` is on) the primary only and fans out. Matches the theme mode.
