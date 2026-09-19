@@ -1,4 +1,7 @@
-// Right pane: templates and saved sessions. Open / replace / alongside / delete.
+// Right pane. PERSISTENT sessions (named by you, kept until deleted) on top;
+// RECENT ones (autosave, previous session, safety snapshots) below. Any session
+// opens the same way; naming a recent one makes it persistent.
+import GLib from "gi://GLib"
 import { Gtk } from "ags/gtk4"
 import { appIcon } from "../utils/appIcon"
 import {
@@ -9,12 +12,14 @@ import {
   deleteSession,
   listSessions,
   openSession,
+  persistSession,
+  renameSession,
 } from "./api"
 
 export interface SessionsPaneOpts {
   status: (msg: string, kind?: "info" | "error") => void
   busy: (on: boolean) => void
-  /** Open the editor for this session/template, or a new template (null). */
+  /** Open the editor for this persistent session, or a new one (null). */
   edit: (stem: string | null) => void
 }
 
@@ -39,8 +44,9 @@ function button(text: string, ...classes: string[]) {
   return b
 }
 
-const isSnapshot = (s: SmSession) =>
-  s.kind !== "template" && (s.kind !== "broken" || s.path.includes("/sessions/"))
+/** hypr-sm prints "hypr-sm: <reason>" on stderr; show just the reason. */
+const reason = (e: unknown) =>
+  String(e).trim().split("\n").pop()!.replace(/^(Error: )?(hypr-sm: )?/, "")
 
 function subtitle(s: SmSession): string {
   if (s.kind === "broken") return `unreadable: ${s.error ?? ""}`
@@ -60,7 +66,7 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     hscrollbarPolicy: Gtk.PolicyType.NEVER,
     child: list,
   })
-  const newBtn = button("+ New template", "sm-flat-primary")
+  const newBtn = button("+ New session", "sm-flat-primary")
   newBtn.set_halign(Gtk.Align.START)
   newBtn.connect("clicked", () => edit(null))
   root.append(newBtn)
@@ -70,20 +76,22 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
   let expanded: string | null = null
   let confirm: { stem: string; info: ClosingInfo } | null = null
   let deleting: string | null = null
+  let naming: { stem: string; mode: "rename" | "persist"; text?: string } | null = null
   let showBefore = false
   let working = false
 
-  async function run(what: string, job: () => Promise<string>, done: string) {
+  async function run(what: string, job: () => Promise<string>, done: string, after?: (out: string) => void) {
     if (working) return
     working = true
     busy(true)
     status(`${what}…`)
     render()
     try {
-      await job()
+      const out = await job()
+      after?.(out)
       status(done)
     } catch (e) {
-      status(`${what} failed: ${String(e).trim().split("\n").pop()}`, "error")
+      status(`${what} failed: ${reason(e)}`, "error")
     } finally {
       working = false
       busy(false)
@@ -103,11 +111,71 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
       confirm = { stem: s.stem, info }
       render()
     } catch (e) {
-      status(`Could not check what would close: ${e}`, "error")
+      status(`Could not check what would close: ${reason(e)}`, "error")
     }
   }
 
+  /** Inline name prompt: renames a persistent session, or names a recent one (= makes it persistent). */
+  function namingRow(s: SmSession, mode: "rename" | "persist"): Gtk.Widget {
+    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
+    box.add_css_class("sm-actions")
+    if (mode === "persist") {
+      box.append(
+        label("Give it a name to keep it. It moves to the persistent list and is never removed automatically.", "sm-dim"),
+      )
+    }
+    const row = new Gtk.Box({ spacing: 8 })
+    const entry = new Gtk.Entry({
+      text: naming?.text ?? (mode === "rename" ? s.name : ""),
+      placeholderText: "Name (required)",
+      hexpand: true,
+    })
+    entry.add_css_class("sm-entry")
+    const go = button(mode === "rename" ? "Rename" : "Make persistent", "sm-primary")
+    const cancel = button("Cancel")
+    const submit = () => {
+      const name = entry.get_text().trim()
+      if (!name) return status("A persistent session needs a name", "error")
+      // Stay in naming mode (with the typed text) until it succeeds, so a rejected
+      // name (e.g. a duplicate) doesn't cost the user what they typed.
+      naming = { stem: s.stem, mode, text: name }
+      if (mode === "rename") {
+        run(`Renaming ${s.name}`, () => renameSession(s.stem, name), `Renamed to “${name}”`, () => {
+          naming = null
+        })
+      } else {
+        run(
+          `Saving ${s.name}`,
+          () => persistSession(s.stem, name),
+          `“${name}” is now persistent`,
+          stem => {
+            expanded = stem // follow the session to its new place in the list
+            naming = null
+          },
+        )
+      }
+    }
+    entry.connect("activate", submit)
+    go.connect("clicked", submit)
+    cancel.connect("clicked", () => {
+      naming = null
+      render()
+    })
+    row.append(entry)
+    row.append(go)
+    row.append(cancel)
+    box.append(row)
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      entry.grab_focus()
+      entry.select_region(0, -1)
+      return false
+    })
+    return box
+  }
+
   function actions(s: SmSession): Gtk.Widget {
+    if (naming?.stem === s.stem) return namingRow(s, naming.mode)
+
     const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
     box.add_css_class("sm-actions")
 
@@ -148,9 +216,24 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
       row.append(rep)
       row.append(alo)
     }
-    const editBtn = button("Edit")
-    editBtn.connect("clicked", () => edit(s.stem))
-    row.append(editBtn)
+    if (s.persistent) {
+      const editBtn = button("Edit")
+      editBtn.connect("clicked", () => edit(s.stem))
+      const rename = button("Rename")
+      rename.connect("clicked", () => {
+        naming = { stem: s.stem, mode: "rename" }
+        render()
+      })
+      row.append(editBtn)
+      row.append(rename)
+    } else {
+      const keep = button("Make persistent…")
+      keep.connect("clicked", () => {
+        naming = { stem: s.stem, mode: "persist" }
+        render()
+      })
+      row.append(keep)
+    }
     box.append(row)
     return box
   }
@@ -171,29 +254,27 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     texts.append(label(subtitle(s), "sm-dim"))
     head.append(texts)
 
-    if (isSnapshot(s)) {
-      if (deleting === s.stem) {
-        const yes = button("Delete", "sm-danger")
-        yes.connect("clicked", () => {
-          deleting = null
-          run(`Deleting ${s.name}`, () => deleteSession(s.stem), `Deleted ${s.name}`)
-        })
-        const no = button("Keep")
-        no.connect("clicked", () => {
-          deleting = null
-          render()
-        })
-        head.append(yes)
-        head.append(no)
-      } else {
-        const del = button("󰩹", "sm-icon")
-        del.set_tooltip_text("Delete this saved session")
-        del.connect("clicked", () => {
-          deleting = s.stem
-          render()
-        })
-        head.append(del)
-      }
+    if (deleting === s.stem) {
+      const yes = button("Delete", "sm-danger")
+      yes.connect("clicked", () => {
+        deleting = null
+        run(`Deleting ${s.name}`, () => deleteSession(s.stem), `Deleted ${s.name}`)
+      })
+      const no = button("Keep")
+      no.connect("clicked", () => {
+        deleting = null
+        render()
+      })
+      head.append(yes)
+      head.append(no)
+    } else {
+      const del = button("󰩹", "sm-icon")
+      del.set_tooltip_text("Delete this session")
+      del.connect("clicked", () => {
+        deleting = s.stem
+        render()
+      })
+      head.append(del)
     }
     card.append(head)
 
@@ -201,6 +282,7 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     click.connect("released", () => {
       expanded = isOpen ? null : s.stem
       confirm = null
+      naming = null
       render()
     })
     texts.add_controller(click)
@@ -229,15 +311,22 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
 
   function render() {
     clear(list)
-    const group = (title: string, items: SmSession[]) => {
-      if (!items.length) return
-      list.append(label(title, "sm-group"))
-      items.forEach(s => list.append(sessionCard(s)))
-    }
-    group("TEMPLATES", sessions.filter(s => s.kind === "template"))
-    group("SAVED", sessions.filter(s => ["saved", "autosave", "previous", "broken"].includes(s.kind)))
-
+    const persistent = sessions.filter(s => s.persistent)
+    const recent = sessions.filter(s => !s.persistent && s.kind !== "before")
     const before = sessions.filter(s => s.kind === "before")
+
+    list.append(label("PERSISTENT", "sm-group"))
+    if (persistent.length) persistent.forEach(s => list.append(sessionCard(s)))
+    else {
+      list.append(
+        label("Nothing persistent yet. Save what's open, create a session, or name a recent one.", "sm-dim", "sm-hint"),
+      )
+    }
+
+    if (recent.length) {
+      list.append(label("RECENT", "sm-group"))
+      recent.forEach(s => list.append(sessionCard(s)))
+    }
     if (before.length) {
       const toggle = button(`${showBefore ? "▾" : "▸"} Safety snapshots (${before.length})`, "sm-flat")
       toggle.connect("clicked", () => {
@@ -247,7 +336,6 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
       list.append(toggle)
       if (showBefore) before.forEach(s => list.append(sessionCard(s)))
     }
-    if (!sessions.length) list.append(label("No sessions yet. Tick some windows and save.", "sm-dim"))
     list.set_sensitive(!working)
   }
 
@@ -255,7 +343,7 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     try {
       sessions = await listSessions()
     } catch (e) {
-      status(`Could not list sessions: ${e}`, "error")
+      status(`Could not list sessions: ${reason(e)}`, "error")
     }
     render()
   }

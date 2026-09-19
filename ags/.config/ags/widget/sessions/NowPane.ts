@@ -10,7 +10,7 @@ import { WINDOW_TITLE, focusWindow, moveWindow, workspaceRanges } from "./api"
 export interface NowPaneOpts {
   selected: Set<string>
   /** addrs = null means "everything saveable". */
-  save: (name: string, addrs: string[] | null, asTemplate: boolean) => void
+  save: (name: string, addrs: string[] | null) => void
   status: (msg: string, kind?: "info" | "error") => void
 }
 
@@ -45,13 +45,11 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
   const count = label("", "sm-dim")
   const selAll = new Gtk.Button({ label: "Select all" })
   const selNone = new Gtk.Button({ label: "Clear" })
-  const nameEntry = new Gtk.Entry({ placeholderText: "Name for a new session or template", hexpand: true })
+  const nameEntry = new Gtk.Entry({ placeholderText: "Name for a new persistent session", hexpand: true })
   const saveBtn = new Gtk.Button({ label: "Save session" })
-  const tplBtn = new Gtk.Button({ label: "Save template" })
   ;[selAll, selNone].forEach(b => b.add_css_class("sm-btn"))
   saveBtn.add_css_class("sm-btn")
   saveBtn.add_css_class("sm-primary")
-  tplBtn.add_css_class("sm-btn")
   nameEntry.add_css_class("sm-entry")
 
   const footer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
@@ -64,7 +62,6 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
   const saveRow = new Gtk.Box({ spacing: 8 })
   saveRow.append(nameEntry)
   saveRow.append(saveBtn)
-  saveRow.append(tplBtn)
   footer.append(pickRow)
   footer.append(saveRow)
   root.append(footer)
@@ -81,19 +78,17 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
     )
   }
 
-  const doSave = (asTemplate: boolean) => {
+  const doSave = () => {
     const name = nameEntry.get_text().trim()
     if (!name) {
       status("Give it a name first", "error")
       nameEntry.grab_focus()
       return
     }
-    save(name, selected.size ? [...selected] : null, asTemplate)
-    nameEntry.set_text("")
+    save(name, selected.size ? [...selected] : null)
   }
-  saveBtn.connect("clicked", () => doSave(false))
-  tplBtn.connect("clicked", () => doSave(true))
-  nameEntry.connect("activate", () => doSave(false))
+  saveBtn.connect("clicked", doSave)
+  nameEntry.connect("activate", doSave)
   selAll.connect("clicked", () => {
     shown.forEach(a => selected.add(a))
     rebuild()

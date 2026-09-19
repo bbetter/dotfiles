@@ -49,17 +49,20 @@ function build(): Gtk.Window {
   const now = createNowPane({
     selected,
     status,
-    save: (name, addrs, asTemplate) => {
-      saveSession(name, addrs, asTemplate)
+    save: (name, addrs) => {
+      saveSession(name, addrs)
         .then(out => {
           const skipped = out.split("\n").filter(l => l.includes("skipped")).map(l => l.trim())
           status(
-            `${asTemplate ? "Template" : "Session"} “${name}” saved` +
+            `Session “${name}” saved` +
               (skipped.length ? ` (${skipped.join("; ")})` : ""),
           )
+          now.clearName() // only on success, so a rejected name isn't lost
           sessions.refresh()
         })
-        .catch(e => status(`Save failed: ${String(e).trim().split("\n").pop()}`, "error"))
+        .catch(e =>
+          status(`Save failed: ${String(e).trim().split("\n").pop()?.replace(/^(Error: )?(hypr-sm: )?/, "")}`, "error"),
+        )
     },
   })
   const stack = new Gtk.Stack({ vexpand: true, hexpand: true })
@@ -105,7 +108,7 @@ function build(): Gtk.Window {
 
   const right = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8, widthRequest: 400 })
   right.add_css_class("sm-right")
-  const sessionsTitle = new Gtk.Label({ label: "SESSIONS & TEMPLATES", xalign: 0 })
+  const sessionsTitle = new Gtk.Label({ label: "SESSIONS", xalign: 0 })
   sessionsTitle.add_css_class("sm-group")
   right.append(sessionsTitle)
   right.append(sessions.widget)
@@ -169,7 +172,7 @@ function build(): Gtk.Window {
   win.connect("notify::visible", () => {
     if (win.visible) refreshAll()
   })
-  // Templates edited by hand / saved elsewhere show up when you come back to the window.
+  // Sessions edited by hand / saved elsewhere show up when you come back to the window.
   win.connect("notify::is-active", () => {
     if (win.is_active) sessions.refresh()
   })

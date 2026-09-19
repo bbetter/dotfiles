@@ -1,5 +1,5 @@
 // Thin wrappers around the `hypr-sm` CLI and `hyprctl`. The GUI never parses
-// templates or decides what is safe to close: hypr-sm owns that.
+// session files or decides what is safe to close: hypr-sm owns that.
 import GLib from "gi://GLib"
 import Gio from "gi://Gio"
 import { execAsync } from "ags/process"
@@ -17,12 +17,14 @@ export interface SmWindow {
   floating: boolean
 }
 
-export type SessionKind = "template" | "saved" | "autosave" | "previous" | "before" | "broken"
+/** persistent = named by the user, kept until deleted; the rest are automatic ("recent"). */
+export type SessionKind = "persistent" | "autosave" | "previous" | "before" | "recent" | "broken"
 
 export interface SmSession {
   stem: string
   name: string
   kind: SessionKind
+  persistent: boolean
   open: boolean
   path: string
   windows: SmWindow[]
@@ -52,14 +54,17 @@ export function openSession(stem: string, mode: OpenMode, opts: { newCopy?: bool
   return sm("open", stem, "--mode", mode, "--yes", ...(opts.newCopy ? ["--new"] : []))
 }
 
-export function saveSession(name: string, addrs: string[] | null, asTemplate: boolean) {
-  return sm(
-    "save",
-    name,
-    ...(addrs ? ["--windows", addrs.join(",")] : []),
-    ...(asTemplate ? ["--template"] : []),
-  )
+/** Save the open windows (or just `addrs`) as a new persistent session. */
+export function saveSession(name: string, addrs: string[] | null) {
+  return sm("save", name, ...(addrs ? ["--windows", addrs.join(",")] : []))
 }
+
+/** Give a recent session a name: it becomes persistent. Resolves with its new id (stem). */
+export async function persistSession(stem: string, name: string): Promise<string> {
+  return JSON.parse(await sm("persist", stem, name)).stem
+}
+
+export const renameSession = (stem: string, name: string) => sm("rename", stem, name)
 
 export const deleteSession = (stem: string) => sm("delete", stem)
 
@@ -94,7 +99,7 @@ export async function workspaceRanges(): Promise<Record<string, number[]>> {
   return out
 }
 
-// ── template editor ────────────────────────────────────────────────────────
+// ── session editor ────────────────────────────────────────────────────────
 
 export interface EditWindow {
   cmd: string
@@ -144,7 +149,7 @@ export async function showSession(stem: string): Promise<{ stem: string; kind: S
   return JSON.parse(await sm("show", stem, "--json"))
 }
 
-/** Create (stem omitted) or overwrite a template. Rejects with hypr-sm's validation message. */
+/** Create (stem omitted) or overwrite a persistent session. Rejects with hypr-sm's validation message. */
 export async function writeSession(
   data: EditData,
   stem?: string,

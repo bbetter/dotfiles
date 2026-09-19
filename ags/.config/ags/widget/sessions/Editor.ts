@@ -1,4 +1,4 @@
-// Template editor: a full-width form that replaces the two panes. hypr-sm owns
+// Session editor: a full-width form that replaces the two panes. hypr-sm owns
 // the file format and validation; this only collects fields and shows its answers.
 import GLib from "gi://GLib"
 import { Gtk } from "ags/gtk4"
@@ -104,7 +104,7 @@ export function createEditor({ onClose }: EditorOpts) {
   root.add_css_class("sm-editor")
 
   const back = button("← Back")
-  const title = label("New template", "sm-title")
+  const title = label("New session", "sm-title")
   title.set_hexpand(true)
   const saveBtn = button("Save", "sm-primary")
   const top = new Gtk.Box({ spacing: 10 })
@@ -312,7 +312,7 @@ export function createEditor({ onClose }: EditorOpts) {
   /** Turn the drafts into what `hypr-sm write` takes; throws a message the user can act on. */
   function collect(): EditData {
     const n = name.trim()
-    if (!n) throw new Error("Give the template a name.")
+    if (!n) throw new Error("Give the session a name.")
     if (!wins.length) throw new Error("Add at least one window.")
     const out: EditWindow[] = wins.map((d, i) => {
       const at = `Window ${i + 1}`
@@ -360,7 +360,7 @@ export function createEditor({ onClose }: EditorOpts) {
       dirty = false
       onClose({ stem: r.stem, name: data.name, warnings: r.warnings })
     } catch (e) {
-      say(String(e).replace(/^hypr-sm: /, ""), "error")
+      say(String(e).replace(/^(Error: )?(hypr-sm: )?/, ""), "error")
     } finally {
       saveBtn.set_sensitive(true)
     }
@@ -383,7 +383,7 @@ export function createEditor({ onClose }: EditorOpts) {
     onClose()
   })
 
-  /** Show the editor for an existing session/template (stem) or a blank new template. */
+  /** Show the editor for an existing persistent session (stem) or a blank new one. */
   async function load(which: string | null) {
     loading = true
     say("")
@@ -395,12 +395,12 @@ export function createEditor({ onClose }: EditorOpts) {
         name = d.name
         view = { primary: d.view?.primary != null ? String(d.view.primary) : "", secondary: d.view?.secondary != null ? String(d.view.secondary) : "" }
         wins = d.window.map(toDraft)
-        title.set_label(s.kind === "template" ? "Edit template" : "Edit session")
+        title.set_label("Edit session")
       } else {
         name = ""
         view = { primary: "", secondary: "" }
         wins = [blankDraft()]
-        title.set_label("New template")
+        title.set_label("New session")
       }
       nameEntry.set_text(name)
       primaryWs.set_text(view.primary)
