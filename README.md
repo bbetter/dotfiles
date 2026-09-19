@@ -40,6 +40,23 @@ Switch with `SUPER+F1`. The rendered outputs are git-ignored (regenerated on
 every wallpaper change); only the `*.template.*` sources are tracked. Recreate
 them with `~/.config/scripts/apply-theme.sh`.
 
+## Session manager (`hypr-sm`)
+
+Named window sessions for Hyprland: save what is open, restore it exactly (workspaces, floating windows,
+tiled layouts, terminal directories, Chrome/Firefox tabs, IDE projects), and swap between setups.
+`SUPER+N` opens the GUI (an AGS window: `ags/.config/ags/widget/Sessions.ts`); everything it does is also
+a CLI command (`hypr-sm --help`).
+
+- **Persistent** sessions are named by you and kept until deleted; **recent** ones (autosave, history,
+  "Before ..." safety snapshots) are automatic. Replace has a preview and an Undo.
+- Persistent sessions live in `~/.config/hypr-sm/sessions/` with a **local git history** (nothing is pushed);
+  deleted ones can be restored from the GUI. They are deliberately not in this (public) repo.
+- Optional `~/.config/hypr-sm/config.toml`: autosave interval, history length, login prompt, backup, launcher entries.
+- Per-session hotkeys are generated into `~/.config/hypr-sm/binds.lua` (loaded from `binds.lua`); they only
+  ever open/switch, never close windows. Each persistent session also gets a launcher entry.
+- Tests (`tests/hypr-sm`, stdlib only): `python3 -m unittest discover -s tests/hypr-sm`; see its README for the
+  opt-in live and GUI tests.
+
 ## Layout
 
 Stow packages, one per app:
