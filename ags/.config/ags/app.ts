@@ -11,6 +11,7 @@ import { BluetoothPopup } from "./widget/BluetoothPopup"
 import { CalendarPopup } from "./widget/CalendarPopup"
 import { PopupBackdrop } from "./widget/PopupBackdrop"
 import { closeSidebar, openSidebar, toggleSidebar } from "./widget/sidebar/state"
+import { toggleSessions } from "./widget/Sessions"
 
 const startTime = Date.now()
 
@@ -40,6 +41,17 @@ app.start({
       else if (action === "close") closeSidebar()
       else toggleSidebar()
       res("ok")
+      return
+    }
+
+    // hypr-sm session manager (SUPER+N): toggle | open | close
+    if (argv[0] === "sessions") {
+      try {
+        toggleSessions(argv[1] ?? "toggle")
+        res("ok")
+      } catch (e) {
+        res(`sessions failed: ${e}`) // always answer, or the caller hangs
+      }
       return
     }
 

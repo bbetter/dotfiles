@@ -1536,3 +1536,178 @@ tooltip {
     background: rgba($primary, 0.42);
   }
 }
+
+/* ==================================================
+   SESSIONS WINDOW (hypr-sm manager)
+   ================================================== */
+.SessionsWindow {
+  background: transparent;
+  color: $fg;
+}
+
+.sm-window {
+  background: $bg-popup;
+  border-radius: 14px;
+  border: 1px solid rgba($primary, 0.25);
+  color: $fg;
+}
+
+.sm-header {
+  padding: 12px 16px 4px 18px;
+}
+
+.sm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $primary;
+}
+
+.sm-close {
+  padding: 6px 9px;
+  border-radius: 8px;
+  color: rgba($fg, 0.6);
+  background: rgba($fg, 0.04);
+
+  &:hover { background: rgba($fg, 0.1); color: $fg; }
+}
+
+.sm-body {
+  padding: 10px 18px 12px 18px;
+}
+
+.sm-status {
+  padding: 8px 18px 12px 18px;
+  color: rgba($fg, 0.75);
+  font-size: 12px;
+
+  label.error { color: $error; }
+}
+
+.sm-group {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba($fg, 0.45);
+  padding: 6px 2px 2px 2px;
+}
+
+.sm-dim { color: rgba($fg, 0.5); font-size: 11px; }
+.sm-strong { font-weight: 700; }
+.sm-warn { color: $alert; }
+.sm-hint { padding: 4px 2px; }
+
+/* buttons + entry */
+.sm-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba($fg, 0.06);
+  color: $fg-warm;
+
+  &:hover { background: rgba($fg, 0.12); }
+  &:active { background: rgba($fg, 0.18); }
+  &:disabled { opacity: 0.4; }
+}
+
+.sm-primary {
+  background: rgba($primary, 0.22);
+
+  &:hover { background: rgba($primary, 0.34); }
+  &:active { background: rgba($primary, 0.44); }
+}
+
+.sm-danger {
+  background: rgba($error, 0.28);
+
+  &:hover { background: rgba($error, 0.42); }
+}
+
+.sm-icon { padding: 4px 8px; color: rgba($fg, 0.55); }
+.sm-flat { background: transparent; color: rgba($fg, 0.6); padding: 6px 2px; }
+
+.sm-entry {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba($fg, 0.06);
+  border: 1px solid transparent;
+  caret-color: $primary;
+
+  &:focus { border-color: rgba($primary, 0.5); }
+}
+
+check {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba($fg, 0.35);
+  background: transparent;
+
+  &:checked {
+    background: $primary;
+    border-color: $primary;
+  }
+}
+
+/* OPEN NOW pane */
+.sm-monitor-name {
+  font-weight: 700;
+  color: $fg;
+  padding: 0 2px 2px 2px;
+}
+
+.sm-ws {
+  background: rgba($fg, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba($fg, 0.06);
+  padding: 8px 8px 6px 8px;
+
+  &.active { border-color: rgba($primary, 0.5); }
+  &.empty { background: transparent; border-style: dashed; }
+  &.drop-target {
+    background: rgba($primary, 0.16);
+    border-color: $primary;
+  }
+}
+
+.sm-ws-id { font-weight: 700; color: $fg; }
+.sm-ws-active { color: $primary; font-size: 10px; }
+
+.sm-win {
+  padding: 4px 6px;
+  border-radius: 7px;
+
+  &:hover { background: rgba($fg, 0.07); }
+  &.dragging { opacity: 0.4; }
+}
+
+.sm-badge {
+  font-size: 10px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: rgba($secondary, 0.22);
+  color: $secondary;
+}
+
+.sm-footer { padding-top: 4px; }
+
+/* SESSIONS pane */
+.sm-session {
+  background: rgba($fg, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba($fg, 0.06);
+  padding: 10px 12px;
+
+  &:hover { background: rgba($fg, 0.06); }
+  &.expanded { border-color: rgba($primary, 0.35); }
+  &.running { border-left: 3px solid $primary; }
+}
+
+.sm-session-name { font-weight: 700; }
+.sm-session-windows { padding: 4px 2px 2px 2px; }
+.sm-win-class { font-size: 12px; color: $fg-warm; }
+
+.sm-actions { padding-top: 6px; }
+.sm-actions.confirming {
+  background: rgba($error, 0.1);
+  border-radius: 8px;
+  padding: 10px;
+}

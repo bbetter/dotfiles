@@ -6,6 +6,9 @@
     hypr-sm save [NAME] [--dry-run]  (snapshot the windows open right now)
     hypr-sm autosave [--every SECS]  (rolling "Last session" snapshot; started at login)
     hypr-sm delete NAME              (remove a saved snapshot; hand-written templates are never touched)
+    hypr-sm list --json              (sessions + templates with their windows; for the GUI)
+    hypr-sm closing --json           (what Replace would close right now; for the GUI)
+    hypr-sm save NAME --windows 0xA,0xB [--template]   (save only some windows / as a template)
 
 TEMPLATE is a file stem or the `name` inside ~/.config/hypr-sm/templates/*.toml
 (hand-written) or ~/.local/share/hypr-sm/sessions/*.toml (made by `save`; same
@@ -259,6 +262,7 @@ def shell_line(win):
 # --------------------------------------------------------------- snapshots ---
 
 GAME_CLASS = re.compile(r"^steam_app_")
+GUI_TITLE = "hypr-sm sessions"   # the AGS session window: never saved, never closed by Replace
 
 
 def read_cmdline(pid):
@@ -296,6 +300,8 @@ def restorable(clients, mons, cmdline=read_cmdline):
             continue
         cls = c.get("class") or ""
         label = cls or c.get("title") or c["address"]
+        if c.get("title") == GUI_TITLE:
+            continue
         if c["workspace"]["name"].startswith("special"):
             skipped.append((label, "scratchpad"))
             continue
@@ -447,9 +453,10 @@ def render_snapshot(name, wins, now, view=None, kind=None, titles=True):
     return "\n".join(lines) + "\n"
 
 
-def write_snapshot(name, wins, now, view=None, kind=None):
-    SESSION_DIR.mkdir(parents=True, exist_ok=True)
-    path = SESSION_DIR / f"{unique_stem(slugify(name))}.toml"
+def write_snapshot(name, wins, now, view=None, kind=None, directory=None):
+    directory = directory or SESSION_DIR
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{unique_stem(slugify(name))}.toml"
     path.write_text(render_snapshot(name, wins, now, view, kind))
     return path
 
@@ -539,9 +546,21 @@ def cmd_save(args):
     now = datetime.now()
     name = (args.name or "").strip() or f"Session {now:%d.%m %H:%M}"
     mons = monitors()
-    wins, skipped = snapshot_windows(query("clients"), mons)
+    items, skipped = restorable(query("clients"), mons)
+    if args.windows:
+        want = {a.strip() for a in args.windows.split(",") if a.strip()}
+        saveable = {i[1]["address"] for i in items}
+        by = {c["address"]: c for c in query("clients")}
+        for a in sorted(want - saveable):   # selected but not saveable (game, scratchpad, ...)
+            c = by.get(a)
+            if c:
+                label = c.get("class") or c.get("title") or a
+                say(f"  skipped {label}: " + next((w for l, w in skipped if l == label), "not saveable"))
+        items = [i for i in items if i[1]["address"] in want]
+        skipped = []
+    wins = [(w, n) for _, _, w, n in items]
     if not wins:
-        raise SmError("nothing to save: no restorable windows are open")
+        raise SmError("nothing to save: no restorable windows " + ("selected" if args.windows else "are open"))
     say(f"saving '{name}': {len(wins)} window(s)")
     for win, _ in wins:
         say(f"  [{win['monitor']} ws {win.get('workspace', '?')}] {win['cmd']}")
@@ -550,9 +569,10 @@ def cmd_save(args):
     if args.dry_run:
         say("(dry run: nothing written)")
         return
-    path = write_snapshot(name, wins, now, current_view(mons))
+    path = write_snapshot(name, wins, now, current_view(mons),
+                          directory=TEMPLATE_DIR if args.template else None)
     extra = f" ({len(skipped)} skipped: {', '.join(l for l, _ in skipped)})" if skipped else ""
-    notify("Session saved", f"{name}: {len(wins)} windows{extra}")
+    notify("Template saved" if args.template else "Session saved", f"{name}: {len(wins)} windows{extra}")
     say(f"saved to {path}")
 
 
@@ -1092,6 +1112,52 @@ def cmd_delete(args):
     say(f"deleted '{n}' ({f.name})")
 
 
+def clean_class(pattern):
+    """'^com\\.mitchellh\\.ghostty$' -> 'com.mitchellh.ghostty'"""
+    return re.sub(r"\\(.)", r"\1", (pattern or "").strip("^$"))
+
+
+def session_kind(path, saved, data):
+    if not saved:
+        return "template"
+    if path.stem == "autosave":
+        return "autosave"
+    if path.stem == "previous-session":
+        return "previous"
+    if data.get("auto") == "before" or str(data.get("name", "")).startswith("Before "):
+        return "before"
+    return "saved"
+
+
+def cmd_list(_args):
+    state = load_state()
+    out = []
+    for f, saved in all_files():
+        try:
+            data = tomllib.loads(f.read_text())
+        except (OSError, tomllib.TOMLDecodeError) as e:
+            out.append({"stem": f.stem, "name": f.stem, "kind": "broken", "open": False,
+                        "path": str(f), "error": str(e), "windows": []})
+            continue
+        wins = []
+        for w in data.get("window", []):
+            cmd = str(w.get("cmd", ""))
+            argv = shlex.split(cmd) if cmd else []
+            wins.append({"class": clean_class(w.get("class")) or (Path(argv[0]).name if argv else ""),
+                         "cmd": cmd, "monitor": w.get("monitor", "primary"),
+                         "workspace": w.get("workspace"), "floating": bool(w.get("floating", False))})
+        out.append({"stem": f.stem, "name": str(data.get("name", f.stem)),
+                    "kind": session_kind(f, saved, data), "open": slugify(f.stem) in state,
+                    "path": str(f), "view": data.get("view", {}), "windows": wins})
+    print(json.dumps({"sessions": out}))
+
+
+def cmd_closing(_args):
+    items, _ = restorable(current_clients(), monitors())
+    head, warns = closing_summary(items, terminal_programs(items))
+    print(json.dumps({"count": len(items), "head": head, "warnings": warns}))
+
+
 def menu_delete():
     items = {f"{n}  [{f.stem}]": f for f, n in saved_sessions()}
     if not items:
@@ -1135,7 +1201,7 @@ def cmd_menu(_args):
         typed = fuzzel_text("Save session as > ")
         if typed is None:
             return
-        cmd_save(argparse.Namespace(name=typed, dry_run=False))
+        cmd_save(argparse.Namespace(name=typed, dry_run=False, windows=None, template=False))
         return
     stem, name, is_open = entries[picked]
 
@@ -1196,7 +1262,15 @@ def main():
     sp = sub.add_parser("save", help="save the windows open right now as a session")
     sp.add_argument("name", nargs="?", help='default: "Session dd.mm HH:MM"')
     sp.add_argument("--dry-run", action="store_true")
+    sp.add_argument("--windows", help="comma-separated window addresses: save only these")
+    sp.add_argument("--template", action="store_true", help="save into the templates folder")
     sp.set_defaults(fn=cmd_save)
+    lp = sub.add_parser("list", help="list sessions and templates as JSON")
+    lp.add_argument("--json", action="store_true")
+    lp.set_defaults(fn=cmd_list)
+    cp = sub.add_parser("closing", help="what Replace would close right now, as JSON")
+    cp.add_argument("--json", action="store_true")
+    cp.set_defaults(fn=cmd_closing)
     dp = sub.add_parser("delete", help="delete a saved snapshot")
     dp.add_argument("name")
     dp.set_defaults(fn=cmd_delete)
@@ -1206,8 +1280,8 @@ def main():
     args = ap.parse_args()
 
     try:
-        if args.fn is cmd_autosave:   # takes the lock itself, one tick at a time
-            args.fn(args)
+        if args.fn in (cmd_autosave, cmd_list, cmd_closing):
+            args.fn(args)   # autosave takes the lock itself, per tick; the others only read
             return 0
         lock = try_lock()
         if not lock:

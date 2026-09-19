@@ -118,9 +118,10 @@ hl.bind(mainMod .. " + SHIFT + p", hl.dsp.exec_cmd(home .. "/.local/bin/wall ran
 -- SESSIONS
 -- ==================================================
 
--- hypr-sm: pick a named window session/template (templates live in
--- ~/.config/hypr-sm/templates/*.toml).
-hl.bind(mainMod .. " + N", hl.dsp.exec_cmd(home .. "/.local/bin/hypr-sm menu"))
+-- hypr-sm session manager: AGS window (widget/Sessions.ts). Falls back to the
+-- fuzzel menu if AGS isn't running. Templates: ~/.config/hypr-sm/templates/*.toml.
+hl.bind(mainMod .. " + N", hl.dsp.exec_cmd(
+    "sh -c 'ags request sessions toggle >/dev/null 2>&1 || " .. home .. "/.local/bin/hypr-sm menu'"))
 
 -- ==================================================
 -- SCRATCHPADS

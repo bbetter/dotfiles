@@ -78,3 +78,11 @@ hl.window_rule({
     size  = { 640, 360 },
     move  = { "(monitor_w*0.70)", "(monitor_h*0.20)" },
 })
+
+-- hypr-sm session manager (AGS window, title set in widget/Sessions.ts)
+hl.window_rule({
+    match  = { title = "^hypr-sm sessions$" },
+    float  = true,
+    center = true,
+    size   = { 1180, 760 },
+})
