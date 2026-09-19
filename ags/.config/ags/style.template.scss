@@ -1830,3 +1830,7 @@ textview.sm-edit-tabs {
 
 .sm-flat.sm-on { color: $primary; }
 .sm-flat.sm-off { color: rgba($fg, 0.45); }
+
+/* windows that can't be saved */
+.sm-win.sm-nosave { opacity: 0.6; }
+.sm-badge-warn { background: rgba($alert, 0.2); color: $alert; }

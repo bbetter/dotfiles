@@ -5,7 +5,7 @@ import { Gtk } from "ags/gtk4"
 import { appIcon } from "../utils/appIcon"
 import { EditData, EditWindow, OpenWindow, openWindows, showSession, writeSession } from "./api"
 
-const KNOWN = ["cmd", "monitor", "workspace", "cwd", "class", "timeout", "floating", "geometry", "tabs"]
+const KNOWN = ["cmd", "monitor", "workspace", "cwd", "class", "timeout", "floating", "geometry", "tabs", "run", "project", "pinned", "fullscreen"]
 
 /** Text fields stay strings while typing; they are parsed once, on Save. */
 interface Draft {
@@ -17,12 +17,16 @@ interface Draft {
   timeout: string
   floating: boolean
   tabs: string // one address per line
+  run: string // start command (terminals)
+  project: string // folder for a JetBrains IDE / VS Code window
+  pinned: boolean
+  fullscreen: number // 0 normal, 1 maximized, 2 fullscreen
   geometry?: EditWindow["geometry"]
   extra: Record<string, unknown>
 }
 
 const blankDraft = (): Draft => ({
-  cmd: "", monitor: "primary", workspace: "", cwd: "", cls: "", timeout: "", floating: false, tabs: "", extra: {},
+  cmd: "", monitor: "primary", workspace: "", cwd: "", cls: "", timeout: "", floating: false, tabs: "", run: "", project: "", pinned: false, fullscreen: 0, extra: {},
 })
 
 function toDraft(w: EditWindow): Draft {
@@ -37,6 +41,10 @@ function toDraft(w: EditWindow): Draft {
     timeout: w.timeout != null ? String(w.timeout) : "",
     floating: !!w.floating,
     tabs: (w.tabs ?? []).join("\n"),
+    run: w.run ?? "",
+    project: w.project ?? "",
+    pinned: !!w.pinned,
+    fullscreen: w.fullscreen === 1 || w.fullscreen === 2 ? w.fullscreen : 0,
     geometry: w.geometry,
     extra,
   }
@@ -243,8 +251,22 @@ export function createEditor({ onClose }: EditorOpts) {
     row2.append(field("WORKING DIRECTORY", cwd, true))
     row2.append(field("WINDOW CLASS", cls, true))
     row2.append(field("WAIT (S)", timeout))
-    const fl = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, valign: Gtk.Align.END })
+    const pinned = new Gtk.CheckButton({ label: "pinned", active: d.pinned })
+    pinned.set_tooltip_text("Shown on every workspace (floating windows only)")
+    pinned.connect("toggled", () => {
+      d.pinned = pinned.get_active()
+      touch()
+    })
+    const state = Gtk.DropDown.new_from_strings(["normal", "maximized", "fullscreen"])
+    state.set_selected(d.fullscreen)
+    state.connect("notify::selected", () => {
+      d.fullscreen = state.get_selected()
+      touch()
+    })
+    row2.append(field("STATE", state))
+    const fl = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, valign: Gtk.Align.END, spacing: 2 })
     fl.append(floating)
+    fl.append(pinned)
     row2.append(fl)
     card.append(row2)
 
@@ -280,6 +302,21 @@ export function createEditor({ onClose }: EditorOpts) {
       row3.append(forget)
     }
     card.append(row3)
+
+    const run = entry(d.run, "e.g. npm run dev")
+    run.connect("changed", () => {
+      d.run = run.get_text()
+      touch()
+    })
+    const project = entry(d.project, "e.g. ~/AndroidStudioProjects/MyApp  (Android Studio, IntelliJ, VS Code)")
+    project.connect("changed", () => {
+      d.project = project.get_text()
+      touch()
+    })
+    const row4 = new Gtk.Box({ spacing: 12 })
+    row4.append(field("RUN ON START (TERMINALS)", run, true))
+    row4.append(field("PROJECT OR FOLDER (IDES)", project, true))
+    card.append(row4)
 
     // Browser tabs: one address per line. Only Chrome/Chromium windows use them.
     const tabCount = () => d.tabs.split("\n").filter(t => t.trim()).length
@@ -341,6 +378,7 @@ export function createEditor({ onClose }: EditorOpts) {
       const inner = new Gtk.Box({ spacing: 8 })
       inner.append(appIcon(w.class, 18))
       inner.append(label(w.title || w.class, "sm-pop-title"))
+      if (w.running?.length) inner.append(label(`running: ${w.running.join(", ")}`, "sm-dim"))
       row.set_child(inner)
       row.connect("clicked", () => {
         pop.popdown()
@@ -386,6 +424,10 @@ export function createEditor({ onClose }: EditorOpts) {
       }
       if (d.floating) w.floating = true
       if (d.geometry) w.geometry = d.geometry
+      if (d.run.trim()) w.run = d.run.trim()
+      if (d.project.trim()) w.project = d.project.trim()
+      if (d.pinned) w.pinned = true
+      if (d.fullscreen === 1 || d.fullscreen === 2) w.fullscreen = d.fullscreen
       const tabs = d.tabs.split("\n").map(t => t.trim()).filter(Boolean)
       if (tabs.length) w.tabs = tabs
       if (d.cls.trim()) w.class = d.cls.trim()

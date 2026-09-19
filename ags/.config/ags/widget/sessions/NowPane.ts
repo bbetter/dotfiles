@@ -5,7 +5,7 @@ import GLib from "gi://GLib"
 import GObject from "gi://GObject"
 import { Gtk, Gdk } from "ags/gtk4"
 import { appIcon } from "../utils/appIcon"
-import { WINDOW_TITLE, focusWindow, moveWindow, workspaceRanges } from "./api"
+import { WINDOW_TITLE, focusWindow, moveWindow, unsaveable, workspaceRanges } from "./api"
 
 export interface NowPaneOpts {
   selected: Set<string>
@@ -67,6 +67,8 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
   root.append(footer)
 
   let shown: string[] = []
+  let notSaved: Record<string, string> = {} // address -> why it can't go into a session
+  let skipFetch = 0
   let ranges: Record<string, number[]> = {}
   let dragging = false
   let pending = false
@@ -111,7 +113,13 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
     const row = new Gtk.Box({ spacing: 8 })
     row.add_css_class("sm-win")
 
-    const check = new Gtk.CheckButton({ active: selected.has(addr) })
+    const why = notSaved[addr]
+    const check = new Gtk.CheckButton({ active: selected.has(addr) && !why })
+    if (why) {
+      check.set_sensitive(false)
+      selected.delete(addr)
+      row.add_css_class("sm-nosave")
+    }
     check.connect("toggled", () => {
       if (check.get_active()) selected.add(addr)
       else selected.delete(addr)
@@ -130,6 +138,11 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
     title.set_tooltip_text(`${c.class}\n${c.title}`)
     row.append(title)
     if (c.floating) row.append(label("float", "sm-badge"))
+    if (why) {
+      const b = label("not saved", "sm-badge", "sm-badge-warn")
+      b.set_tooltip_text(`Won't be saved into a session: ${why}`)
+      row.append(b)
+    }
 
     const src = new Gtk.DragSource({ actions: Gdk.DragAction.MOVE })
     src.connect("prepare", () => stringContent(addr))
@@ -231,6 +244,17 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
 
   /** Coalesce bursts of Hyprland events; never rebuild under an active drag. */
   function schedule() {
+    // Which windows can't be saved changes rarely: ask at most every 2 s.
+    if (Date.now() - skipFetch > 2000) {
+      skipFetch = Date.now()
+      unsaveable()
+        .then(m => {
+          const a = JSON.stringify(m), b = JSON.stringify(notSaved)
+          notSaved = m
+          if (a !== b) rebuild()
+        })
+        .catch(() => {})
+    }
     if (dragging) {
       pending = true
       return

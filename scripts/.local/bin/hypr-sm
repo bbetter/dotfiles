@@ -321,6 +321,14 @@ def validate_template(data, label):
             raise SmError(f"{label}: window {i} floating must be true or false")
         if "cwd" in w and not isinstance(w["cwd"], str):
             raise SmError(f"{label}: window {i} working directory must be text")
+        if "project" in w and (not isinstance(w["project"], str) or not w["project"].strip()):
+            raise SmError(f"{label}: window {i} project must be a folder path")
+        if "pinned" in w and not isinstance(w["pinned"], bool):
+            raise SmError(f"{label}: window {i} pinned must be true or false")
+        if "fullscreen" in w and w["fullscreen"] not in (1, 2):
+            raise SmError(f"{label}: window {i} fullscreen must be 1 (maximized) or 2 (fullscreen)")
+        if "run" in w and (not isinstance(w["run"], str) or not w["run"].strip()):
+            raise SmError(f"{label}: window {i} start command must be text")
         if "timeout" in w and not (type(w["timeout"]) in (int, float) and w["timeout"] > 0):
             raise SmError(f"{label}: window {i} timeout must be a positive number of seconds")
         if "class" in w:
@@ -356,8 +364,15 @@ def template_warnings(data):
             continue
         if not argv:
             continue
-        if w.get("tabs") and not is_chromium(argv[0]):
-            out.append(f"window {i}: tabs are only restored in Chrome/Chromium-based browsers")
+        if w.get("tabs") and not (is_chromium(argv[0]) or is_firefox(argv[0])):
+            out.append(f"window {i}: tabs are only restored in Chrome/Chromium-based browsers and Firefox")
+        if w.get("project") and not is_editor(argv[0]):
+            out.append(f"window {i}: a project is only opened by JetBrains IDEs (studio.sh, idea.sh...) and VS Code")
+        if w.get("pinned") and not w.get("floating"):
+            out.append(f"window {i}: pinned only applies to floating windows")
+        if w.get("run") and (not is_terminal(argv[0]) or "-e" in argv[1:]):
+            out.append(f"window {i}: the start command is ignored "
+                       + ("(the command already has -e)" if is_terminal(argv[0]) else "(not a terminal)"))
         exe = os.path.expanduser(argv[0])
         found = Path(exe).exists() if "/" in exe else shutil.which(exe)
         if not found:
@@ -394,6 +409,14 @@ def is_chromium(exe):
     return Path(exe).name in CHROMIUM_EXES
 
 
+def is_firefox(exe):
+    return Path(exe).name in FIREFOX_EXES
+
+
+def is_terminal(exe):
+    return bool(TERMINAL_CLASS.search(Path(exe).name))
+
+
 def shell_line(win):
     argv = [os.path.expanduser(a) for a in shlex.split(win["cmd"])]
     cwd = os.path.expanduser(win["cwd"]) if win.get("cwd") else None
@@ -406,6 +429,24 @@ def shell_line(win):
         argv.insert(1, f"--working-directory={cwd}")
     if win.get("tabs") and is_chromium(argv[0]):
         argv += ["--new-window", *win["tabs"]]
+    elif win.get("tabs") and is_firefox(argv[0]):
+        # Firefox: --new-window takes ONE address (more would each open a window of their own);
+        # the rest become tabs of that window
+        argv += ["--new-window", win["tabs"][0]]
+        for url in win["tabs"][1:]:
+            argv += ["--new-tab", url]
+    if win.get("project"):
+        proj = os.path.expanduser(win["project"])
+        kind = is_editor(argv[0])
+        if kind == "jetbrains":
+            argv.append(proj)
+        elif kind == "vscode":
+            argv += ["--new-window", proj]
+    if win.get("run") and is_terminal(argv[0]) and "-e" not in argv[1:]:
+        # run the command in an interactive shell that then stays open, so aliases work
+        # and the window doesn't vanish when the command ends
+        shell = os.environ.get("SHELL") or "/bin/sh"
+        argv += ["-e", shell, "-ic", f"{win['run']}; exec {shlex.quote(shell)}"]
     line = "exec " + shlex.join(argv)
     if cwd:
         line = f"cd {shlex.quote(cwd)} && {line}"
@@ -604,13 +645,31 @@ def read_chromium_session(path):
 
 def _norm_title(t):
     t = re.sub(r"^\(\d+\)\s*", "", t or "")   # unread-count prefix
-    t = re.sub(r" - (Google Chrome|Chromium|Brave|Microsoft Edge|Vivaldi)$", "", t)
+    t = re.sub(r" [-—–] (Google Chrome|Chromium|Brave|Microsoft Edge|Vivaldi|Mozilla Firefox|Zen Browser|"
+               r"LibreWolf)( \(Private Browsing\))?$", "", t)
     return t.strip()
 
 
 def _same_title(a, b):
     a, b = _norm_title(a), _norm_title(b)
     return bool(a) and bool(b) and (a == b or a in b or b in a)   # "" is "in" everything: exclude
+
+
+def match_windows(wins, sess, sel_title):
+    """Pair Hyprland browser windows with session windows by the selected tab's title.
+    Only unambiguous pairs; the single leftover window/session pair goes by elimination."""
+    left_w, left_s, pairs = list(wins), list(sess), []
+    for c in wins:
+        hits = [w for w in left_s if _same_title(c.get("title"), sel_title(w))]
+        rivals = [x for x in wins if _same_title(x.get("title"), sel_title(hits[0]))] if len(hits) == 1 else []
+        if len(hits) == 1 and len(rivals) == 1:
+            pairs.append((c, hits[0]))
+    for c, w in pairs:
+        left_w.remove(c)
+        left_s.remove(w)
+    if len(left_w) == 1 and len(left_s) == 1:   # one of each left: no doubt
+        pairs.append((left_w[0], left_s[0]))
+    return pairs
 
 
 def browser_tabs(clients, cmdline=read_cmdline, read=read_chromium_session):
@@ -643,21 +702,229 @@ def browser_tabs(clients, cmdline=read_cmdline, read=read_chromium_session):
             i = w["selected"]
             return w["tabs"][i][1] if 0 <= i < len(w["tabs"]) else ""
 
-        left_w, left_s, pairs = list(wins), list(sess), []
-        for c in wins:   # unique title matches first
-            hits = [w for w in left_s if _same_title(c.get("title"), sel_title(w))]
-            rivals = [x for x in wins if _same_title(x.get("title"), sel_title(hits[0]))] if len(hits) == 1 else []
-            if len(hits) == 1 and len(rivals) == 1:
-                pairs.append((c, hits[0]))
-        for c, w in pairs:
-            left_w.remove(c)
-            left_s.remove(w)
-        if len(left_w) == 1 and len(left_s) == 1:   # one of each left: no doubt
-            pairs.append((left_w[0], left_s[0]))
+        pairs = match_windows(wins, sess, sel_title)
         for c, w in pairs:
             urls = [u for u, _ in w["tabs"] if u and not u.startswith(NEWTAB)]
             if urls:
                 out[c["address"]] = urls
+    return out
+
+
+def lz4_block_decompress(src):
+    """Plain LZ4 block decompression (Python has none built in)."""
+    out, i, n = bytearray(), 0, len(src)
+    while i < n:
+        token = src[i]
+        i += 1
+        lit = token >> 4
+        if lit == 15:
+            while True:
+                b = src[i]
+                i += 1
+                lit += b
+                if b != 255:
+                    break
+        out += src[i:i + lit]
+        i += lit
+        if i >= n:
+            break   # the last sequence has literals only
+        offset = src[i] | (src[i + 1] << 8)
+        i += 2
+        ml = token & 15
+        if ml == 15:
+            while True:
+                b = src[i]
+                i += 1
+                ml += b
+                if b != 255:
+                    break
+        ml += 4
+        start = len(out) - offset
+        if offset == 0 or start < 0:
+            raise ValueError("corrupt LZ4 data")
+        for k in range(ml):   # may overlap itself, so byte by byte
+            out.append(out[start + k])
+    return bytes(out)
+
+
+def read_firefox_session(path):
+    """[{'tabs': [(url, title)], 'selected': int (0-based)}] from Firefox's mozlz4 session file."""
+    data = Path(path).read_bytes()
+    if data[:8] != b"mozLz40\0":
+        raise ValueError("not a Firefox session file")
+    doc = json.loads(lz4_block_decompress(data[12:]))
+    out = []
+    for w in doc.get("windows", []):
+        tabs = []
+        for t in w.get("tabs", []):
+            entries = t.get("entries") or []
+            if not entries or t.get("hidden"):
+                continue
+            e = entries[min(max(t.get("index", len(entries)), 1), len(entries)) - 1]
+            tabs.append((e.get("url", ""), e.get("title", "")))
+        if tabs:
+            out.append({"tabs": tabs, "selected": max(int(w.get("selected", 1)) - 1, 0)})
+    return out
+
+
+FIREFOX_CLASSES = {"firefox", "firefox-esr", "firefox-developer-edition", "zen-browser", "librewolf"}
+FIREFOX_EXES = {"firefox", "firefox-bin", "firefox-esr", "zen-browser", "librewolf"}
+FIREFOX_BLANK = ("about:newtab", "about:blank", "about:home", "about:privatebrowsing")
+
+
+def firefox_tabs(clients, root=None, read=read_firefox_session):
+    """{window address: [tab URLs]} for Firefox windows (private windows aren't in the file,
+    so they simply get none). Same rules as browser_tabs: unambiguous or nothing."""
+    wins = [c for c in clients if (c.get("class") or "").lower() in FIREFOX_CLASSES]
+    if not wins:
+        return {}
+    root = Path(root or Path.home() / ".mozilla/firefox")
+    try:
+        files = sorted(root.glob("*/sessionstore-backups/recovery.jsonlz4"), key=lambda f: f.stat().st_mtime)
+        sess = read(files[-1]) if files else []
+    except (OSError, ValueError):
+        return {}
+
+    def sel_title(w):
+        i = w["selected"]
+        return w["tabs"][i][1] if 0 <= i < len(w["tabs"]) else ""
+
+    out = {}
+    for c, w in match_windows(wins, sess, sel_title):
+        urls = [u for u, _ in w["tabs"] if u and not u.startswith(FIREFOX_BLANK)]
+        if urls:
+            out[c["address"]] = urls
+    return out
+
+
+# ------------------------------------------------------------ IDE projects ---
+
+JETBRAINS_EXES = {f"{n}{ext}" for n in ("studio", "idea", "pycharm", "webstorm", "clion", "goland", "rider",
+                                        "phpstorm", "rustrover", "datagrip", "rubymine", "aqua", "dataspell")
+                  for ext in ("", ".sh")}
+VSCODE_EXES = {"code", "codium", "code-oss", "vscodium"}
+TITLE_SPLIT = re.compile(r"\s+[\u2013\u2014-]\s+")
+
+
+def is_editor(exe):
+    n = Path(exe).name
+    return "jetbrains" if n in JETBRAINS_EXES else "vscode" if n in VSCODE_EXES else None
+
+
+def jetbrains_recent_xmls(cls):
+    """recentProjects.xml files of the IDE this window class belongs to, newest first."""
+    base = Path.home() / ".config"
+    product = cls.lower().removeprefix("jetbrains-")
+    if product == "studio":
+        pats = [base / "Google" / "AndroidStudio*" / "options" / "recentProjects.xml"]
+    else:
+        pats = [base / "JetBrains" / "*" / "options" / "recentProjects.xml"]
+    files = [f for pat in pats for f in Path("/").glob(str(pat).lstrip("/")) if ".bak" not in str(f)]
+    if product not in ("studio",):   # JetBrains folders are named like IntelliJIdea2026.1: prefer this product's
+        key = {"idea": "intellij"}.get(product, product)
+        mine = [f for f in files if key in f.parent.parent.name.lower()]
+        files = mine or files
+    return sorted(files, key=lambda f: f.stat().st_mtime, reverse=True)
+
+
+def read_recent_projects(xml_path):
+    """[(project dir, last activation time)] from a JetBrains recentProjects.xml."""
+    import xml.etree.ElementTree as ET
+    out = []
+    for entry in ET.parse(xml_path).iter("entry"):
+        key = entry.get("key", "")
+        path = key.replace("$USER_HOME$", HOME)
+        if not path.startswith("/"):
+            continue
+        ts = 0
+        for opt in entry.iter("option"):
+            if opt.get("name") == "activationTimestamp":
+                ts = int(opt.get("value", "0") or 0)
+        out.append((path, ts))
+    return out
+
+
+def vscode_folders(storage=None):
+    """Folders VS Code knows about (open windows first), from its storage.json."""
+    storage = Path(storage or Path.home() / ".config/Code/User/globalStorage/storage.json")
+    try:
+        d = json.loads(storage.read_text())
+    except (OSError, ValueError):
+        return []
+    uris = [f.get("folderUri", "") for f in d.get("backupWorkspaces", {}).get("folders", [])]
+    ws = d.get("windowsState", {})
+    uris += [ws.get("lastActiveWindow", {}).get("folder", "")] + [w.get("folder", "") for w in ws.get("openedWindows", [])]
+    from urllib.parse import unquote
+    return [unquote(u[7:]) for u in uris if u.startswith("file://")]
+
+
+def ide_projects(clients, recent=None, folders=None):
+    """{window address: project/folder path} for JetBrains IDE and VS Code windows.
+
+    The window title names the project; its directory comes from the IDE's own list of
+    recent projects. A project name shared by several open windows is left out (ambiguous)."""
+    out = {}
+    jb = [c for c in clients if (c.get("class") or "").lower().startswith("jetbrains-")]
+    for c in jb:
+        name = TITLE_SPLIT.split(c.get("title") or "")[0].strip()
+        same = [x for x in jb if x.get("class") == c.get("class") and TITLE_SPLIT.split(x.get("title") or "")[0].strip() == name]
+        if not name or len(same) != 1:
+            continue
+        try:
+            projects = recent(c["class"]) if recent else [
+                p for f in jetbrains_recent_xmls(c["class"])[:1] for p in read_recent_projects(f)]
+        except Exception:   # an unreadable/odd project list just means no project for this window
+            continue
+        hits = sorted((p for p in projects if Path(p[0]).name == name and os.path.isdir(p[0])), key=lambda p: -p[1])
+        if hits:
+            out[c["address"]] = hits[0][0]
+    vs = [c for c in clients if (c.get("class") or "").lower() in ("code", "code-oss", "vscodium", "codium")]
+    known = folders() if folders else vscode_folders()
+    for c in vs:
+        parts = (c.get("title") or "").split(" - ")
+        if parts and re.match(r"(Visual Studio Code|VSCodium|Code - OSS)", parts[-1]):
+            parts = parts[:-1]
+        folder = parts[-1].strip() if len(parts) >= 2 else (parts[0].strip() if parts else "")
+        same = [x for x in vs if (x.get("title") or "").endswith(f" - {folder}") or x.get("title") == folder]
+        hits = [f for f in dict.fromkeys(known) if Path(f).name == folder and os.path.isdir(f)]
+        if folder and len(hits) == 1 and len(same) <= 1:
+            out[c["address"]] = hits[0]
+    return out
+
+
+def jetbrains_launcher(argv, cls):
+    """A running IDE's command line is the bundled Java + a classpath: useless for relaunching.
+    Its launcher script (bin/studio.sh, bin/idea.sh...) is what to run."""
+    exe = Path(argv[0])
+    if not (cls.lower().startswith("jetbrains-") and exe.name == "java" and "jbr" in exe.parts):
+        return None
+    root = exe.parents[2]   # <install>/jbr/bin/java
+    product = cls.lower().removeprefix("jetbrains-")
+    script = root / "bin" / f"{product}.sh"
+    return str(script) if script.exists() else None
+
+
+URL_ARG = re.compile(r"^(https?|file|ftp|chrome|about|view-source|data|mailto):", re.I)
+URL_FLAGS = {"--new-window", "-new-window", "--new-tab", "-new-tab", "--private-window", "-private-window"}
+
+
+def strip_launch_urls(argv):
+    """A browser started from a link has that link on its command line. Saving it would
+    re-open that stale page on every restore, so it (and the flags that carry one) go."""
+    if not argv or not (is_chromium(argv[0]) or is_firefox(argv[0])):
+        return argv
+    out, skip = [argv[0]], False
+    for a in argv[1:]:
+        if skip:
+            skip = False
+            if URL_ARG.match(a):
+                continue
+        if a in URL_FLAGS:
+            skip = True   # the next argument, if it is an address, belongs to this flag
+            continue
+        if URL_ARG.match(a):
+            continue
+        out.append(a)
     return out
 
 
@@ -672,13 +939,17 @@ def restorable(clients, mons, cmdline=read_cmdline):
     Skipped: scratchpad (special) windows, Steam games (not relaunchable by
     command line), and windows whose command line can't be read.
     Returns (items, skipped): items = [(sort_key, client, window, note)] in
-    launch order, skipped = [(label, reason)].
+    launch order, skipped = [(label, reason, address)].
     """
     role_of = {m["id"]: ("primary" if i == 0 else "secondary") for i, m in enumerate(mons)}
     mon_by_id = {m["id"]: m for m in mons}
     live = [c for c in clients if c.get("mapped", True) and c.get("title") != GUI_TITLE
             and not c["workspace"]["name"].startswith("special")]
-    cwds, tabs = terminal_cwds(live), browser_tabs(live, cmdline)
+    cwds, tabs = terminal_cwds(live), {**browser_tabs(live, cmdline), **firefox_tabs(live)}
+    try:
+        projects = ide_projects(live)
+    except Exception:   # an IDE adapter must never stop a save
+        projects = {}
     order = {"primary": 0, "secondary": 1}
     kept, skipped = [], []
     for c in clients:
@@ -689,26 +960,33 @@ def restorable(clients, mons, cmdline=read_cmdline):
         if c.get("title") == GUI_TITLE:
             continue
         if c["workspace"]["name"].startswith("special"):
-            skipped.append((label, "scratchpad"))
+            skipped.append((label, "scratchpad", c["address"]))
             continue
         if GAME_CLASS.match(cls):
-            skipped.append((label, "game"))
+            skipped.append((label, "game", c["address"]))
             continue
         argv = cmdline(c["pid"])
         if not argv:
-            skipped.append((label, "command unreadable"))
+            skipped.append((label, "command unreadable", c["address"]))
             continue
         role = role_of.get(c["monitor"], "primary")
-        win = {"monitor": role, "cmd": shlex.join(argv)}
+        launcher = jetbrains_launcher(argv, cls)
+        win = {"monitor": role, "cmd": launcher or shlex.join(strip_launch_urls(argv))}
         cwd = abbreviate_home(cwds[c["address"]]) if c["address"] in cwds else None
         if cwd:
             win["cwd"] = cwd
         if c["address"] in tabs:
             win["tabs"] = tabs[c["address"]]
+        if c["address"] in projects:
+            win["project"] = abbreviate_home(projects[c["address"]])
         if c["workspace"]["id"] > 0:
             win["workspace"] = c["workspace"]["id"]
         if c.get("floating"):
             win["floating"] = True
+            if c.get("pinned"):
+                win["pinned"] = True   # only floating windows can be pinned (shown on every workspace)
+        if c.get("fullscreen") in (1, 2):
+            win["fullscreen"] = c["fullscreen"]   # 1 = maximized, 2 = fullscreen
         m = mon_by_id.get(c["monitor"])
         if m and c.get("at") and c.get("size"):
             sw, sh = logical_size(m)   # monitor-relative, so a moved/resized monitor can rescale
@@ -1020,7 +1298,7 @@ def cmd_save(args):
             c = by.get(a)
             if c:
                 label = c.get("class") or c.get("title") or a
-                say(f"  skipped {label}: " + next((w for l, w in skipped if l == label), "not saveable"))
+                say(f"  skipped {label}: " + next((w for l, w, _ in skipped if l == label), "not saveable"))
         items = [i for i in items if i[1]["address"] in want]
         skipped = []
     wins = [(w, n) for _, _, w, n in items]
@@ -1031,14 +1309,14 @@ def cmd_save(args):
         extra = (f"  cwd {win['cwd']}" if win.get("cwd") else "") + (
             f"  {len(win['tabs'])} tabs" if win.get("tabs") else "")
         say(f"  [{win['monitor']} ws {win.get('workspace', '?')}] {win['cmd']}{extra}")
-    for label, why in skipped:
+    for label, why, _ in skipped:
         say(f"  skipped {label}: {why}")
     if args.dry_run:
         say("(dry run: nothing written)")
         return
     path = write_snapshot(name, wins, now, current_view(mons), directory=PERSISTENT_DIR)
     backup_commit(f"save {name}")
-    extra = f" ({len(skipped)} skipped: {', '.join(l for l, _ in skipped)})" if skipped else ""
+    extra = f" ({len(skipped)} skipped: {', '.join(l for l, _, _ in skipped)})" if skipped else ""
     notify("Session saved", f"{name}: {len(wins)} windows{extra}")
     say(f"saved to {path}")
 
@@ -1152,6 +1430,19 @@ def launch_and_place(win, ws, claimed, dry, mons_by_id=None):
         restore_float_state(c["address"], win, mons_by_id)
     progress(event="placed", i=Progress.index, n=Progress.total, window=window_label(win))
     return c["address"]
+
+
+def apply_window_state(addr, win):
+    """Pinned and fullscreen are applied last, once every window is where it belongs."""
+    ref = "window = " + lua_str(f"address:{addr}")
+    try:
+        if win.get("pinned") and win.get("floating"):
+            dispatch('hl.dsp.window.pin({ action = "enable", %s })' % ref)
+        if win.get("fullscreen") in (1, 2):
+            n = win["fullscreen"]
+            dispatch("hl.dsp.window.fullscreen_state({ internal = %d, client = %d, %s })" % (n, n, ref))
+    except SmError as e:
+        say(f"    ! {e}", err=True)
 
 
 TOL = 6   # px: close enough for a tiled size
@@ -1550,6 +1841,9 @@ def cmd_open(args):
             if off:
                 say(f"  ! workspace {ws}: tiled layout of {len(off)} window(s) not restored exactly "
                     f"(left as tiled by default)")
+    if not args.dry_run:
+        for addr, win, _ws in entries:
+            apply_window_state(addr, win)
     if args.dry_run:
         say("  would show:", ", ".join(f"{m} -> {n}" for m, n in show_ws.items())
             if shows else "(leaves the view alone)")
@@ -1560,7 +1854,8 @@ def cmd_open(args):
         save_state(state)
     if shows:
         show(show_ws, end_focus if end_focus in show_ws else next(iter(show_ws)))
-    touch_usage(stem)
+    if any(f.stem == stem for f, _ in all_files()):   # not for one-off files opened by path
+        touch_usage(stem)
     notify("Session opened", tpl["name"])
     progress(event="done", opened=len(launched), n=Progress.total, failed=Progress.failed)
     say("done")
@@ -2145,12 +2440,23 @@ def cmd_rename(args):
     print(json.dumps({"stem": f.stem, "name": name}))
 
 
+SKIP_REASONS = {
+    "scratchpad": "in a scratchpad (special workspace)",
+    "game": "a game: it can't be relaunched from a command line",
+    "command unreadable": "its command line couldn't be read",
+}
+
+
 def cmd_windows(_args):
-    """Open windows a template could be built from (same rules as `save`)."""
-    items, _ = restorable(current_clients(), monitors())
+    """Open windows a session could be built from (same rules as `save`), plus the
+    ones that can't be saved and why."""
+    items, skipped = restorable(current_clients(), monitors())
     print(json.dumps({"windows": [
-        {"address": c["address"], "class": c.get("class", ""), "title": c.get("title", ""), "window": w}
-        for _, c, w, _ in items]}))
+        {"address": c["address"], "class": c.get("class", ""), "title": c.get("title", ""), "window": w,
+         "running": next((progs for cls, progs in terminal_programs([(k, c, w, n)]) if cls), [])}
+        for k, c, w, n in items],
+        "skipped": [{"address": a, "class": label, "reason": SKIP_REASONS.get(why, why)}
+                    for label, why, a in skipped]}))
 
 
 def menu_delete():

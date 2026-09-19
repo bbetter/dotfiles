@@ -121,6 +121,10 @@ export interface EditWindow {
   timeout?: number
   floating?: boolean
   tabs?: string[]
+  run?: string
+  project?: string
+  pinned?: boolean
+  fullscreen?: number // 1 maximized, 2 fullscreen
   geometry?: { x: number; y: number; w: number; h: number; sw?: number; sh?: number }
   [extra: string]: unknown // keys the form doesn't know are kept as they are
 }
@@ -137,6 +141,7 @@ export interface OpenWindow {
   class: string
   title: string
   window: EditWindow
+  running?: string[] // programs running inside this terminal (a hint only)
 }
 
 /** Like execAsync, but feeds `input` to stdin (execAsync can't). */
@@ -173,6 +178,12 @@ export async function writeSession(
 
 export async function openWindows(): Promise<OpenWindow[]> {
   return JSON.parse(await sm("windows", "--json")).windows
+}
+
+/** {address: reason} for open windows that can't be saved into a session. */
+export async function unsaveable(): Promise<Record<string, string>> {
+  const skipped: { address: string; reason: string }[] = JSON.parse(await sm("windows", "--json")).skipped ?? []
+  return Object.fromEntries(skipped.map(s => [s.address, s.reason]))
 }
 
 // ── progress, undo, plan ─────────────────────────────────────────────────────
