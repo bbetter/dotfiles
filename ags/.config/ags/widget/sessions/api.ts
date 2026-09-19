@@ -1,6 +1,7 @@
 // Thin wrappers around the `hypr-sm` CLI and `hyprctl`. The GUI never parses
 // templates or decides what is safe to close: hypr-sm owns that.
 import GLib from "gi://GLib"
+import Gio from "gi://Gio"
 import { execAsync } from "ags/process"
 
 /** Must equal GUI_TITLE in hypr-sm (it never saves or closes this window). */
@@ -91,4 +92,67 @@ export async function workspaceRanges(): Promise<Record<string, number[]>> {
     /* no rules: the pane falls back to whatever workspaces exist */
   }
   return out
+}
+
+// ── template editor ────────────────────────────────────────────────────────
+
+export interface EditWindow {
+  cmd: string
+  monitor: "primary" | "secondary"
+  workspace?: number
+  cwd?: string
+  class?: string
+  timeout?: number
+  floating?: boolean
+  geometry?: { x: number; y: number; w: number; h: number; sw?: number; sh?: number }
+  [extra: string]: unknown // keys the form doesn't know are kept as they are
+}
+
+export interface EditData {
+  name: string
+  view?: { primary?: number; secondary?: number }
+  window: EditWindow[]
+}
+
+export interface OpenWindow {
+  address: string
+  class: string
+  title: string
+  window: EditWindow
+}
+
+/** Like execAsync, but feeds `input` to stdin (execAsync can't). */
+function runWithInput(argv: string[], input: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = Gio.Subprocess.new(
+      argv,
+      Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+    )
+    proc.communicate_utf8_async(input, null, (_p, res) => {
+      try {
+        const [, out, err] = proc.communicate_utf8_finish(res)
+        if (proc.get_successful()) resolve(out ?? "")
+        else reject((err || out || "hypr-sm failed").trim())
+      } catch (e) {
+        reject(String(e))
+      }
+    })
+  })
+}
+
+export async function showSession(stem: string): Promise<{ stem: string; kind: SessionKind; data: EditData }> {
+  return JSON.parse(await sm("show", stem, "--json"))
+}
+
+/** Create (stem omitted) or overwrite a template. Rejects with hypr-sm's validation message. */
+export async function writeSession(
+  data: EditData,
+  stem?: string,
+): Promise<{ stem: string; path: string; warnings: string[] }> {
+  const out = await runWithInput([HYPR_SM, "write", ...(stem ? ["--stem", stem] : [])], JSON.stringify(data))
+  return JSON.parse(out)
+}
+
+export async function openWindows(): Promise<OpenWindow[]> {
+  return JSON.parse(await sm("windows", "--json")).windows
 }

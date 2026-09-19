@@ -6,6 +6,7 @@ import GLib from "gi://GLib"
 import { Gtk, Gdk } from "ags/gtk4"
 import { createNowPane } from "./sessions/NowPane"
 import { createSessionsPane } from "./sessions/SessionsPane"
+import { createEditor } from "./sessions/Editor"
 import { WINDOW_TITLE, focusWindow, moveWindow, saveSession } from "./sessions/api"
 
 let win: Gtk.Window | null = null
@@ -61,7 +62,28 @@ function build(): Gtk.Window {
         .catch(e => status(`Save failed: ${String(e).trim().split("\n").pop()}`, "error"))
     },
   })
-  const sessions = createSessionsPane({ status, busy })
+  const stack = new Gtk.Stack({ vexpand: true, hexpand: true })
+  const editor = createEditor({
+    onClose: saved => {
+      stack.set_visible_child_name("main")
+      if (!saved) return
+      sessions.refresh()
+      status(
+        `Saved “${saved.name}”` + (saved.warnings.length ? `. Heads up: ${saved.warnings.join(" · ")}` : ""),
+        saved.warnings.length ? "error" : "info",
+      )
+    },
+  })
+  const sessions = createSessionsPane({
+    status,
+    busy,
+    edit: stem => {
+      editor
+        .load(stem)
+        .then(() => stack.set_visible_child_name("editor"))
+        .catch(e => status(`Could not open the editor: ${String(e).trim().split("\n").pop()}`, "error"))
+    },
+  })
 
   // ── layout ──────────────────────────────────────────────────────────────
   const title = new Gtk.Label({ label: "Sessions", xalign: 0, hexpand: true })
@@ -92,6 +114,12 @@ function build(): Gtk.Window {
   body.add_css_class("sm-body")
   body.append(nowFrame)
   body.append(right)
+  stack.add_named(body, "main")
+  const editorFrame = new Gtk.Box({ vexpand: true })
+  editorFrame.add_css_class("sm-body")
+  editorFrame.append(editor.widget)
+  editor.widget.set_hexpand(true)
+  stack.add_named(editorFrame, "editor")
 
   const bar = new Gtk.Box({ spacing: 8 })
   bar.add_css_class("sm-status")
@@ -101,7 +129,7 @@ function build(): Gtk.Window {
   const outer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   outer.add_css_class("sm-window")
   outer.append(header)
-  outer.append(body)
+  outer.append(stack)
   outer.append(bar)
   win.set_child(outer)
 

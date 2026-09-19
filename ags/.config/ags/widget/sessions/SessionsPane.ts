@@ -14,6 +14,8 @@ import {
 export interface SessionsPaneOpts {
   status: (msg: string, kind?: "info" | "error") => void
   busy: (on: boolean) => void
+  /** Open the editor for this session/template, or a new template (null). */
+  edit: (stem: string | null) => void
 }
 
 function clear(box: Gtk.Box) {
@@ -49,7 +51,7 @@ function subtitle(s: SmSession): string {
   return `${n} window${n === 1 ? "" : "s"} · ${ws.length ? `workspace ${ws.join(", ")}` : "auto-placed"}`
 }
 
-export function createSessionsPane({ status, busy }: SessionsPaneOpts) {
+export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
   const root = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
   root.add_css_class("sm-sessions")
   const list = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
@@ -58,6 +60,10 @@ export function createSessionsPane({ status, busy }: SessionsPaneOpts) {
     hscrollbarPolicy: Gtk.PolicyType.NEVER,
     child: list,
   })
+  const newBtn = button("+ New template", "sm-flat-primary")
+  newBtn.set_halign(Gtk.Align.START)
+  newBtn.connect("clicked", () => edit(null))
+  root.append(newBtn)
   root.append(scroll)
 
   let sessions: SmSession[] = []
@@ -142,6 +148,9 @@ export function createSessionsPane({ status, busy }: SessionsPaneOpts) {
       row.append(rep)
       row.append(alo)
     }
+    const editBtn = button("Edit")
+    editBtn.connect("clicked", () => edit(s.stem))
+    row.append(editBtn)
     box.append(row)
     return box
   }

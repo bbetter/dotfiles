@@ -1711,3 +1711,79 @@ check {
   border-radius: 8px;
   padding: 10px;
 }
+
+/* ---- template editor ---- */
+.sm-flat-primary {
+  background: transparent;
+  color: $primary;
+  padding: 4px 2px;
+
+  &:hover { color: $fg; }
+}
+
+.sm-editor { padding: 0; }
+
+.sm-caption { font-size: 10px; letter-spacing: 0.5px; }
+
+.sm-edit-win {
+  background: rgba($fg, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba($fg, 0.06);
+  padding: 12px;
+}
+
+.sm-edit-index {
+  min-width: 18px;
+  color: $primary;
+}
+
+.sm-edit-msg {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba($fg, 0.05);
+
+  &.error { background: rgba($error, 0.18); color: $fg; }
+  &.warn { background: rgba($alert, 0.18); color: $fg; }
+}
+
+dropdown > button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba($fg, 0.06);
+  color: $fg-warm;
+
+  &:hover { background: rgba($fg, 0.12); }
+
+  arrow { min-width: 12px; min-height: 12px; color: rgba($fg, 0.5); }
+}
+
+popover > contents {
+  background: $bg-popup;
+  border-radius: 10px;
+  border: 1px solid rgba($primary, 0.3);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  color: $fg;
+
+  listview { background: transparent; }
+
+  row {
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: $fg-warm;
+
+    &:hover, &:selected { background: rgba($primary, 0.2); }
+  }
+}
+
+.sm-pop { min-width: 420px; }
+
+.sm-pop-row {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: transparent;
+
+  &:hover { background: rgba($primary, 0.2); }
+}
+
+.sm-pop-title { font-size: 12px; }
