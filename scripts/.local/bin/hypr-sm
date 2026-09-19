@@ -6,6 +6,7 @@
     hypr-sm save NAME [--windows 0xA,0xB] [--dry-run]   (persist the windows open right now)
     hypr-sm persist STEM NAME        (make a recent session persistent under a name)
     hypr-sm rename STEM NAME         (rename a persistent session)
+    hypr-sm duplicate STEM NAME      (copy any session to a new persistent one)
     hypr-sm delete NAME              (delete a session, persistent or recent)
     hypr-sm autosave [--every SECS]  (rolling "Last session" snapshot; started at login)
     hypr-sm list --json | closing --json | show STEM --json | windows --json   (for the GUI)
@@ -1293,12 +1294,10 @@ def cmd_write(args):
     print(json.dumps({"stem": path.stem, "path": str(path), "warnings": template_warnings(data)}))
 
 
-def cmd_persist(args):
-    """Give a recent session a name: it moves to the persistent list for good."""
-    f, persistent = find_file(args.stem)
-    if persistent:
-        raise SmError(f"'{args.stem}' is already persistent (use rename)")
-    name = check_name(args.name)
+def copy_as_persistent(f, name):
+    """Write a clean persistent copy of session file `f` under `name` (no comments,
+    no auto key). Returns the new stem. The original is left alone."""
+    name = check_name(name)
     try:
         data = tomllib.loads(f.read_text())
     except (OSError, tomllib.TOMLDecodeError) as e:
@@ -1308,16 +1307,31 @@ def cmd_persist(args):
         data.pop("view")
     validate_template(data, "session")
     new_stem = unique_stem(slugify(name))
-    path = PERSISTENT_DIR / f"{new_stem}.toml"
     text = render_template(data, [])
     tomllib.loads(text)
-    write_atomic(path, text)
+    write_atomic(PERSISTENT_DIR / f"{new_stem}.toml", text)
+    return new_stem
+
+
+def cmd_persist(args):
+    """Give a recent session a name: it moves to the persistent list for good."""
+    f, persistent = find_file(args.stem)
+    if persistent:
+        raise SmError(f"'{args.stem}' is already persistent (use rename)")
+    new_stem = copy_as_persistent(f, args.name)
     f.unlink(missing_ok=True)
     state = load_state()   # keep "already open" attached to the session across the new file name
     if slugify(f.stem) in state:
         state[slugify(new_stem)] = state.pop(slugify(f.stem))
         save_state(state)
-    print(json.dumps({"stem": new_stem, "path": str(path)}))
+    print(json.dumps({"stem": new_stem, "path": str(PERSISTENT_DIR / f"{new_stem}.toml")}))
+
+
+def cmd_duplicate(args):
+    """Copy any session to a new persistent one under a new name; the original stays."""
+    f, _ = find_file(args.stem)
+    new_stem = copy_as_persistent(f, args.name)
+    print(json.dumps({"stem": new_stem, "path": str(PERSISTENT_DIR / f"{new_stem}.toml")}))
 
 
 def cmd_rename(args):
@@ -1457,6 +1471,10 @@ def main():
     pp.add_argument("stem")
     pp.add_argument("name")
     pp.set_defaults(fn=cmd_persist)
+    dup = sub.add_parser("duplicate", help="copy a session to a new persistent one")
+    dup.add_argument("stem")
+    dup.add_argument("name")
+    dup.set_defaults(fn=cmd_duplicate)
     rp = sub.add_parser("rename", help="rename a persistent session")
     rp.add_argument("stem")
     rp.add_argument("name")
@@ -1487,7 +1505,7 @@ def main():
 
     try:
         if args.fn in (cmd_autosave, cmd_list, cmd_closing, cmd_show, cmd_windows, cmd_write,
-                       cmd_persist, cmd_rename):
+                       cmd_persist, cmd_rename, cmd_duplicate):
             args.fn(args)   # autosave takes the lock itself, per tick; the others only read
             return 0
         lock = try_lock()

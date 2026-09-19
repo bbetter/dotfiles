@@ -1787,3 +1787,11 @@ popover > contents {
 }
 
 .sm-pop-title { font-size: 12px; }
+
+/* search field (Gtk.SearchEntry keeps its own icon/clear nodes) */
+searchentry.sm-entry {
+  padding: 6px 10px;
+
+  > text { color: $fg; }
+  > image { color: rgba($fg, 0.45); min-width: 14px; min-height: 14px; }
+}

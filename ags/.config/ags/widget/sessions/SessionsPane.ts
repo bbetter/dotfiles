@@ -10,6 +10,7 @@ import {
   SmSession,
   closingInfo,
   deleteSession,
+  duplicateSession,
   listSessions,
   openSession,
   persistSession,
@@ -48,6 +49,16 @@ function button(text: string, ...classes: string[]) {
 const reason = (e: unknown) =>
   String(e).trim().split("\n").pop()!.replace(/^(Error: )?(hypr-sm: )?/, "")
 
+type NamingMode = "rename" | "persist" | "duplicate"
+
+/** Does a session match the search text (name, or any window's class or command)? */
+function matches(s: SmSession, q: string): boolean {
+  return (
+    s.name.toLowerCase().includes(q) ||
+    s.windows.some(w => `${w.class} ${w.cmd}`.toLowerCase().includes(q))
+  )
+}
+
 function subtitle(s: SmSession): string {
   if (s.kind === "broken") return `unreadable: ${s.error ?? ""}`
   const n = s.windows.length
@@ -67,16 +78,21 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     child: list,
   })
   const newBtn = button("+ New session", "sm-flat-primary")
-  newBtn.set_halign(Gtk.Align.START)
   newBtn.connect("clicked", () => edit(null))
-  root.append(newBtn)
+  const search = new Gtk.SearchEntry({ placeholderText: "Search sessions…", hexpand: true })
+  search.add_css_class("sm-entry")
+  const top = new Gtk.Box({ spacing: 8 })
+  top.append(newBtn)
+  top.append(search)
+  root.append(top)
   root.append(scroll)
 
   let sessions: SmSession[] = []
   let expanded: string | null = null
   let confirm: { stem: string; info: ClosingInfo } | null = null
   let deleting: string | null = null
-  let naming: { stem: string; mode: "rename" | "persist"; text?: string } | null = null
+  let naming: { stem: string; mode: NamingMode; text?: string } | null = null
+  let query = ""
   let showBefore = false
   let working = false
 
@@ -116,22 +132,24 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
   }
 
   /** Inline name prompt: renames a persistent session, or names a recent one (= makes it persistent). */
-  function namingRow(s: SmSession, mode: "rename" | "persist"): Gtk.Widget {
+  function namingRow(s: SmSession, mode: NamingMode): Gtk.Widget {
     const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
     box.add_css_class("sm-actions")
     if (mode === "persist") {
       box.append(
         label("Give it a name to keep it. It moves to the persistent list and is never removed automatically.", "sm-dim"),
       )
+    } else if (mode === "duplicate") {
+      box.append(label("Creates a new persistent session from this one. The original stays as it is.", "sm-dim"))
     }
     const row = new Gtk.Box({ spacing: 8 })
     const entry = new Gtk.Entry({
-      text: naming?.text ?? (mode === "rename" ? s.name : ""),
+      text: naming?.text ?? (mode === "rename" ? s.name : mode === "duplicate" ? `${s.name} copy` : ""),
       placeholderText: "Name (required)",
       hexpand: true,
     })
     entry.add_css_class("sm-entry")
-    const go = button(mode === "rename" ? "Rename" : "Make persistent", "sm-primary")
+    const go = button(mode === "rename" ? "Rename" : mode === "duplicate" ? "Duplicate" : "Make persistent", "sm-primary")
     const cancel = button("Cancel")
     const submit = () => {
       const name = entry.get_text().trim()
@@ -141,6 +159,11 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
       naming = { stem: s.stem, mode, text: name }
       if (mode === "rename") {
         run(`Renaming ${s.name}`, () => renameSession(s.stem, name), `Renamed to “${name}”`, () => {
+          naming = null
+        })
+      } else if (mode === "duplicate") {
+        run(`Duplicating ${s.name}`, () => duplicateSession(s.stem, name), `Created “${name}”`, stem => {
+          expanded = stem
           naming = null
         })
       } else {
@@ -224,8 +247,14 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
         naming = { stem: s.stem, mode: "rename" }
         render()
       })
+      const dup = button("Duplicate…")
+      dup.connect("clicked", () => {
+        naming = { stem: s.stem, mode: "duplicate" }
+        render()
+      })
       row.append(editBtn)
       row.append(rename)
+      row.append(dup)
     } else {
       const keep = button("Make persistent…")
       keep.connect("clicked", () => {
@@ -311,13 +340,15 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
 
   function render() {
     clear(list)
-    const persistent = sessions.filter(s => s.persistent)
-    const recent = sessions.filter(s => !s.persistent && s.kind !== "before")
-    const before = sessions.filter(s => s.kind === "before")
+    const shown = query ? sessions.filter(s => matches(s, query)) : sessions
+    const persistent = shown.filter(s => s.persistent)
+    const recent = shown.filter(s => !s.persistent && s.kind !== "before")
+    const before = shown.filter(s => s.kind === "before")
 
-    list.append(label("PERSISTENT", "sm-group"))
+    if (query && !shown.length) list.append(label(`No session matches “${query}”.`, "sm-dim", "sm-hint"))
+    if (!query || persistent.length) list.append(label("PERSISTENT", "sm-group"))
     if (persistent.length) persistent.forEach(s => list.append(sessionCard(s)))
-    else {
+    else if (!query) {
       list.append(
         label("Nothing persistent yet. Save what's open, create a session, or name a recent one.", "sm-dim", "sm-hint"),
       )
@@ -328,13 +359,14 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
       recent.forEach(s => list.append(sessionCard(s)))
     }
     if (before.length) {
-      const toggle = button(`${showBefore ? "▾" : "▸"} Safety snapshots (${before.length})`, "sm-flat")
+      const open = showBefore || !!query // a search looks inside them too
+      const toggle = button(`${open ? "▾" : "▸"} Safety snapshots (${before.length})`, "sm-flat")
       toggle.connect("clicked", () => {
         showBefore = !showBefore
         render()
       })
       list.append(toggle)
-      if (showBefore) before.forEach(s => list.append(sessionCard(s)))
+      if (open) before.forEach(s => list.append(sessionCard(s)))
     }
     list.set_sensitive(!working)
   }
@@ -347,6 +379,11 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     }
     render()
   }
+
+  search.connect("search-changed", () => {
+    query = search.get_text().trim().toLowerCase()
+    render()
+  })
 
   refresh()
   return { widget: root, refresh }

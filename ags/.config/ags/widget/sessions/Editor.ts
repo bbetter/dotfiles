@@ -238,10 +238,29 @@ export function createEditor({ onClose }: EditorOpts) {
     row2.append(fl)
     card.append(row2)
 
-    if (d.geometry) {
-      const g = d.geometry
-      const row3 = new Gtk.Box({ spacing: 8 })
-      row3.append(label(`Saved size and position: ${g.w}×${g.h} at ${g.x},${g.y}`, "sm-dim"))
+    const row3 = new Gtk.Box({ spacing: 8 })
+    const g = d.geometry
+    const info = label(
+      g
+        ? `Saved size and position: ${g.w}×${g.h} at ${g.x},${g.y}${d.floating ? " (floating)" : " (tiled)"}`
+        : "No saved size or position: it opens wherever Hyprland puts it.",
+      "sm-dim",
+    )
+    info.set_hexpand(true)
+    row3.append(info)
+    const capture = button("Capture from an open window…", "sm-flat")
+    capture.connect("clicked", () =>
+      pickOpenWindow(capture, w => {
+        const wg = w.window.geometry
+        if (!wg) return say("That window has no position to capture.", "error")
+        d.geometry = wg
+        d.floating = !!w.window.floating // size and floating state belong together
+        touch()
+        rebuild()
+      }),
+    )
+    row3.append(capture)
+    if (g) {
       const forget = button("Forget", "sm-flat")
       forget.connect("clicked", () => {
         delete d.geometry
@@ -249,8 +268,8 @@ export function createEditor({ onClose }: EditorOpts) {
         rebuild()
       })
       row3.append(forget)
-      card.append(row3)
     }
+    card.append(row3)
     return card
   }
 
@@ -274,9 +293,8 @@ export function createEditor({ onClose }: EditorOpts) {
     rebuild()
   })
 
-  // "From an open window": a popover listing what could be saved right now.
-  let pop: Gtk.Popover | null = null
-  fromBtn.connect("clicked", async () => {
+  /** Popover listing what could be saved right now; calls onPick with the chosen window. */
+  async function pickOpenWindow(anchor: Gtk.Widget, onPick: (w: OpenWindow) => void) {
     let open: OpenWindow[]
     try {
       open = await openWindows()
@@ -284,8 +302,8 @@ export function createEditor({ onClose }: EditorOpts) {
       say(`Could not list open windows: ${e}`, "error")
       return
     }
-    pop ??= new Gtk.Popover()
-    if (!pop.get_parent()) pop.set_parent(fromBtn)
+    const pop = new Gtk.Popover() // fresh each time: cards get rebuilt, anchors come and go
+    pop.set_parent(anchor)
     const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2 })
     box.add_css_class("sm-pop")
     if (!open.length) box.append(label("Nothing saveable is open.", "sm-dim"))
@@ -297,16 +315,31 @@ export function createEditor({ onClose }: EditorOpts) {
       inner.append(label(w.title || w.class, "sm-pop-title"))
       row.set_child(inner)
       row.connect("clicked", () => {
-        pop?.popdown()
-        wins.push(toDraft(w.window))
-        touch()
-        rebuild()
+        pop.popdown()
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+          onPick(w) // after the popover is gone: it may rebuild the widget it hangs from
+          return false
+        })
       })
       box.append(row)
     }
+    pop.connect("closed", () =>
+      GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        pop.unparent()
+        return false
+      }),
+    )
     pop.set_child(box)
     pop.popup()
-  })
+  }
+
+  fromBtn.connect("clicked", () =>
+    pickOpenWindow(fromBtn, w => {
+      wins.push(toDraft(w.window))
+      touch()
+      rebuild()
+    }),
+  )
 
   // ── save / back ─────────────────────────────────────────────────────────
   /** Turn the drafts into what `hypr-sm write` takes; throws a message the user can act on. */

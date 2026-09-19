@@ -66,6 +66,11 @@ export async function persistSession(stem: string, name: string): Promise<string
 
 export const renameSession = (stem: string, name: string) => sm("rename", stem, name)
 
+/** Copy any session to a new persistent one; the original stays. Resolves with the new id. */
+export async function duplicateSession(stem: string, name: string): Promise<string> {
+  return JSON.parse(await sm("duplicate", stem, name)).stem
+}
+
 export const deleteSession = (stem: string) => sm("delete", stem)
 
 const dispatch = (expr: string) => execAsync(["hyprctl", "-q", "dispatch", expr])
