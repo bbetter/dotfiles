@@ -27,7 +27,7 @@ hl.window_rule({
 hl.window_rule({ match = { class = "^(xdg-desktop-portal-hyprland)$" }, no_blur = true, no_anim = true })
 
 -- JetBrains dialogs
-hl.window_rule({ match = { class = "^(jetbrains-*)$", title = "^(win.*)$" }, float = true, center = true })
+hl.window_rule({ match = { class = "^(jetbrains-.*)$", title = "^(win.*)$" }, float = true, center = true })
 
 -- Picture-in-Picture
 hl.window_rule({
@@ -61,9 +61,15 @@ hl.window_rule({ match = { class = "^(polkit-.*)$" }, float = true, center = tru
 -- Simple dialogs
 hl.window_rule({ match = { title = "^(Confirm|Authentication|Permission)$" }, float = true, center = true })
 
--- Gaming
-hl.window_rule({ match = { class = "^(steam_app_500810)$" }, stay_focused = true, immediate = true })
-hl.window_rule({ match = { class = "^(steam_app_110800)$" }, stay_focused = true, immediate = true })
+-- Gaming: Steam games get WM_CLASS "steam_app_<appid>" from the runtime wrapper.
+-- Always land them on the first empty workspace of the monitor they opened on
+-- (not wherever the cursor happened to drift to while the game was loading).
+hl.window_rule({
+    match        = { class = "^(steam_app_.*)$" },
+    workspace    = "emptym",
+    stay_focused = true,
+    immediate    = true,
+})
 
 -- Wallpaper preview
 hl.window_rule({

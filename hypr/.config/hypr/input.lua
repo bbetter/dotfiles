@@ -11,11 +11,6 @@ hl.config({
         kb_rules   = "",
         follow_mouse = 1,
         sensitivity  = 0,
+        accel_profile = "flat",
     },
-})
-
-hl.gesture({
-    fingers   = 3,
-    direction = "horizontal",
-    action    = "workspace",
 })

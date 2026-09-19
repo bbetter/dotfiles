@@ -1,9 +1,9 @@
 -- ===============================
 -- Hyprland entrypoint (Lua)
 -- ===============================
--- Backup strategy: all original .conf files are untouched.
--- To revert to hyprlang: rename or delete this file.
--- Hyprland loads hyprland.lua if present, otherwise falls back to hyprland.conf.
+-- Native Lua config: Hyprland loads this file directly and there is no
+-- hyprland.conf. Each dofile() below is one concern; `hyprctl reload`
+-- re-evaluates them all.
 
 local home    = os.getenv("HOME")
 local confDir = home .. "/.config/hypr/"

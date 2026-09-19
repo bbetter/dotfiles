@@ -4,9 +4,9 @@
 
 local home = os.getenv("HOME")
 
--- PATH: Hyprland is started from .zprofile (no display manager) BEFORE .zshrc
--- adds the user tool dirs, so its inherited PATH lacks ~/.local/bin, cargo,
--- bun, the Android SDK, etc. The old value here clobbered PATH down to 4 dirs;
+-- PATH: Hyprland is started by ly-dm via start-hyprland, not from an
+-- interactive zsh, so .zshrc never runs and its inherited PATH may lack
+-- ~/.local/bin, cargo, bun, the Android SDK, etc. The old value here clobbered PATH down to 4 dirs;
 -- this instead prepends the real tool dirs onto a full system PATH. Static
 -- list (Hyprland's `env` can't reference $PATH) — extend if a new toolchain
 -- dir is added to the shell rc.

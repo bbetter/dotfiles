@@ -15,7 +15,8 @@ local fileManager = "thunar"
 -- window-swap bind (Hyprland matches letter keys case-insensitively).
 hl.bind(mainMod .. " + SHIFT + ESCAPE", hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind(mainMod .. " + Q",         hl.dsp.window.close())
-hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exit())
+-- No exit bind on purpose: SUPER+SHIFT+Q sat next to close-window and one slip
+-- killed the session. Log out via the AGS sidebar power row (or `hyprctl dispatch exit`).
 hl.bind(mainMod .. " + W",         hl.dsp.exec_cmd(home .. "/.config/hypr/toggle-ags.sh"))
 hl.bind(mainMod .. " + grave",     hl.dsp.exec_cmd(home .. "/.config/hypr/toggle-ags-sidebar.sh"))
 
@@ -82,9 +83,6 @@ hl.bind(mainMod .. " + Y",  hl.dsp.exec_cmd(home .. "/.config/scripts/theme-menu
 -- WORKSPACES
 -- ==================================================
 
--- hl.bind(mainMod .. " + grave", ...) -- hyprtasking:toggle (plugin, not yet migrated)
--- hl.bind("escape", ...)              -- hyprtasking:if_active (plugin, not yet migrated)
-
 for i = 1, 9 do
     hl.bind(mainMod .. " + " .. i,         hl.dsp.focus({ workspace = i }))
     hl.bind(mainMod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
@@ -115,6 +113,14 @@ hl.bind(mainMod .. " + p",         hl.dsp.exec_cmd("/usr/bin/python3 " .. home .
 -- `wall` is mode-aware itself now: with `wall mirror on` a bare `wall random`
 -- rolls the primary and fans out to every monitor; otherwise it's per-monitor.
 hl.bind(mainMod .. " + SHIFT + p", hl.dsp.exec_cmd(home .. "/.local/bin/wall random"))
+
+-- ==================================================
+-- SESSIONS
+-- ==================================================
+
+-- hypr-sm: pick a named window session/template (templates live in
+-- ~/.config/hypr-sm/templates/*.toml).
+hl.bind(mainMod .. " + N", hl.dsp.exec_cmd(home .. "/.local/bin/hypr-sm menu"))
 
 -- ==================================================
 -- SCRATCHPADS

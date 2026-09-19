@@ -11,7 +11,7 @@ interface PowerAction {
 }
 
 const ACTIONS: PowerAction[] = [
-  { icon: "󰌾", label: "Lock",      cmd: ["swaylock", "-f"],           preClose: true },
+  { icon: "󰌾", label: "Lock",      cmd: ["loginctl", "lock-session"], preClose: true },
   { icon: "󰤄", label: "Suspend",   cmd: ["systemctl", "suspend"],     preClose: true },
   { icon: "󰩈", label: "Log out",   cmd: ["hyprctl", "dispatch", "exit"] },
   { icon: "󰜉", label: "Reboot",    cmd: ["systemctl", "reboot"],      confirm: true },
