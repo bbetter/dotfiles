@@ -15,6 +15,8 @@ export interface SmWindow {
   monitor: string
   workspace: number | null
   floating: boolean
+  cwd?: string | null
+  tabs?: number
 }
 
 /** persistent = named by the user, kept until deleted; the rest are automatic ("recent"). */
@@ -114,6 +116,7 @@ export interface EditWindow {
   class?: string
   timeout?: number
   floating?: boolean
+  tabs?: string[]
   geometry?: { x: number; y: number; w: number; h: number; sw?: number; sh?: number }
   [extra: string]: unknown // keys the form doesn't know are kept as they are
 }

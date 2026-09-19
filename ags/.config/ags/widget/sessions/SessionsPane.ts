@@ -323,7 +323,12 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
         const r = new Gtk.Box({ spacing: 8 })
         r.append(appIcon(w.class, 16))
         r.append(label(w.class || w.cmd, "sm-win-class"))
-        const where = [w.workspace != null ? `ws ${w.workspace}` : "", w.floating ? "float" : ""]
+        const where = [
+          w.workspace != null ? `ws ${w.workspace}` : "",
+          w.floating ? "float" : "",
+          w.tabs ? `${w.tabs} tab${w.tabs === 1 ? "" : "s"}` : "",
+          w.cwd ?? "",
+        ]
           .filter(Boolean)
           .join(" · ")
         const dim = label(where, "sm-dim")

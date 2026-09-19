@@ -1795,3 +1795,27 @@ searchentry.sm-entry {
   > text { color: $fg; }
   > image { color: rgba($fg, 0.45); min-width: 14px; min-height: 14px; }
 }
+
+/* browser tabs box in the editor */
+.sm-expander {
+  color: rgba($fg, 0.6);
+  font-size: 12px;
+
+  title { padding: 2px 0; }
+  arrow { min-width: 14px; min-height: 14px; color: rgba($fg, 0.5); }
+}
+
+.sm-edit-tabs-frame {
+  background: rgba($fg, 0.05);
+  border-radius: 8px;
+  margin-top: 6px;
+}
+
+textview.sm-edit-tabs {
+  background: transparent;
+  color: $fg-warm;
+  font-size: 12px;
+  caret-color: $primary;
+
+  text { background: transparent; }
+}

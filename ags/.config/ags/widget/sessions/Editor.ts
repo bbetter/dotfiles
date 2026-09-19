@@ -5,7 +5,7 @@ import { Gtk } from "ags/gtk4"
 import { appIcon } from "../utils/appIcon"
 import { EditData, EditWindow, OpenWindow, openWindows, showSession, writeSession } from "./api"
 
-const KNOWN = ["cmd", "monitor", "workspace", "cwd", "class", "timeout", "floating", "geometry"]
+const KNOWN = ["cmd", "monitor", "workspace", "cwd", "class", "timeout", "floating", "geometry", "tabs"]
 
 /** Text fields stay strings while typing; they are parsed once, on Save. */
 interface Draft {
@@ -16,12 +16,13 @@ interface Draft {
   cls: string
   timeout: string
   floating: boolean
+  tabs: string // one address per line
   geometry?: EditWindow["geometry"]
   extra: Record<string, unknown>
 }
 
 const blankDraft = (): Draft => ({
-  cmd: "", monitor: "primary", workspace: "", cwd: "", cls: "", timeout: "", floating: false, extra: {},
+  cmd: "", monitor: "primary", workspace: "", cwd: "", cls: "", timeout: "", floating: false, tabs: "", extra: {},
 })
 
 function toDraft(w: EditWindow): Draft {
@@ -35,6 +36,7 @@ function toDraft(w: EditWindow): Draft {
     cls: w.class ?? "",
     timeout: w.timeout != null ? String(w.timeout) : "",
     floating: !!w.floating,
+    tabs: (w.tabs ?? []).join("\n"),
     geometry: w.geometry,
     extra,
   }
@@ -270,6 +272,24 @@ export function createEditor({ onClose }: EditorOpts) {
       row3.append(forget)
     }
     card.append(row3)
+
+    // Browser tabs: one address per line. Only Chrome/Chromium windows use them.
+    const tabCount = () => d.tabs.split("\n").filter(t => t.trim()).length
+    const expander = new Gtk.Expander({ label: `Browser tabs (${tabCount()})` })
+    expander.add_css_class("sm-expander")
+    expander.set_expanded(tabCount() > 0 && tabCount() <= 8)
+    const view = new Gtk.TextView({ wrapMode: Gtk.WrapMode.NONE, monospace: true, topMargin: 6, bottomMargin: 6, leftMargin: 8, rightMargin: 8 })
+    view.add_css_class("sm-edit-tabs")
+    view.get_buffer().set_text(d.tabs, -1)
+    view.get_buffer().connect("changed", () => {
+      d.tabs = view.get_buffer().text
+      expander.set_label(`Browser tabs (${tabCount()})`)
+      touch()
+    })
+    const tabScroll = new Gtk.ScrolledWindow({ minContentHeight: 96, maxContentHeight: 200, propagateNaturalHeight: true, child: view })
+    tabScroll.add_css_class("sm-edit-tabs-frame")
+    expander.set_child(tabScroll)
+    card.append(expander)
     return card
   }
 
@@ -358,6 +378,8 @@ export function createEditor({ onClose }: EditorOpts) {
       }
       if (d.floating) w.floating = true
       if (d.geometry) w.geometry = d.geometry
+      const tabs = d.tabs.split("\n").map(t => t.trim()).filter(Boolean)
+      if (tabs.length) w.tabs = tabs
       if (d.cls.trim()) w.class = d.cls.trim()
       if (d.timeout.trim()) {
         const t = Number(d.timeout)
@@ -393,7 +415,7 @@ export function createEditor({ onClose }: EditorOpts) {
       dirty = false
       onClose({ stem: r.stem, name: data.name, warnings: r.warnings })
     } catch (e) {
-      say(String(e).replace(/^(Error: )?(hypr-sm: )?/, ""), "error")
+      say(String(e).replace(/^(Error: )?(hypr-sm: )?(session: )?/, ""), "error")
     } finally {
       saveBtn.set_sensitive(true)
     }

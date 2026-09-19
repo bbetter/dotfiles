@@ -23,6 +23,11 @@ remember each window's workspace, floating state and geometry plus what each
 monitor was showing, and restore all of it (floating windows exactly, tiled ones
 best-effort: tile tree rebuilt, windows swapped into place, split ratios nudged).
 A hand-written window without `workspace` uses the workspace its monitor shows.
+Terminals also remember their working directory (`cwd`; ghostty is started with
+--working-directory, since a plain second `ghostty` is forwarded to the running one
+and ignores it) and Chromium-family browsers remember their open tabs (`tabs`, read
+from the browser's live session file and matched to windows by selected-tab title;
+restored with `--new-window URL...`). Anything ambiguous is left out, never guessed.
 
   --mode replace    (default) save a "Before <session>" snapshot, CLOSE every
                     restorable window that is open now, launch the session onto its
@@ -50,6 +55,7 @@ import re
 import shlex
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import time
@@ -263,6 +269,9 @@ def validate_template(data, label):
                 re.compile(w["class"])
             except (re.error, TypeError) as e:
                 raise SmError(f"{label}: window {i} class is not a valid pattern ({e})")
+        if "tabs" in w and (not isinstance(w["tabs"], list) or len(w["tabs"]) > 500 or
+                            not all(isinstance(t, str) and t.strip() and not re.search(r"\s", t) for t in w["tabs"])):
+            raise SmError(f"{label}: window {i} tabs must be a list of addresses without spaces (500 at most)")
         g = w.get("geometry")
         if g is not None and (not isinstance(g, dict) or
                               any(type(g.get(k)) is not int for k in ("x", "y", "w", "h"))):
@@ -285,6 +294,8 @@ def template_warnings(data):
             continue
         if not argv:
             continue
+        if w.get("tabs") and not is_chromium(argv[0]):
+            out.append(f"window {i}: tabs are only restored in Chrome/Chromium-based browsers")
         exe = os.path.expanduser(argv[0])
         found = Path(exe).exists() if "/" in exe else shutil.which(exe)
         if not found:
@@ -317,11 +328,25 @@ def load_template(arg):
     return f.stem, data
 
 
+def is_chromium(exe):
+    return Path(exe).name in CHROMIUM_EXES
+
+
 def shell_line(win):
     argv = [os.path.expanduser(a) for a in shlex.split(win["cmd"])]
+    cwd = os.path.expanduser(win["cwd"]) if win.get("cwd") else None
+    if cwd and not os.path.isdir(cwd):
+        cwd = None   # the directory is gone: open in the default place rather than not at all
+    exe = Path(argv[0]).name
+    if cwd and exe == "ghostty" and not any(a.startswith("--working-directory") for a in argv[1:]):
+        # A plain second `ghostty` is forwarded to the running instance, which ignores the
+        # launcher's directory; this flag starts a window of its own, in the right place.
+        argv.insert(1, f"--working-directory={cwd}")
+    if win.get("tabs") and is_chromium(argv[0]):
+        argv += ["--new-window", *win["tabs"]]
     line = "exec " + shlex.join(argv)
-    if win.get("cwd"):
-        line = f"cd {shlex.quote(os.path.expanduser(win['cwd']))} && {line}"
+    if cwd:
+        line = f"cd {shlex.quote(cwd)} && {line}"
     return line
 
 
@@ -344,6 +369,233 @@ def current_clients():
     return query("clients")
 
 
+# ------------------------------------------------- terminal cwd + browser tabs ---
+
+HOME = str(Path.home())
+
+CHROMIUM_DATA = {   # Hyprland window class (lower case) -> default user data dir
+    "google-chrome": "~/.config/google-chrome",
+    "google-chrome-beta": "~/.config/google-chrome-beta",
+    "google-chrome-unstable": "~/.config/google-chrome-unstable",
+    "chromium": "~/.config/chromium",
+    "brave-browser": "~/.config/BraveSoftware/Brave-Browser",
+    "vivaldi-stable": "~/.config/vivaldi",
+    "microsoft-edge": "~/.config/microsoft-edge",
+}
+CHROMIUM_EXES = {"chrome", "google-chrome", "google-chrome-stable", "google-chrome-beta", "chromium",
+                 "chromium-browser", "brave", "brave-browser", "vivaldi", "vivaldi-stable",
+                 "microsoft-edge", "microsoft-edge-stable", "msedge"}
+NEWTAB = ("chrome://newtab", "chrome://new-tab-page", "about:blank", "chrome-search://")
+
+
+def abbreviate_home(path):
+    """'/home/me/proj' -> '~/proj'; the home directory itself -> None (it is the default)."""
+    if path == HOME:
+        return None
+    return "~" + path[len(HOME):] if path.startswith(HOME + "/") else path
+
+
+def _starttime(pid):
+    try:
+        return int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19])
+    except (OSError, ValueError, IndexError):
+        return 0
+
+
+def _cwd_of(pid):
+    try:
+        return os.readlink(f"/proc/{pid}/cwd")
+    except OSError:
+        return None
+
+
+def title_path(title):
+    """A shell prompt title 'user@host:~/proj' -> '/home/me/proj', else None."""
+    m = re.match(r"^[^:@\s]+@[^:\s]+:(.+)$", title or "")
+    return os.path.expanduser(m.group(1).strip()) if m else None
+
+
+def terminal_cwds(clients, kids=None, cwd_of=None):
+    """{window address: working directory} for terminal windows, where it is knowable.
+
+    A window with its own terminal process maps straight to that process's shell.
+    Windows that share one process (ghostty's single-instance mode) are told apart
+    by their prompt title; if that can't decide, they are left out rather than
+    guessed (a wrong directory is worse than none).
+    """
+    kids = kids or _children
+    cwd_of = cwd_of or _cwd_of
+    by_pid = {}
+    for c in clients:
+        if TERMINAL_CLASS.search(c.get("class") or ""):
+            by_pid.setdefault(c["pid"], []).append(c)
+    out = {}
+    for pid, wins in by_pid.items():
+        shells = sorted(kids(pid), key=_starttime)   # oldest first
+        cwds = {sh: cwd_of(sh) for sh in shells}
+        cwds = {sh: d for sh, d in cwds.items() if d}
+        if not cwds:
+            continue
+        if len(wins) == 1:   # tabs/splits: several shells, no way to tell which is shown; take the oldest
+            out[wins[0]["address"]] = next(iter(cwds.values()))
+            continue
+        left, unmatched = dict(cwds), []
+        for w in wins:
+            path = title_path(w.get("title"))
+            hit = next((sh for sh, d in left.items() if path and d == path), None)
+            if hit:
+                out[w["address"]] = left.pop(hit)
+            else:
+                unmatched.append(w)
+        if len(unmatched) == 1 and len(left) == 1:
+            out[unmatched[0]["address"]] = next(iter(left.values()))
+    return {a: d for a, d in out.items() if os.path.isdir(d)}
+
+
+# Chromium keeps the open windows/tabs in a binary "SNSS" session file while it runs.
+_SET_TAB_WINDOW, _SET_TAB_INDEX, _PRUNE_BACK, _UPDATE_NAV, _SET_SEL_NAV, _SET_SEL_TAB = 0, 2, 5, 6, 7, 8
+_SET_WINDOW_TYPE, _SET_APP_NAME, _TAB_CLOSED, _WINDOW_CLOSED, _PRUNE_FRONT = 9, 15, 16, 17, 25
+
+
+def _pickle_str(b, off, wide=False):
+    n = struct.unpack_from("<i", b, off)[0]
+    off += 4
+    size = 2 * n if wide else n
+    text = b[off:off + size].decode("utf-16-le" if wide else "utf-8", "replace")
+    return text, off + ((size + 3) & ~3)
+
+
+def read_chromium_session(path):
+    """[{'tabs': [(url, title)], 'selected': int}] for the normal windows in a session file.
+
+    Best effort by design: a torn tail (Chrome mid-write) or an odd command is skipped,
+    a wrong file version raises ValueError.
+    """
+    data = Path(path).read_bytes()
+    if data[:4] != b"SNSS":
+        raise ValueError("not a Chromium session file")
+    version = struct.unpack_from("<i", data, 4)[0]
+    if version not in (1, 3):
+        raise ValueError(f"unsupported session file version {version} (encrypted?)")
+    off = 8
+    tab_win, tab_idx, navs, sel_nav = {}, {}, {}, {}
+    win_sel, win_type, win_app, dead_tabs, dead_wins = {}, {}, set(), set(), set()
+    while off + 3 <= len(data):
+        size = struct.unpack_from("<H", data, off)[0]
+        if size < 1 or off + 2 + size > len(data):
+            break
+        cid, p = data[off + 2], data[off + 3:off + 2 + size]
+        off += 2 + size
+        try:
+            if cid == _SET_TAB_WINDOW:
+                w, t = struct.unpack_from("<ii", p)
+                tab_win[t] = w
+            elif cid == _SET_TAB_INDEX:
+                t, i = struct.unpack_from("<ii", p)
+                tab_idx[t] = i
+            elif cid == _UPDATE_NAV:
+                t, idx = struct.unpack_from("<ii", p, 4)   # after the pickle's length header
+                url, o = _pickle_str(p, 12)
+                title, _ = _pickle_str(p, o, wide=True)
+                navs.setdefault(t, {})[idx] = (url, title)
+            elif cid == _SET_SEL_NAV:
+                t, i = struct.unpack_from("<ii", p)
+                sel_nav[t] = i
+            elif cid == _SET_SEL_TAB:
+                w, i = struct.unpack_from("<ii", p)
+                win_sel[w] = i
+            elif cid == _PRUNE_BACK:
+                t, keep = struct.unpack_from("<ii", p)
+                navs[t] = {i: v for i, v in navs.get(t, {}).items() if i < keep}
+            elif cid == _PRUNE_FRONT:
+                t, n = struct.unpack_from("<ii", p)
+                navs[t] = {i - n: v for i, v in navs.get(t, {}).items() if i >= n}
+                if t in sel_nav:
+                    sel_nav[t] = max(-1, sel_nav[t] - n)
+            elif cid == _SET_WINDOW_TYPE:
+                w, ty = struct.unpack_from("<ii", p)
+                win_type[w] = ty
+            elif cid == _SET_APP_NAME:
+                win_app.add(struct.unpack_from("<i", p)[0])
+            elif cid == _TAB_CLOSED:
+                dead_tabs.add(struct.unpack_from("<i", p)[0])
+            elif cid == _WINDOW_CLOSED:
+                dead_wins.add(struct.unpack_from("<i", p)[0])
+        except (struct.error, IndexError):
+            continue
+    windows = {}
+    for t, w in tab_win.items():
+        entries = navs.get(t)
+        if t in dead_tabs or w in dead_wins or w in win_app or win_type.get(w, 0) != 0 or not entries:
+            continue
+        url_title = entries.get(sel_nav.get(t)) or entries[max(entries)]   # the page the tab is on now
+        windows.setdefault(w, []).append((tab_idx.get(t, 0), url_title))
+    out = []
+    for w, tabs in windows.items():
+        tabs.sort(key=lambda x: x[0])
+        out.append({"tabs": [ut for _, ut in tabs], "selected": win_sel.get(w, 0)})
+    return out
+
+
+def _norm_title(t):
+    t = re.sub(r"^\(\d+\)\s*", "", t or "")   # unread-count prefix
+    t = re.sub(r" - (Google Chrome|Chromium|Brave|Microsoft Edge|Vivaldi)$", "", t)
+    return t.strip()
+
+
+def _same_title(a, b):
+    a, b = _norm_title(a), _norm_title(b)
+    return bool(a) and bool(b) and (a == b or a in b or b in a)   # "" is "in" everything: exclude
+
+
+def browser_tabs(clients, cmdline=read_cmdline, read=read_chromium_session):
+    """{window address: [tab URLs]} for Chromium-family windows.
+
+    Reads the browser's live session file and matches each session window to a
+    Hyprland window by its selected tab's title. Windows that can't be matched
+    unambiguously (e.g. two identical titles, incognito) get no tabs: the browser
+    then simply opens as before. Raises nothing: tabs are a bonus, never a blocker.
+    """
+    by_pid = {}
+    for c in clients:
+        if (c.get("class") or "").lower() in CHROMIUM_DATA:
+            by_pid.setdefault(c["pid"], []).append(c)
+    out = {}
+    for pid, wins in by_pid.items():
+        try:
+            argv = cmdline(pid) or []
+            arg = lambda name: next((a.split("=", 1)[1] for a in argv if a.startswith(f"--{name}=")), None)
+            root = Path(os.path.expanduser(arg("user-data-dir") or CHROMIUM_DATA[wins[0]["class"].lower()]))
+            files = sorted((root / (arg("profile-directory") or "Default") / "Sessions").glob("Session_*"),
+                           key=lambda f: f.stat().st_mtime)
+            if not files:
+                continue
+            sess = read(files[-1])
+        except (OSError, ValueError, struct.error):
+            continue
+
+        def sel_title(w):
+            i = w["selected"]
+            return w["tabs"][i][1] if 0 <= i < len(w["tabs"]) else ""
+
+        left_w, left_s, pairs = list(wins), list(sess), []
+        for c in wins:   # unique title matches first
+            hits = [w for w in left_s if _same_title(c.get("title"), sel_title(w))]
+            rivals = [x for x in wins if _same_title(x.get("title"), sel_title(hits[0]))] if len(hits) == 1 else []
+            if len(hits) == 1 and len(rivals) == 1:
+                pairs.append((c, hits[0]))
+        for c, w in pairs:
+            left_w.remove(c)
+            left_s.remove(w)
+        if len(left_w) == 1 and len(left_s) == 1:   # one of each left: no doubt
+            pairs.append((left_w[0], left_s[0]))
+        for c, w in pairs:
+            urls = [u for u, _ in w["tabs"] if u and not u.startswith(NEWTAB)]
+            if urls:
+                out[c["address"]] = urls
+    return out
+
+
 def logical_size(m):
     return round(m["width"] / m.get("scale", 1)), round(m["height"] / m.get("scale", 1))
 
@@ -359,6 +611,9 @@ def restorable(clients, mons, cmdline=read_cmdline):
     """
     role_of = {m["id"]: ("primary" if i == 0 else "secondary") for i, m in enumerate(mons)}
     mon_by_id = {m["id"]: m for m in mons}
+    live = [c for c in clients if c.get("mapped", True) and c.get("title") != GUI_TITLE
+            and not c["workspace"]["name"].startswith("special")]
+    cwds, tabs = terminal_cwds(live), browser_tabs(live, cmdline)
     order = {"primary": 0, "secondary": 1}
     kept, skipped = [], []
     for c in clients:
@@ -380,6 +635,11 @@ def restorable(clients, mons, cmdline=read_cmdline):
             continue
         role = role_of.get(c["monitor"], "primary")
         win = {"monitor": role, "cmd": shlex.join(argv)}
+        cwd = abbreviate_home(cwds[c["address"]]) if c["address"] in cwds else None
+        if cwd:
+            win["cwd"] = cwd
+        if c["address"] in tabs:
+            win["tabs"] = tabs[c["address"]]
         if c["workspace"]["id"] > 0:
             win["workspace"] = c["workspace"]["id"]
         if c.get("floating"):
@@ -490,6 +750,10 @@ def toml_val(v):
         return "true" if v else "false"
     if isinstance(v, dict):
         return "{ " + ", ".join(f"{k} = {toml_val(x)}" for k, x in v.items()) + " }"
+    if isinstance(v, list):
+        if len(v) <= 1:
+            return "[" + ", ".join(toml_val(x) for x in v) + "]"
+        return "[\n" + "".join(f"  {toml_val(x)},\n" for x in v) + "]"
     return toml_str(v) if isinstance(v, str) else str(v)
 
 
@@ -629,7 +893,9 @@ def cmd_save(args):
         raise SmError("nothing to save: no restorable windows " + ("selected" if args.windows else "are open"))
     say(f"saving '{name}': {len(wins)} window(s)")
     for win, _ in wins:
-        say(f"  [{win['monitor']} ws {win.get('workspace', '?')}] {win['cmd']}")
+        extra = (f"  cwd {win['cwd']}" if win.get("cwd") else "") + (
+            f"  {len(win['tabs'])} tabs" if win.get("tabs") else "")
+        say(f"  [{win['monitor']} ws {win.get('workspace', '?')}] {win['cmd']}{extra}")
     for label, why in skipped:
         say(f"  skipped {label}: {why}")
     if args.dry_run:
@@ -1203,7 +1469,8 @@ def cmd_list(_args):
             argv = shlex.split(cmd) if cmd else []
             wins.append({"class": clean_class(w.get("class")) or (Path(argv[0]).name if argv else ""),
                          "cmd": cmd, "monitor": w.get("monitor", "primary"),
-                         "workspace": w.get("workspace"), "floating": bool(w.get("floating", False))})
+                         "workspace": w.get("workspace"), "floating": bool(w.get("floating", False)),
+                         "cwd": w.get("cwd"), "tabs": len(w.get("tabs", []))})
         out.append({"stem": f.stem, "name": str(data.get("name", f.stem)),
                     "kind": session_kind(f, persistent, data), "persistent": persistent,
                     "open": slugify(f.stem) in state,
