@@ -145,6 +145,7 @@ function build(): Gtk.Window {
     status,
     busy,
     onChanged: refreshUndo,
+    getSelected: () => [...selected],
     edit: stem => {
       editor
         .load(stem)
@@ -237,7 +238,14 @@ function build(): Gtk.Window {
     refreshUndo()
   }
   win.connect("notify::visible", () => {
-    if (win.visible) refreshAll()
+    if (!win.visible) return
+    refreshAll()
+    // Like a launcher: a fresh, empty search box with the cursor in it.
+    sessions.resetSearch()
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      sessions.focusSearch()
+      return false
+    })
   })
   // Sessions edited by hand / saved elsewhere show up when you come back to the window.
   win.connect("notify::is-active", () => {

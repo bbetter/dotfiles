@@ -17,6 +17,8 @@ export interface SmWindow {
   floating: boolean
   cwd?: string | null
   tabs?: number
+  running?: boolean
+  run?: string | null
 }
 
 /** persistent = named by the user, kept until deleted; the rest are automatic ("recent"). */
@@ -27,6 +29,8 @@ export interface SmSession {
   name: string
   kind: SessionKind
   persistent: boolean
+  last_opened?: number | null
+  hotkey?: string | null
   open: boolean
   path: string
   windows: SmWindow[]
@@ -123,6 +127,7 @@ export interface EditWindow {
 
 export interface EditData {
   name: string
+  hotkey?: string
   view?: { primary?: number; secondary?: number }
   window: EditWindow[]
 }
@@ -303,4 +308,63 @@ export async function listTrash(): Promise<DeletedSession[]> {
 /** Bring a deleted session back. Resolves with its (possibly new) id. */
 export async function untrashSession(id: string): Promise<string> {
   return JSON.parse(await sm("untrash", id)).stem
+}
+
+// ── update a persistent session from the windows open now ────────────────────
+
+export interface UpdateDiff {
+  added: string[]
+  removed: string[]
+  changed: { window: string; what: string[] }[]
+  count: number
+  unchanged: boolean
+}
+
+const updateArgs = (stem: string, addrs: string[] | null) => [
+  "update",
+  stem,
+  ...(addrs && addrs.length ? ["--windows", addrs.join(",")] : []),
+]
+
+/** What updating would change (nothing is written). */
+export async function updateDiff(stem: string, addrs: string[] | null): Promise<UpdateDiff> {
+  return JSON.parse(await sm(...updateArgs(stem, addrs), "--dry-run"))
+}
+
+export async function updateSession(stem: string, addrs: string[] | null): Promise<UpdateDiff> {
+  return JSON.parse(await sm(...updateArgs(stem, addrs)))
+}
+
+// ── small GUI preferences (sort order, what Enter does) ──────────────────────
+
+export interface Prefs {
+  sort: "name" | "recent"
+  defaultMode: "replace" | "alongside"
+}
+
+// HYPR_SM_GUI_PREFS lets tests use a throwaway file instead of the real one.
+const PREFS_FILE = GLib.getenv("HYPR_SM_GUI_PREFS") ?? `${GLib.get_home_dir()}/.local/share/hypr-sm/gui.json`
+
+export function loadPrefs(): Prefs {
+  const defaults: Prefs = { sort: "name", defaultMode: "replace" }
+  try {
+    const [ok, bytes] = GLib.file_get_contents(PREFS_FILE)
+    if (!ok) return defaults
+    const raw = JSON.parse(new TextDecoder().decode(bytes))
+    return {
+      sort: raw.sort === "recent" ? "recent" : "name",
+      defaultMode: raw.defaultMode === "alongside" ? "alongside" : "replace",
+    }
+  } catch {
+    return defaults
+  }
+}
+
+export function savePrefs(p: Prefs) {
+  try {
+    GLib.mkdir_with_parents(GLib.path_get_dirname(PREFS_FILE), 0o755)
+    GLib.file_set_contents(PREFS_FILE, JSON.stringify(p))
+  } catch {
+    /* preferences are a convenience */
+  }
 }

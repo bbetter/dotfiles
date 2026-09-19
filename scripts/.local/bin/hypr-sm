@@ -5,6 +5,8 @@
     hypr-sm menu                     (fuzzel fallback picker; SUPER+N normally opens the AGS window)
     hypr-sm save NAME [--windows 0xA,0xB] [--dry-run]   (persist the windows open right now)
     hypr-sm persist STEM NAME        (make a recent session persistent under a name)
+    hypr-sm update STEM [--windows ...] [--dry-run]   (refresh a persistent session from what is open)
+    hypr-sm binds                    (regenerate hotkey binds + launcher entries)
     hypr-sm undo                     (undo the last Replace: reopens what it closed)
     hypr-sm trash --json / untrash STEM   (deleted persistent sessions, from the local git history)
     hypr-sm login-prompt             (used at login: offers to restore the previous session)
@@ -79,8 +81,28 @@ DEFAULTS = {
     "safety": {"before_keep": 5},
     "login_prompt": {"enabled": True, "delay": 25, "max_windows": 3},
     "backup": {"enabled": True},
+    "launcher": {"entries": True},   # one .desktop entry per persistent session
 }
 HISTORY_DIR = RECENT_DIR / "history"   # rolling autosave copies, e.g. one every 30 minutes
+
+
+USAGE_FILE = RECENT_DIR.parent / "usage.json"   # {stem: when it was last opened}
+
+
+def load_usage():
+    try:
+        return json.loads(USAGE_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def touch_usage(stem):
+    try:
+        data = load_usage()
+        data[stem] = int(time.time())
+        write_atomic(USAGE_FILE, json.dumps(data))
+    except OSError:
+        pass
 
 
 def settings():
@@ -271,6 +293,9 @@ def check_name(name, own_stem=None):
     return name
 
 
+HOTKEY_RE = r"^(?:(?:SUPER|SHIFT|CTRL|ALT|MOD3|MOD5)\s*\+?\s*)+[A-Za-z0-9_]+$"
+
+
 def validate_template(data, label):
     """Raise SmError unless `data` is a template hypr-sm can open. Fills defaults
     (monitor) in place. Shared by the loader and the GUI's writer, so anything the
@@ -316,6 +341,9 @@ def validate_template(data, label):
         raise SmError(f"{label}: view must look like {{ primary = 1, secondary = 6 }}")
     if not isinstance(data.get("name", "x"), str) or not str(data.get("name", "x")).strip():
         raise SmError(f"{label}: needs a name")
+    hk = data.get("hotkey")
+    if hk is not None and (not isinstance(hk, str) or (hk.strip() and not re.match(HOTKEY_RE, hk.strip(), re.I))):
+        raise SmError(f"{label}: hotkey must look like 'SUPER ALT 1' (modifiers, then one key)")
 
 
 def template_warnings(data):
@@ -1532,6 +1560,7 @@ def cmd_open(args):
         save_state(state)
     if shows:
         show(show_ws, end_focus if end_focus in show_ws else next(iter(show_ws)))
+    touch_usage(stem)
     notify("Session opened", tpl["name"])
     progress(event="done", opened=len(launched), n=Progress.total, failed=Progress.failed)
     say("done")
@@ -1660,8 +1689,26 @@ def session_kind(path, persistent, data):
     return "recent"
 
 
+def running_flags(windows, clients):
+    """[bool per session window]: is a matching window open right now? Each open window
+    is claimed by at most one entry, so two terminals in a session need two open ones."""
+    free = [(c.get("class") or "") for c in clients]
+    flags = []
+    for w in windows:
+        pat = w.get("class")
+        exe = Path(shlex.split(w["cmd"])[0]).name.lower() if w.get("cmd") else ""
+        hit = next((i for i, cls in enumerate(free)
+                    if (re.search(pat, cls, re.I) if pat else bool(exe) and exe in cls.lower())), None)
+        flags.append(hit is not None)
+        if hit is not None:
+            free.pop(hit)
+    return flags
+
+
 def cmd_list(_args):
     state = load_state()
+    usage = load_usage()
+    live = [c for c in query("clients") if c.get("title") != GUI_TITLE]
     out = []
     for f, persistent in all_files():
         try:
@@ -1671,16 +1718,19 @@ def cmd_list(_args):
                         "open": False, "path": str(f), "error": str(e), "windows": []})
             continue
         wins = []
-        for w in data.get("window", []):
+        flags = running_flags(data.get("window", []), live)
+        for w, running in zip(data.get("window", []), flags):
             cmd = str(w.get("cmd", ""))
             argv = shlex.split(cmd) if cmd else []
             wins.append({"class": clean_class(w.get("class")) or (Path(argv[0]).name if argv else ""),
                          "cmd": cmd, "monitor": w.get("monitor", "primary"),
                          "workspace": w.get("workspace"), "floating": bool(w.get("floating", False)),
-                         "cwd": w.get("cwd"), "tabs": len(w.get("tabs", []))})
+                         "cwd": w.get("cwd"), "tabs": len(w.get("tabs", [])), "running": running,
+                         "run": w.get("run")})
         out.append({"stem": f.stem, "name": str(data.get("name", f.stem)),
                     "kind": session_kind(f, persistent, data), "persistent": persistent,
-                    "open": slugify(f.stem) in state,
+                    "open": slugify(f.stem) in state, "last_opened": usage.get(f.stem),
+                    "hotkey": data.get("hotkey"),
                     "path": str(f), "view": data.get("view", {}), "windows": wins})
     # persistent first, by name; recent keep newest-first
     out.sort(key=lambda x: (not x["persistent"], x["name"].lower() if x["persistent"] else 0))
@@ -1700,7 +1750,13 @@ def _git(*args):
 
 def backup_commit(message):
     """Keep a local git history of the persistent folder: every save/rename/edit/delete
-    is a commit, so nothing you named is ever really lost. Best effort, never fatal."""
+    is a commit, so nothing you named is ever really lost. Best effort, never fatal.
+    Also the one place every persistent change passes, so hotkeys and launcher
+    entries are re-synced here."""
+    try:
+        sync_extras()
+    except OSError:
+        pass
     if not settings()["backup"]["enabled"] or not shutil.which("git") or not PERSISTENT_DIR.is_dir():
         return
     try:
@@ -1710,6 +1766,71 @@ def backup_commit(message):
         _git("commit", "-q", "-m", message)   # "nothing to commit" is fine
     except OSError:
         pass
+
+
+BINDS_FILE = Path(os.environ.get("HYPR_SM_BINDS_FILE") or Path.home() / ".config/hypr-sm/binds.lua")
+LAUNCHER_DIR = Path(os.environ.get("HYPR_SM_LAUNCHER_DIR") or Path.home() / ".local/share/applications")
+LAUNCHER_PREFIX = "hypr-sm-session-"
+
+
+def hotkey_lua(hotkey):
+    return " + ".join(re.findall(r"[A-Za-z0-9_]+", hotkey)).upper().replace("MOD_", "MOD")
+
+
+def sync_extras():
+    """Regenerate what hangs off the persistent list: the hotkey binds file and the
+    launcher entries. Hotkeys use `open --mode switch`: they bring a session up but
+    never close anything, so a stray key press can't cost you windows."""
+    exe = sys.argv[0] if sys.argv and Path(sys.argv[0]).name == "hypr-sm" else str(Path.home() / ".local/bin/hypr-sm")
+    lines = ["-- generated by hypr-sm from your sessions' hotkeys; edit them in the session editor", ""]
+    entries, seen = {}, set()
+    for f, persistent in all_files():
+        if not persistent:
+            continue
+        try:
+            data = tomllib.loads(f.read_text())
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        name = str(data.get("name", f.stem))
+        entries[f.stem] = name
+        hk = str(data.get("hotkey", "")).strip()
+        if hk and hotkey_lua(hk) not in seen:
+            seen.add(hotkey_lua(hk))
+            lines.append(f'hl.bind("{hotkey_lua(hk)}", hl.dsp.exec_cmd({lua_str(shlex.join([exe, "open", f.stem, "--mode", "switch", "--yes"]))}))  -- {name}')
+    text = "\n".join(lines) + "\n"
+    changed = not BINDS_FILE.exists() or BINDS_FILE.read_text() != text
+    if changed:
+        write_atomic(BINDS_FILE, text)
+        if not os.environ.get("HYPR_SM_NO_RELOAD") and any(l.startswith("hl.bind") for l in lines):
+            subprocess.run(["hyprctl", "reload"], capture_output=True)
+    # launcher entries: only ours (by prefix) are ever created or removed
+    if settings()["launcher"]["entries"]:
+        LAUNCHER_DIR.mkdir(parents=True, exist_ok=True)
+        want = {f"{LAUNCHER_PREFIX}{stem}.desktop": name for stem, name in entries.items()}
+        for stem, name in entries.items():
+            body = ("[Desktop Entry]\nType=Application\nName=Session: " + name.replace("\n", " ") +
+                    "\nComment=Open this hypr-sm session\nIcon=view-grid-symbolic\nTerminal=false\n"
+                    "Categories=Utility;\nExec=" + shlex.join([exe, "open", stem, "--mode", "switch", "--yes"]) + "\n")
+            path = LAUNCHER_DIR / f"{LAUNCHER_PREFIX}{stem}.desktop"
+            if not path.exists() or path.read_text() != body:
+                write_atomic(path, body)
+        for old in LAUNCHER_DIR.glob(f"{LAUNCHER_PREFIX}*.desktop"):
+            if old.name not in want:
+                old.unlink(missing_ok=True)
+
+
+def hotkey_conflicts(hotkey, own_stem=None):
+    """Existing binds (not ours) that use the same key combination; best effort."""
+    try:
+        binds = json.loads(subprocess.run(["hyprctl", "-j", "binds"], capture_output=True, text=True).stdout)
+    except (OSError, ValueError):
+        return []
+    parts = [p.upper() for p in re.findall(r"[A-Za-z0-9_]+", hotkey)]
+    mods = {"SHIFT": 1, "CTRL": 4, "ALT": 8, "SUPER": 64, "MOD3": 32, "MOD5": 128}
+    mask = sum(mods.get(p, 0) for p in parts[:-1])
+    key = parts[-1].lower()
+    return [b for b in binds if b.get("key", "").lower() == key and b.get("modmask") == mask
+            and "hypr-sm open" not in str(b.get("arg", ""))]
 
 
 def deleted_sessions():
@@ -1737,6 +1858,11 @@ def deleted_sessions():
             out.append({"id": f"{commit[:8]}-{stem}", "stem": stem, "name": name, "deleted_at": when,
                         "commit": commit, "file": line})
     return out
+
+
+def cmd_binds(_args):
+    sync_extras()
+    say(f"hotkeys: {BINDS_FILE}\nlauncher entries: {LAUNCHER_DIR}/{LAUNCHER_PREFIX}*.desktop")
 
 
 def cmd_backup(_args):
@@ -1803,12 +1929,14 @@ def cmd_show(args):
         raise SmError(f"cannot read {f.name}: {e}")
     print(json.dumps({"stem": f.stem, "path": str(f), "kind": session_kind(f, persistent, data),
                       "data": {"name": data.get("name", f.stem), "view": data.get("view", {}),
-                               "window": data.get("window", [])}}))
+                               "hotkey": data.get("hotkey", ""), "window": data.get("window", [])}}))
 
 
 def render_template(data, header):
     lines = list(header) + ([""] if header else [])
     lines.append(f"name = {toml_str(data['name'].strip())}")
+    if data.get("hotkey"):
+        lines.append(f"hotkey = {toml_str(data['hotkey'].strip())}")
     if data.get("view"):
         lines.append("view = " + toml_val(data["view"]))
     for w in data["window"]:
@@ -1832,6 +1960,18 @@ def cmd_write(args):
     if not data.get("view"):
         data.pop("view", None)
     validate_template(data, "session")
+    hk = str(data.get("hotkey", "")).strip()
+    if not hk:
+        data.pop("hotkey", None)
+    else:
+        for f, persistent in all_files():
+            if persistent and f.stem != args.stem:
+                try:
+                    other = tomllib.loads(f.read_text())
+                except (OSError, tomllib.TOMLDecodeError):
+                    continue
+                if str(other.get("hotkey", "")).strip() and hotkey_lua(other["hotkey"]) == hotkey_lua(hk):
+                    raise SmError(f"the hotkey {hotkey_lua(hk)} is already used by '{other.get('name', f.stem)}'")
     if args.stem:
         path, persistent = find_file(args.stem)
         if not persistent:
@@ -1845,7 +1985,13 @@ def cmd_write(args):
     tomllib.loads(text)   # never write something we couldn't read back
     write_atomic(path, text)
     backup_commit(f"{'edit' if args.stem else 'create'} {data['name']}")
-    print(json.dumps({"stem": path.stem, "path": str(path), "warnings": template_warnings(data)}))
+    warnings = template_warnings(data)
+    if hk:
+        clash = hotkey_conflicts(hk)
+        if clash:
+            warnings.append(f"hotkey {hotkey_lua(hk)} is already bound to something else in your Hyprland config; "
+                            "both will fire")
+    print(json.dumps({"stem": path.stem, "path": str(path), "warnings": warnings}))
 
 
 def copy_as_persistent(f, name):
@@ -1865,6 +2011,95 @@ def copy_as_persistent(f, name):
     tomllib.loads(text)
     write_atomic(PERSISTENT_DIR / f"{new_stem}.toml", text)
     return new_stem
+
+
+CAPTURED = ("cmd", "monitor", "workspace", "floating", "geometry", "cwd", "tabs")
+
+
+def _wkey(w):
+    return clean_class(w.get("class")) or (Path(shlex.split(w["cmd"])[0]).name if w.get("cmd") else "window")
+
+
+def _what_changed(old, new):
+    what = []
+    for field in ("workspace", "monitor", "floating"):
+        a, b = old.get(field, False if field == "floating" else None), new.get(field, False if field == "floating" else None)
+        if a != b:
+            what.append(f"{field} {a if a is not None else 'auto'} -> {b if b is not None else 'auto'}")
+    og, ng = old.get("geometry"), new.get("geometry")
+    if og and ng and [og[k] for k in "xywh"] != [ng[k] for k in "xywh"]:
+        what.append(f"size/position {og['w']}x{og['h']} -> {ng['w']}x{ng['h']}")
+    elif bool(og) != bool(ng):
+        what.append("size/position " + ("added" if ng else "removed"))
+    if len(old.get("tabs", [])) != len(new.get("tabs", [])) or old.get("tabs") != new.get("tabs"):
+        what.append(f"tabs {len(old.get('tabs', []))} -> {len(new.get('tabs', []))}")
+    if old.get("cwd") != new.get("cwd"):
+        what.append(f"directory {old.get('cwd') or 'default'} -> {new.get('cwd') or 'default'}")
+    if old.get("cmd") != new.get("cmd"):
+        what.append("command changed")
+    return what
+
+
+def merge_windows(old, new):
+    """The session's windows after an update: new captures, but keys we don't capture
+    (class pattern, timeout, run...) survive from the matching old window.
+    Returns (windows, diff)."""
+    def same_app(o, w):
+        real = clean_class(w.get("class"))   # the captured window's real class name
+        if o.get("class"):
+            try:
+                return bool(real) and bool(re.search(o["class"], real, re.I))   # the user's own pattern
+            except re.error:
+                return False
+        exe = _wkey(o).lower()
+        return bool(real) and (exe in real.lower() or real.lower() in exe) or _wkey(o) == _wkey(w)
+
+    pool, out, added, changed = list(old), [], [], []
+    for w in new:
+        i = next((j for j, o in enumerate(pool) if same_app(o, w)), None)
+        if i is None:
+            added.append(_wkey(w))
+            out.append(w)
+            continue
+        o = pool.pop(i)
+        merged = {k: v for k, v in o.items() if k not in CAPTURED}
+        merged.update({k: v for k, v in w.items() if k in CAPTURED})
+        what = _what_changed(o, w)
+        if what:
+            changed.append({"window": _wkey(w), "what": what})
+        out.append(merged)
+    return out, {"added": added, "removed": [_wkey(o) for o in pool], "changed": changed}
+
+
+def cmd_update(args):
+    """Refresh a persistent session from the windows open now (all of them, or --windows)."""
+    f, persistent = find_file(args.stem)
+    if not persistent:
+        raise SmError("only persistent sessions can be updated; name it first")
+    data = tomllib.loads(f.read_text())
+    mons = monitors()
+    items, _ = restorable(query("clients"), mons)
+    if args.windows:
+        want = {a.strip() for a in args.windows.split(",") if a.strip()}
+        items = [i for i in items if i[1]["address"] in want]
+    if not items:
+        raise SmError("nothing to update from: no restorable windows " + ("selected" if args.windows else "are open"))
+    windows, diff = merge_windows(data.get("window", []), [w for _, _, w, _ in items])
+    diff["count"] = len(windows)
+    diff["unchanged"] = not (diff["added"] or diff["removed"] or diff["changed"])
+    if args.dry_run:
+        print(json.dumps(diff))
+        return
+    data["window"] = windows
+    view = current_view(mons)
+    if view:
+        data["view"] = view
+    path = f.resolve()
+    text = render_template(data, leading_comments(path))
+    tomllib.loads(text)
+    write_atomic(path, text)
+    backup_commit(f"update {data['name']}")
+    print(json.dumps(diff))
 
 
 def cmd_persist(args):
@@ -2077,6 +2312,13 @@ def main():
     dp = sub.add_parser("delete", help="delete a saved snapshot")
     dp.add_argument("name")
     dp.set_defaults(fn=cmd_delete)
+    up = sub.add_parser("update", help="refresh a persistent session from the windows open now")
+    up.add_argument("stem")
+    up.add_argument("--windows", help="comma-separated window addresses: use only these")
+    up.add_argument("--dry-run", action="store_true", help="print what would change (JSON)")
+    up.set_defaults(fn=cmd_update)
+    bd = sub.add_parser("binds", help="regenerate hotkey binds and launcher entries from the sessions")
+    bd.set_defaults(fn=cmd_binds)
     ap2 = sub.add_parser("autosave", help="write the rolling 'Last session' snapshot")
     ap2.add_argument("--every", type=int, metavar="SECS", help="keep running, saving every SECS seconds")
     ap2.add_argument("--daemon", action="store_true", help="keep running; interval and history from config.toml")
@@ -2086,7 +2328,7 @@ def main():
     try:
         if args.fn in (cmd_autosave, cmd_list, cmd_closing, cmd_show, cmd_windows, cmd_write,
                        cmd_persist, cmd_rename, cmd_duplicate, cmd_undo_info, cmd_plan,
-                       cmd_login_prompt, cmd_trash, cmd_untrash, cmd_backup):
+                       cmd_login_prompt, cmd_trash, cmd_untrash, cmd_backup, cmd_update, cmd_binds):
             args.fn(args)   # autosave takes the lock itself, per tick; the others only read
             return 0
         lock = try_lock()

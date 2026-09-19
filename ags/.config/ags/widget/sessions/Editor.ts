@@ -92,6 +92,7 @@ export function createEditor({ onClose }: EditorOpts) {
   let stem: string | null = null
   let name = ""
   let view = { primary: "", secondary: "" }
+  let hotkey = ""
   let wins: Draft[] = []
   let dirty = false
   let loading = false
@@ -142,8 +143,15 @@ export function createEditor({ onClose }: EditorOpts) {
     touch()
   })
 
+  const hotkeyEntry = entry("", "SUPER ALT 1", 16)
+  hotkeyEntry.set_tooltip_text("Optional. Opens (never replaces) this session. Modifiers then a key, e.g. SUPER ALT 1")
+  hotkeyEntry.connect("changed", () => {
+    hotkey = hotkeyEntry.get_text()
+    touch()
+  })
   const meta = new Gtk.Box({ spacing: 16 })
   meta.append(field("NAME", nameEntry, true))
+  meta.append(field("HOTKEY (OPTIONAL)", hotkeyEntry))
   meta.append(field("SHOW AFTERWARDS: PRIMARY WORKSPACE", primaryWs))
   meta.append(field("SECONDARY WORKSPACE", secondaryWs))
   root.append(meta)
@@ -389,6 +397,7 @@ export function createEditor({ onClose }: EditorOpts) {
       return Object.assign(w, d.extra)
     })
     const data: EditData = { name: n, window: out }
+    if (hotkey.trim()) data.hotkey = hotkey.trim()
     const v: { primary?: number; secondary?: number } = {}
     for (const role of ["primary", "secondary"] as const) {
       const s = view[role].trim()
@@ -448,16 +457,19 @@ export function createEditor({ onClose }: EditorOpts) {
         const s = await showSession(which)
         const d = s.data
         name = d.name
+        hotkey = d.hotkey ?? ""
         view = { primary: d.view?.primary != null ? String(d.view.primary) : "", secondary: d.view?.secondary != null ? String(d.view.secondary) : "" }
         wins = d.window.map(toDraft)
         title.set_label("Edit session")
       } else {
         name = ""
+        hotkey = ""
         view = { primary: "", secondary: "" }
         wins = [blankDraft()]
         title.set_label("New session")
       }
       nameEntry.set_text(name)
+      hotkeyEntry.set_text(hotkey)
       primaryWs.set_text(view.primary)
       secondaryWs.set_text(view.secondary)
       rebuild()

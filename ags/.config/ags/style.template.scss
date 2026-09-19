@@ -1819,3 +1819,14 @@ textview.sm-edit-tabs {
 
   text { background: transparent; }
 }
+
+/* batch 3: keyboard highlight, running dots, sort toggle */
+.sm-session.kbd {
+  background: rgba($primary, 0.14);
+  border-color: rgba($primary, 0.6);
+}
+
+.sm-run-dot { color: $success; font-size: 10px; }
+
+.sm-flat.sm-on { color: $primary; }
+.sm-flat.sm-off { color: rgba($fg, 0.45); }
