@@ -245,12 +245,14 @@ export function createEditor({ onClose }: EditorOpts) {
       touch()
     })
 
+    // Essentials up front; the rarely-changed options live under "More options".
+    const more = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 })
+    const rowOpts = new Gtk.Box({ spacing: 12 })
     const row2 = new Gtk.Box({ spacing: 12 })
     row2.append(field("MONITOR", monitor))
     row2.append(field("WORKSPACE", ws))
     row2.append(field("WORKING DIRECTORY", cwd, true))
     row2.append(field("WINDOW CLASS", cls, true))
-    row2.append(field("WAIT (S)", timeout))
     const pinned = new Gtk.CheckButton({ label: "pinned", active: d.pinned })
     pinned.set_tooltip_text("Shown on every workspace (floating windows only)")
     pinned.connect("toggled", () => {
@@ -263,10 +265,14 @@ export function createEditor({ onClose }: EditorOpts) {
       d.fullscreen = state.get_selected()
       touch()
     })
-    row2.append(field("STATE", state))
-    const fl = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, valign: Gtk.Align.END, spacing: 2 })
+    rowOpts.append(field("WAIT (S)", timeout))
+    rowOpts.append(field("STATE", state))
+    const pn = new Gtk.Box({ valign: Gtk.Align.END })
+    pn.append(pinned)
+    rowOpts.append(pn)
+    more.append(rowOpts)
+    const fl = new Gtk.Box({ valign: Gtk.Align.END })
     fl.append(floating)
-    fl.append(pinned)
     row2.append(fl)
     card.append(row2)
 
@@ -301,14 +307,14 @@ export function createEditor({ onClose }: EditorOpts) {
       })
       row3.append(forget)
     }
-    card.append(row3)
+    more.append(row3)
 
     const run = entry(d.run, "e.g. npm run dev")
     run.connect("changed", () => {
       d.run = run.get_text()
       touch()
     })
-    const project = entry(d.project, "e.g. ~/AndroidStudioProjects/MyApp  (Android Studio, IntelliJ, VS Code)")
+    const project = entry(d.project, "e.g. ~/AndroidStudioProjects/MyApp")
     project.connect("changed", () => {
       d.project = project.get_text()
       touch()
@@ -316,7 +322,7 @@ export function createEditor({ onClose }: EditorOpts) {
     const row4 = new Gtk.Box({ spacing: 12 })
     row4.append(field("RUN ON START (TERMINALS)", run, true))
     row4.append(field("PROJECT OR FOLDER (IDES)", project, true))
-    card.append(row4)
+    more.append(row4)
 
     // Browser tabs: one address per line. Only Chrome/Chromium windows use them.
     const tabCount = () => d.tabs.split("\n").filter(t => t.trim()).length
@@ -334,7 +340,23 @@ export function createEditor({ onClose }: EditorOpts) {
     const tabScroll = new Gtk.ScrolledWindow({ minContentHeight: 96, maxContentHeight: 200, propagateNaturalHeight: true, child: view })
     tabScroll.add_css_class("sm-edit-tabs-frame")
     expander.set_child(tabScroll)
-    card.append(expander)
+    more.append(expander)
+
+    // "More options" stays collapsed (density) but its title says what is set inside.
+    const inside = [
+      d.geometry ? "size & position" : "",
+      d.timeout ? "wait" : "",
+      d.fullscreen ? (d.fullscreen === 1 ? "maximized" : "fullscreen") : "",
+      d.pinned ? "pinned" : "",
+      d.run ? "start command" : "",
+      d.project ? "project" : "",
+      tabCount() ? `${tabCount()} tab${tabCount() === 1 ? "" : "s"}` : "",
+    ].filter(Boolean)
+    const moreExp = new Gtk.Expander({ label: inside.length ? `More options · ${inside.join(", ")}` : "More options" })
+    moreExp.add_css_class("sm-expander")
+    moreExp.set_expanded(false)
+    moreExp.set_child(more)
+    card.append(moreExp)
     return card
   }
 
@@ -368,6 +390,7 @@ export function createEditor({ onClose }: EditorOpts) {
       return
     }
     const pop = new Gtk.Popover() // fresh each time: cards get rebuilt, anchors come and go
+    pop.set_position(Gtk.PositionType.BOTTOM)
     pop.set_parent(anchor)
     const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2 })
     box.add_css_class("sm-pop")
@@ -377,7 +400,11 @@ export function createEditor({ onClose }: EditorOpts) {
       row.add_css_class("sm-pop-row")
       const inner = new Gtk.Box({ spacing: 8 })
       inner.append(appIcon(w.class, 18))
-      inner.append(label(w.title || w.class, "sm-pop-title"))
+      const t = label(w.title || w.class, "sm-pop-title")
+      t.set_ellipsize(3) // long page titles must not make the popover wider than the window
+      t.set_max_width_chars(48)
+      t.set_hexpand(true)
+      inner.append(t)
       if (w.running?.length) inner.append(label(`running: ${w.running.join(", ")}`, "sm-dim"))
       row.set_child(inner)
       row.connect("clicked", () => {

@@ -76,7 +76,7 @@ export function createNowPane({ selected, save, status }: NowPaneOpts) {
 
   const updateCount = () => {
     count.set_label(
-      selected.size ? `${selected.size} selected` : "nothing ticked: saves every window",
+      selected.size ? `${selected.size} selected` : "Nothing ticked: saves every window",
     )
   }
 

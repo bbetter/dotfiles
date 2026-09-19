@@ -29,14 +29,18 @@ function build(): Gtk.Window {
   const statusLabel = new Gtk.Label({ label: "", xalign: 0, hexpand: true, ellipsize: 3, maxWidthChars: 1 })
   const spinner = new Gtk.Spinner()
   let statusTimer = 0
+  // The bar only takes space when it has something to show.
+  const syncBar = () => bar.set_visible(!!statusLabel.get_label() || undoBtn.get_visible() || spinner.get_visible())
   const status = (msg: string, kind: "info" | "error" = "info") => {
     statusLabel.set_label(msg)
+    syncBar()
     statusLabel.remove_css_class("error")
     if (kind === "error") statusLabel.add_css_class("error")
     if (statusTimer) GLib.source_remove(statusTimer)
     statusTimer = kind === "error" || !msg ? 0 : GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 10, () => {
       statusTimer = 0
       statusLabel.set_label("")
+      syncBar()
       return false
     })
   }
@@ -44,6 +48,7 @@ function build(): Gtk.Window {
     spinner.set_spinning(on)
     spinner.set_visible(on)
     undoBtn.set_sensitive(!on)
+    syncBar()
   }
   spinner.set_visible(false)
 
@@ -59,6 +64,7 @@ function build(): Gtk.Window {
     } catch {
       undoBtn.set_visible(false)
     }
+    syncBar()
   }
   // Undo closes the current windows, like Replace, so it asks first (a second click confirms).
   let undoArmed = 0
@@ -172,7 +178,7 @@ function build(): Gtk.Window {
   nowFrame.append(nowTitle)
   nowFrame.append(now.widget)
 
-  const right = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8, widthRequest: 400 })
+  const right = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8, widthRequest: 500 })
   right.add_css_class("sm-right")
   const sessionsTitle = new Gtk.Label({ label: "SESSIONS", xalign: 0 })
   sessionsTitle.add_css_class("sm-group")
@@ -195,6 +201,7 @@ function build(): Gtk.Window {
   bar.append(spinner)
   bar.append(statusLabel)
   bar.append(undoBtn)
+  syncBar() // starts hidden: nothing to say yet
 
   const outer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   outer.add_css_class("sm-window")

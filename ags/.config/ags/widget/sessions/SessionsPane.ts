@@ -3,7 +3,7 @@
 // opens the same way; naming a recent one makes it persistent.
 import GLib from "gi://GLib"
 import { Gdk, Gtk } from "ags/gtk4"
-import { appIcon } from "../utils/appIcon"
+import { appIcon, appName } from "../utils/appIcon"
 import {
   DeletedSession,
   OpenMode,
@@ -51,6 +51,43 @@ function label(text: string, ...classes: string[]) {
   return l
 }
 
+/** One line that shortens with an ellipsis instead of stretching the window. */
+function ellipsized(text: string, ...classes: string[]) {
+  const l = label(text, ...classes)
+  l.set_ellipsize(3) // Pango.EllipsizeMode.END
+  l.set_max_width_chars(1)
+  l.set_hexpand(true)
+  return l
+}
+
+/** Text that wraps instead of forcing the window wider. */
+function wrapped(text: string, ...classes: string[]) {
+  const l = label(text, ...classes)
+  l.set_wrap(true)
+  l.set_max_width_chars(46)
+  return l
+}
+
+/** A row of buttons that wraps onto a second line when the pane is narrow. */
+function flow() {
+  const f = new Gtk.FlowBox({
+    selectionMode: Gtk.SelectionMode.NONE,
+    columnSpacing: 8,
+    rowSpacing: 8,
+    homogeneous: false,
+    minChildrenPerLine: 1,
+    maxChildrenPerLine: 8,
+  })
+  f.set_valign(Gtk.Align.START)
+  return f
+}
+
+function chip(text: string, ...classes: string[]) {
+  const l = label(text, "sm-chip", ...classes)
+  l.set_valign(Gtk.Align.CENTER)
+  return l
+}
+
 function button(text: string, ...classes: string[]) {
   const b = new Gtk.Button({ label: text })
   b.add_css_class("sm-btn")
@@ -92,7 +129,6 @@ function subtitle(s: SmSession): string {
     `${n} window${n === 1 ? "" : "s"}`,
     ws.length ? `workspace ${ws.join(", ")}` : "auto-placed",
     running ? `${running} running` : "",
-    s.hotkey ? `⌨ ${s.hotkey}` : "",
   ]
     .filter(Boolean)
     .join(" · ")
@@ -118,7 +154,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
   root.append(top)
   // What Enter does, and the keys, in one line.
   const hintRow = new Gtk.Box({ spacing: 8 })
-  const enterBtn = button("", "sm-flat")
+  const enterBtn = button("", "sm-chip")
   const paintEnter = () => enterBtn.set_label(`Enter: ${prefs.defaultMode === "replace" ? "Replace" : "Open alongside"}`)
   paintEnter()
   enterBtn.set_tooltip_text("What Enter does on the highlighted session. Click to switch.")
@@ -128,7 +164,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
     paintEnter()
   })
   hintRow.append(enterBtn)
-  hintRow.append(label("↑↓ choose · Alt+Enter the other way · Esc clears, then closes", "sm-dim"))
+  hintRow.append(ellipsized("↑ ↓ choose · Alt+Enter: other mode", "sm-dim"))
   root.append(hintRow)
   root.append(scroll)
 
@@ -214,7 +250,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
         label("Give it a name to keep it. It moves to the persistent list and is never removed automatically.", "sm-dim"),
       )
     } else if (mode === "duplicate") {
-      box.append(label("Creates a new persistent session from this one. The original stays as it is.", "sm-dim"))
+      box.append(wrapped("Creates a new persistent session from this one. The original stays as it is.", "sm-dim"))
     }
     const row = new Gtk.Box({ spacing: 8 })
     const entry = new Gtk.Entry({
@@ -298,11 +334,11 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
         "sm-strong",
       ),
     )
-    if (d.added.length) box.append(label(`+ adds ${d.added.join(", ")}`, "sm-dim"))
-    if (d.removed.length) box.append(label(`− removes ${d.removed.join(", ")}`, "sm-warn"))
-    for (const c of d.changed) box.append(label(`~ ${c.window}: ${c.what.join(", ")}`, "sm-dim"))
-    box.append(label("Your name, hotkey and hand-tuned settings stay. A backup copy is kept.", "sm-dim"))
-    const row = new Gtk.Box({ spacing: 8 })
+    if (d.added.length) box.append(wrapped(`+ adds ${d.added.join(", ")}`, "sm-dim"))
+    if (d.removed.length) box.append(wrapped(`− removes ${d.removed.join(", ")}`, "sm-warn"))
+    for (const c of d.changed) box.append(wrapped(`~ ${c.window}: ${c.what.join(", ")}`, "sm-dim"))
+    box.append(wrapped("Your name, hotkey and hand-tuned settings stay. A backup copy is kept.", "sm-dim"))
+    const row = flow()
     const cancel = button("Cancel")
     cancel.connect("clicked", () => {
       updating = null
@@ -331,19 +367,21 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
       const p = confirm.plan
       box.add_css_class("confirming")
       box.append(label(`Replace closes ${p.closing.length} window${p.closing.length === 1 ? "" : "s"}:`, "sm-strong"))
-      box.append(label(p.closing_head, "sm-dim"))
+      const closing = new Map<string, number>()
+      for (const c of p.closing) closing.set(appName(c.class), (closing.get(appName(c.class)) ?? 0) + 1)
+      box.append(wrapped([...closing].map(([n, k]) => `${k}× ${n}`).join(", "), "sm-dim"))
       box.append(label(`Then opens ${p.launching.length} window${p.launching.length === 1 ? "" : "s"}:`, "sm-strong"))
       const byWs = new Map<number, string[]>()
       for (const w of p.launching) {
-        const bits = [w.class, w.tabs ? `${w.tabs} tabs` : "", w.cwd ?? ""].filter(Boolean).join(" ")
+        const bits = [appName(w.class), w.tabs ? `${w.tabs} tabs` : "", w.cwd ?? ""].filter(Boolean).join(" ")
         byWs.set(w.workspace, [...(byWs.get(w.workspace) ?? []), bits])
       }
       for (const [ws, items] of [...byWs].sort((a, b) => a[0] - b[0])) {
-        box.append(label(`workspace ${ws}: ${items.join(", ")}`, "sm-dim"))
+        box.append(wrapped(`workspace ${ws}: ${items.join(", ")}`, "sm-dim"))
       }
-      for (const w of p.warnings) box.append(label(`⚠ ${w}`, "sm-warn"))
-      box.append(label("A “Before …” safety snapshot is saved first, and you can undo the Replace afterwards.", "sm-dim"))
-      const row = new Gtk.Box({ spacing: 8 })
+      for (const w of p.warnings) box.append(wrapped(`⚠ ${w}`, "sm-warn"))
+      box.append(wrapped("A “Before …” safety snapshot is saved first, and you can undo the Replace afterwards.", "sm-dim"))
+      const row = flow()
       const cancel = button("Cancel")
       cancel.connect("clicked", () => {
         confirm = null
@@ -357,7 +395,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
       return box
     }
 
-    const row = new Gtk.Box({ spacing: 8 })
+    const row = flow()
     if (s.open) {
       const sw = button("Switch to it", "sm-primary")
       sw.connect("clicked", () => open(s, "switch"))
@@ -415,12 +453,11 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
 
     const head = new Gtk.Box({ spacing: 8 })
     const texts = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 1, hexpand: true })
-    const title = new Gtk.Box({ spacing: 6 })
-    if (s.open) title.append(label("●", "sm-ws-active"))
-    title.append(label(s.name, "sm-session-name"))
-    texts.append(title)
-    texts.append(label(subtitle(s), "sm-dim"))
+    texts.append(ellipsized(s.name, "sm-session-name"))
+    texts.append(ellipsized(subtitle(s), "sm-dim"))
     head.append(texts)
+    if (s.open) head.append(chip("running", "sm-chip-ok"))
+    if (s.hotkey) head.append(chip(s.hotkey, "sm-chip-key"))
 
     if (deleting === s.stem) {
       const yes = button("Delete", "sm-danger")
@@ -436,7 +473,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
       head.append(yes)
       head.append(no)
     } else {
-      const del = button("󰩹", "sm-icon")
+      const del = button("󰩹", "sm-icon", "sm-trash")
       del.set_tooltip_text("Delete this session")
       del.connect("clicked", () => {
         deleting = s.stem
@@ -464,7 +501,9 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
         dot.set_tooltip_text(w.running ? "running now" : "not open")
         r.append(dot)
         r.append(appIcon(w.class, 16))
-        r.append(label(w.class || w.cmd, "sm-win-class"))
+        const nm = label(appName(w.class, w.cmd), "sm-win-class")
+        nm.set_tooltip_text(w.class || w.cmd)
+        r.append(nm)
         const where = [
           w.workspace != null ? `ws ${w.workspace}` : "",
           w.floating ? "float" : "",
@@ -475,7 +514,9 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
           .join(" · ")
         const dim = label(where, "sm-dim")
         dim.set_hexpand(true)
-        dim.set_halign(Gtk.Align.END)
+        dim.set_xalign(1) // right-aligned text, but the label itself must be allowed to fill the row
+        dim.set_ellipsize(3)
+        dim.set_max_width_chars(1)
         r.append(dim)
         wins.append(r)
       }
@@ -529,6 +570,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
     if (before.length) {
       const open = showBefore || !!query // a search looks inside them too
       const toggle = button(`${open ? "▾" : "▸"} Safety snapshots (${before.length})`, "sm-flat")
+      toggle.set_halign(Gtk.Align.START)
       toggle.connect("clicked", () => {
         showBefore = !showBefore
         render()
@@ -539,6 +581,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
     if (history.length) {
       const open = showHistory || !!query
       const toggle = button(`${open ? "▾" : "▸"} Autosave history (${history.length})`, "sm-flat")
+      toggle.set_halign(Gtk.Align.START)
       toggle.connect("clicked", () => {
         showHistory = !showHistory
         render()
@@ -549,6 +592,7 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
     if (gone.length) {
       const open = showTrash || !!query
       const toggle = button(`${open ? "▾" : "▸"} Recently deleted (${gone.length})`, "sm-flat")
+      toggle.set_halign(Gtk.Align.START)
       toggle.connect("clicked", () => {
         showTrash = !showTrash
         render()
@@ -559,8 +603,8 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
           const row = new Gtk.Box({ spacing: 8 })
           row.add_css_class("sm-session")
           const texts = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 1, hexpand: true })
-          texts.append(label(d.name, "sm-session-name"))
-          texts.append(label(`deleted ${ago(d.deleted_at)}`, "sm-dim"))
+          texts.append(ellipsized(d.name, "sm-session-name"))
+          texts.append(ellipsized(`deleted ${ago(d.deleted_at)}`, "sm-dim"))
           const restore = button("Restore", "sm-primary")
           restore.connect("clicked", () =>
             run(
@@ -579,6 +623,15 @@ export function createSessionsPane({ status, busy, edit, onChanged, getSelected 
       }
     }
     list.set_sensitive(!working)
+    // A confirm/naming/update box can open below the fold: bring its card into view.
+    const active = confirm?.stem ?? naming?.stem ?? updating?.stem
+    const target = active && cards.find(c => c.stem === active)
+    if (target) {
+      GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        scrollTo(target.widget)
+        return false
+      })
+    }
   }
 
   async function refresh() {

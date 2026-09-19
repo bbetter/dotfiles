@@ -93,6 +93,12 @@ app.start({
         tv.get_buffer().set_text(t.join(" ").split("|").join("\n"), -1)
         return res("set")
       }
+      if (cmd === "expander") { // expander <nth> open|closed  (Gtk.Expander widgets: "More options", "Browser tabs")
+        const xs = all().filter(w => w instanceof Gtk.Expander) as Gtk.Expander[]
+        if (!xs[Number(rest[0])]) return res(`no expander #${rest[0]} (have ${xs.length})`)
+        xs[Number(rest[0])].set_expanded(rest[1] !== "closed")
+        return res("ok")
+      }
       if (cmd === "cardbtn") {
         const [name, text] = arg.split("|").map(x => x.trim())
         const card = cardOf(name)

@@ -1539,7 +1539,18 @@ tooltip {
 
 /* ==================================================
    SESSIONS WINDOW (hypr-sm manager)
+   Everything lives under .sm-window so these sizes win over the global reset
+   (which sets every node to 13px). Semantic colours are fixed on purpose: the
+   wallpaper palette's "error" can be teal, which reads as neither danger nor warning.
    ================================================== */
+$sm-danger: #f0616d;
+$sm-warn:   #e8b45a;
+$sm-ok:     #7fd18b;
+$sm-dim:    rgba($fg, 0.68);
+$sm-faint:  rgba($fg, 0.52);
+$sm-line:   rgba($fg, 0.11);
+$sm-card:   rgba($fg, 0.06);
+
 .SessionsWindow {
   background: transparent;
   color: $fg;
@@ -1548,219 +1559,288 @@ tooltip {
 .sm-window {
   background: $bg-popup;
   border-radius: 14px;
-  border: 1px solid rgba($primary, 0.25);
+  border: 1px solid rgba($primary, 0.30);
   color: $fg;
-}
 
-.sm-header {
-  padding: 12px 16px 4px 18px;
-}
+  label { font-size: 14px; }
+  button label { font-size: 13px; }
 
-.sm-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: $primary;
-}
-
-.sm-close {
-  padding: 6px 9px;
-  border-radius: 8px;
-  color: rgba($fg, 0.6);
-  background: rgba($fg, 0.04);
-
-  &:hover { background: rgba($fg, 0.1); color: $fg; }
-}
-
-.sm-body {
-  padding: 10px 18px 12px 18px;
-}
-
-.sm-status {
-  padding: 8px 18px 12px 18px;
-  color: rgba($fg, 0.75);
-  font-size: 12px;
-
-  label.error { color: $error; }
-}
-
-.sm-group {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: rgba($fg, 0.45);
-  padding: 6px 2px 2px 2px;
-}
-
-.sm-dim { color: rgba($fg, 0.5); font-size: 11px; }
-.sm-strong { font-weight: 700; }
-.sm-warn { color: $alert; }
-.sm-hint { padding: 4px 2px; }
-
-/* buttons + entry */
-.sm-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba($fg, 0.06);
-  color: $fg-warm;
-
-  &:hover { background: rgba($fg, 0.12); }
-  &:active { background: rgba($fg, 0.18); }
-  &:disabled { opacity: 0.4; }
-}
-
-.sm-primary {
-  background: rgba($primary, 0.22);
-
-  &:hover { background: rgba($primary, 0.34); }
-  &:active { background: rgba($primary, 0.44); }
-}
-
-.sm-danger {
-  background: rgba($error, 0.28);
-
-  &:hover { background: rgba($error, 0.42); }
-}
-
-.sm-icon { padding: 4px 8px; color: rgba($fg, 0.55); }
-.sm-flat { background: transparent; color: rgba($fg, 0.6); padding: 6px 2px; }
-
-.sm-entry {
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: rgba($fg, 0.06);
-  border: 1px solid transparent;
-  caret-color: $primary;
-
-  &:focus { border-color: rgba($primary, 0.5); }
-}
-
-check {
-  min-width: 14px;
-  min-height: 14px;
-  border-radius: 4px;
-  border: 1px solid rgba($fg, 0.35);
-  background: transparent;
-
-  &:checked {
-    background: $primary;
-    border-color: $primary;
+  /* ---------- text ---------- */
+  .sm-title { font-size: 17px; font-weight: 700; color: $primary; }
+  .sm-group {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: $sm-dim;
+    padding: 8px 2px 2px 2px;
   }
-}
+  .sm-dim { font-size: 12px; color: $sm-dim; }
+  .sm-faint { font-size: 12px; color: $sm-faint; }
+  .sm-strong { font-weight: 700; }
+  .sm-warn { font-size: 13px; color: $sm-warn; }
+  .sm-hint { font-size: 13px; color: $sm-dim; padding: 6px 2px; }
+  .sm-caption { font-size: 11px; letter-spacing: 0.6px; color: $sm-dim; }
 
-/* OPEN NOW pane */
-.sm-monitor-name {
-  font-weight: 700;
-  color: $fg;
-  padding: 0 2px 2px 2px;
-}
+  /* ---------- header / body / status ---------- */
+  .sm-header { padding: 14px 16px 6px 20px; }
+  .sm-body { padding: 8px 20px 12px 20px; }
+  .sm-status {
+    padding: 10px 20px 14px 20px;
+    border-top: 1px solid $sm-line;
 
-.sm-ws {
-  background: rgba($fg, 0.04);
-  border-radius: 10px;
-  border: 1px solid rgba($fg, 0.06);
-  padding: 8px 8px 6px 8px;
-
-  &.active { border-color: rgba($primary, 0.5); }
-  &.empty { background: transparent; border-style: dashed; }
-  &.drop-target {
-    background: rgba($primary, 0.16);
-    border-color: $primary;
+    label { font-size: 13px; color: $sm-dim; }
+    label.error { color: $sm-danger; }
   }
-}
 
-.sm-ws-id { font-weight: 700; color: $fg; }
-.sm-ws-active { color: $primary; font-size: 10px; }
+  .sm-close {
+    padding: 6px 10px;
+    border-radius: 9px;
+    color: $sm-dim;
+    background: rgba($fg, 0.05);
 
-.sm-win {
-  padding: 4px 6px;
-  border-radius: 7px;
+    &:hover { background: rgba($fg, 0.12); color: $fg; }
+  }
 
-  &:hover { background: rgba($fg, 0.07); }
-  &.dragging { opacity: 0.4; }
-}
+  /* ---------- buttons ---------- */
+  .sm-btn {
+    padding: 7px 14px;
+    border-radius: 9px;
+    background: rgba($fg, 0.08);
+    color: $fg-warm;
 
-.sm-badge {
-  font-size: 10px;
-  padding: 0 6px;
-  border-radius: 8px;
-  background: rgba($secondary, 0.22);
-  color: $secondary;
-}
+    &:hover { background: rgba($fg, 0.15); }
+    &:active { background: rgba($fg, 0.21); }
+    &:disabled { opacity: 0.4; }
+  }
 
-.sm-footer { padding-top: 4px; }
+  .sm-primary {
+    background: rgba($primary, 0.28);
+    color: $fg;
 
-/* SESSIONS pane */
-.sm-session {
-  background: rgba($fg, 0.04);
-  border-radius: 10px;
-  border: 1px solid rgba($fg, 0.06);
-  padding: 10px 12px;
+    &:hover { background: rgba($primary, 0.40); }
+    &:active { background: rgba($primary, 0.50); }
+  }
 
-  &:hover { background: rgba($fg, 0.06); }
-  &.expanded { border-color: rgba($primary, 0.35); }
-  &.running { border-left: 3px solid $primary; }
-}
+  .sm-danger {
+    background: rgba($sm-danger, 0.26);
+    color: $fg;
 
-.sm-session-name { font-weight: 700; }
-.sm-session-windows { padding: 4px 2px 2px 2px; }
-.sm-win-class { font-size: 12px; color: $fg-warm; }
+    &:hover { background: rgba($sm-danger, 0.40); }
+    &:active { background: rgba($sm-danger, 0.50); }
+  }
 
-.sm-actions { padding-top: 6px; }
-.sm-actions.confirming {
-  background: rgba($error, 0.1);
-  border-radius: 8px;
-  padding: 10px;
-}
+  .sm-icon { padding: 5px 9px; color: $sm-dim; }
 
-/* ---- template editor ---- */
-.sm-flat-primary {
-  background: transparent;
-  color: $primary;
-  padding: 4px 2px;
+  .sm-flat {
+    background: transparent;
+    color: $sm-dim;
+    padding: 6px 4px;
 
-  &:hover { color: $fg; }
-}
+    &:hover { color: $fg; background: transparent; }
+    &.sm-on { color: $primary; font-weight: 700; }
+    &.sm-off { color: $sm-faint; }
+  }
 
-.sm-editor { padding: 0; }
+  .sm-flat-primary {
+    background: transparent;
+    color: $primary;
+    padding: 7px 4px;
+    font-weight: 700;
 
-.sm-caption { font-size: 10px; letter-spacing: 0.5px; }
+    &:hover { color: $fg; background: transparent; }
+  }
 
-.sm-edit-win {
-  background: rgba($fg, 0.04);
-  border-radius: 10px;
-  border: 1px solid rgba($fg, 0.06);
-  padding: 12px;
-}
+  /* a small pill: "Enter: Replace", hotkey, running */
+  .sm-chip {
+    font-size: 12px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: rgba($fg, 0.09);
+    color: $sm-dim;
+  }
+  .sm-chip-ok { background: rgba($sm-ok, 0.18); color: $sm-ok; }
+  .sm-chip-key { font-size: 11px; letter-spacing: 0.3px; }
+  button.sm-chip { padding: 3px 11px; &:hover { background: rgba($fg, 0.16); color: $fg; } }
 
-.sm-edit-index {
-  min-width: 18px;
-  color: $primary;
-}
+  /* ---------- inputs ---------- */
+  .sm-entry {
+    padding: 7px 11px;
+    border-radius: 9px;
+    background: rgba($fg, 0.07);
+    border: 1px solid transparent;
+    caret-color: $primary;
+    font-size: 14px;
 
-.sm-edit-msg {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba($fg, 0.05);
+    &:focus { border-color: rgba($primary, 0.65); background: rgba($fg, 0.09); }
 
-  &.error { background: rgba($error, 0.18); color: $fg; }
-  &.warn { background: rgba($alert, 0.18); color: $fg; }
-}
+    text { font-size: 14px; }
+  }
 
-dropdown > button {
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: rgba($fg, 0.06);
-  color: $fg-warm;
+  searchentry.sm-entry {
+    padding: 7px 11px;
 
-  &:hover { background: rgba($fg, 0.12); }
+    > text { color: $fg; }
+    > image { color: $sm-dim; min-width: 15px; min-height: 15px; margin-right: 4px; }
+  }
 
-  arrow { min-width: 12px; min-height: 12px; color: rgba($fg, 0.5); }
+  check {
+    min-width: 16px;
+    min-height: 16px;
+    border-radius: 5px;
+    border: 1px solid rgba($fg, 0.42);
+    background: transparent;
+
+    &:checked { background: $primary; border-color: $primary; }
+    &:disabled { opacity: 0.35; }
+  }
+
+  dropdown > button {
+    padding: 7px 11px;
+    border-radius: 9px;
+    background: rgba($fg, 0.08);
+    color: $fg-warm;
+
+    &:hover { background: rgba($fg, 0.15); }
+
+    arrow {
+      min-width: 14px;
+      min-height: 14px;
+      color: $sm-dim;
+      -gtk-icon-source: -gtk-icontheme("pan-down-symbolic");
+    }
+  }
+
+  /* ---------- OPEN NOW ---------- */
+  .sm-monitor-name { font-size: 14px; font-weight: 700; color: $fg; padding: 0 2px 4px 2px; }
+
+  .sm-ws {
+    background: $sm-card;
+    border-radius: 11px;
+    border: 1px solid $sm-line;
+    padding: 9px 9px 7px 9px;
+
+    &.active { border-color: rgba($primary, 0.6); }
+    &.empty { background: transparent; border-style: dashed; padding: 7px 10px; }
+    &.drop-target { background: rgba($primary, 0.20); border-color: $primary; }
+  }
+
+  .sm-ws-id { font-size: 14px; font-weight: 700; color: $fg; }
+  .sm-ws-active { color: $primary; font-size: 10px; }
+
+  .sm-win {
+    padding: 5px 6px;
+    border-radius: 8px;
+
+    &:hover { background: rgba($fg, 0.09); }
+    &.dragging { opacity: 0.4; }
+    &.sm-nosave { opacity: 0.62; }
+  }
+
+  .sm-badge {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba($secondary, 0.22);
+    color: $secondary;
+  }
+  .sm-badge-warn { background: rgba($sm-warn, 0.20); color: $sm-warn; }
+
+  .sm-footer { padding-top: 6px; }
+
+  /* ---------- SESSIONS ---------- */
+  .sm-session {
+    background: $sm-card;
+    border-radius: 12px;
+    border: 1px solid $sm-line;
+    padding: 12px 14px;
+
+    &:hover { background: rgba($fg, 0.08); }
+    &.expanded { border-color: rgba($primary, 0.40); }
+    &.running { border-left: 3px solid $sm-ok; }
+    &.kbd { background: rgba($primary, 0.17); border-color: rgba($primary, 0.75); }
+
+    .sm-trash { opacity: 0.35; }
+    &:hover .sm-trash, &.expanded .sm-trash { opacity: 1; }
+    .sm-trash:hover { color: $sm-danger; background: rgba($sm-danger, 0.14); }
+  }
+
+  .sm-session-name { font-size: 14px; font-weight: 700; }
+  .sm-session-windows { padding: 6px 2px 2px 2px; }
+  .sm-win-class { font-size: 13px; color: $fg-warm; }
+  .sm-run-dot { color: $sm-ok; font-size: 10px; }
+
+  .sm-actions { padding-top: 8px; }
+  .sm-actions.confirming {
+    background: rgba($sm-danger, 0.10);
+    border: 1px solid rgba($sm-danger, 0.30);
+    border-radius: 10px;
+    padding: 12px;
+  }
+
+  flowboxchild { padding: 0; }
+
+  /* ---------- status message inside the editor ---------- */
+  .sm-edit-msg {
+    padding: 9px 12px;
+    border-radius: 9px;
+    background: rgba($fg, 0.06);
+
+    &.error { background: rgba($sm-danger, 0.18); color: $fg; }
+    &.warn { background: rgba($sm-warn, 0.18); color: $fg; }
+  }
+
+  /* ---------- editor ---------- */
+  .sm-editor { padding: 0; }
+
+  .sm-edit-win {
+    background: $sm-card;
+    border-radius: 12px;
+    border: 1px solid $sm-line;
+    padding: 14px;
+  }
+  .sm-edit-index { min-width: 18px; font-weight: 700; color: $primary; }
+
+  .sm-expander {
+    color: $sm-dim;
+
+    // GTK4 names the expander's arrow node "expander", under "title" (not "arrow"); scoped so
+    // it can't leak onto dropdowns living inside the expanded content.
+    > box > title { padding: 4px 0; }
+    > box > title > expander {
+      min-width: 16px;
+      min-height: 16px;
+      color: $sm-dim;
+      -gtk-icon-source: -gtk-icontheme("pan-end-symbolic");
+
+      &:checked { -gtk-icon-source: -gtk-icontheme("pan-down-symbolic"); }
+    }
+  }
+  .sm-edit-tabs-frame { background: rgba($fg, 0.06); border-radius: 9px; margin-top: 6px; }
+  textview.sm-edit-tabs {
+    background: transparent;
+    color: $fg-warm;
+    font-size: 13px;
+    caret-color: $primary;
+
+    text { background: transparent; }
+  }
+
+  /* ---------- popover (pick an open window) ---------- */
+  .sm-pop { min-width: 440px; }
+  .sm-pop-row {
+    padding: 7px 10px;
+    border-radius: 7px;
+    background: transparent;
+
+    &:hover { background: rgba($primary, 0.22); }
+  }
+  .sm-pop-title { font-size: 13px; }
 }
 
 popover > contents {
   background: $bg-popup;
-  border-radius: 10px;
-  border: 1px solid rgba($primary, 0.3);
+  border-radius: 11px;
+  border: 1px solid rgba($primary, 0.34);
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
   padding: 6px;
   color: $fg;
@@ -1769,68 +1849,9 @@ popover > contents {
 
   row {
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: 7px;
     color: $fg-warm;
 
-    &:hover, &:selected { background: rgba($primary, 0.2); }
+    &:hover, &:selected { background: rgba($primary, 0.22); }
   }
 }
-
-.sm-pop { min-width: 420px; }
-
-.sm-pop-row {
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: transparent;
-
-  &:hover { background: rgba($primary, 0.2); }
-}
-
-.sm-pop-title { font-size: 12px; }
-
-/* search field (Gtk.SearchEntry keeps its own icon/clear nodes) */
-searchentry.sm-entry {
-  padding: 6px 10px;
-
-  > text { color: $fg; }
-  > image { color: rgba($fg, 0.45); min-width: 14px; min-height: 14px; }
-}
-
-/* browser tabs box in the editor */
-.sm-expander {
-  color: rgba($fg, 0.6);
-  font-size: 12px;
-
-  title { padding: 2px 0; }
-  arrow { min-width: 14px; min-height: 14px; color: rgba($fg, 0.5); }
-}
-
-.sm-edit-tabs-frame {
-  background: rgba($fg, 0.05);
-  border-radius: 8px;
-  margin-top: 6px;
-}
-
-textview.sm-edit-tabs {
-  background: transparent;
-  color: $fg-warm;
-  font-size: 12px;
-  caret-color: $primary;
-
-  text { background: transparent; }
-}
-
-/* batch 3: keyboard highlight, running dots, sort toggle */
-.sm-session.kbd {
-  background: rgba($primary, 0.14);
-  border-color: rgba($primary, 0.6);
-}
-
-.sm-run-dot { color: $success; font-size: 10px; }
-
-.sm-flat.sm-on { color: $primary; }
-.sm-flat.sm-off { color: rgba($fg, 0.45); }
-
-/* windows that can't be saved */
-.sm-win.sm-nosave { opacity: 0.6; }
-.sm-badge-warn { background: rgba($alert, 0.2); color: $alert; }
