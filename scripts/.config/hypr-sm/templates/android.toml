@@ -1,0 +1,37 @@
+# Session template: launched by the hypr-sm menu (not built yet).
+#
+# Fields per [[window]]:
+#   monitor = "primary" (DP-2) | "secondary" (HDMI-A-1)   which monitor's workspace it goes to
+#   cmd     = command to run. Must be a real binary/path: shell functions from
+#             .zshrc (e.g. `studio`) do NOT exist when Hyprland launches things.
+#   cwd     = optional working directory (~ is expanded)
+#   class   = optional window class, used to pick the right new window when an
+#             app opens several (leave out unless needed)
+#   workspace = optional number (1-5 = DP-2, 6-10 = HDMI-A-1). Without it: Replace
+#             uses the workspace that monitor is showing; Alongside picks a free one.
+# Top-level `view = { primary = 1, secondary = 6 }` (optional) = what to show afterwards.
+#   floating = true, geometry = { x = 7, y = 57, w = 900, h = 1016 }  (optional; pixels
+#             relative to the monitor's top-left). Snapshots write these for you.
+#             Floating windows are placed exactly. Tiled ones are rebuilt best-effort
+#             (Replace only: the tile tree is rebuilt by splitting the right windows).
+#
+# Windows launch in the order listed, onto the normal numbered workspaces.
+
+name = "Android Development"
+
+[[window]]
+monitor = "primary"
+cmd     = "~/.local/share/JetBrains/Toolbox/apps/android-studio-2/bin/studio.sh"
+
+[[window]]
+monitor = "primary"
+cmd     = "ghostty"
+cwd     = "~/AndroidStudioProjects"
+
+[[window]]
+monitor = "secondary"
+cmd     = "google-chrome-stable"
+
+[[window]]
+monitor = "secondary"
+cmd     = "ghostty -e adb logcat"

@@ -1,0 +1,1226 @@
+#!/usr/bin/python3
+"""hypr-sm: start named window sessions from templates on Hyprland (Lua build).
+
+    hypr-sm open TEMPLATE [--mode replace|alongside|switch] [--new] [--yes] [--dry-run]
+    hypr-sm menu                     (fuzzel picker; bound to SUPER+N)
+    hypr-sm save [NAME] [--dry-run]  (snapshot the windows open right now)
+    hypr-sm autosave [--every SECS]  (rolling "Last session" snapshot; started at login)
+    hypr-sm delete NAME              (remove a saved snapshot; hand-written templates are never touched)
+
+TEMPLATE is a file stem or the `name` inside ~/.config/hypr-sm/templates/*.toml
+(hand-written) or ~/.local/share/hypr-sm/sessions/*.toml (made by `save`; same
+format). Windows go to the real numbered workspaces (the ones the bar shows).
+Snapshots remember each window's workspace and what each monitor was showing, and
+restore both, plus floating state and window geometry (floating windows exactly,
+tiled ones best-effort: swapped into matching tiles, split ratios nudged to fit).
+Templates without `workspace` fields use the workspace each monitor is showing.
+
+  --mode replace    (default) save a "Before <session>" snapshot, CLOSE every
+                    restorable window that is open now, launch the session onto its
+                    exact workspaces, restore the view (asks first; --yes skips the
+                    question). If the session is already open this just switches to
+                    it and closes nothing.
+  --mode alongside  launch onto free numbered workspaces (one per saved workspace),
+                    leave existing windows and the view alone
+  --mode switch     launch (if needed, like alongside) and show it, closing nothing
+  --new             open another copy even if this session is already open
+  --dry-run         print the plan, change nothing
+
+WARNING: replace closes windows without the apps' consent prompts being
+guaranteed (ghostty here has confirm-close-surface = false), so anything
+running in a terminal is lost. The confirm step names such programs.
+
+Uses /usr/bin/python3 on purpose (pyenv shims on PATH have no stdlib tomllib
+guarantee). Dispatch goes through `hyprctl dispatch 'hl.dsp...'` (Lua form).
+"""
+import argparse
+import fcntl
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import tomllib
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+
+TEMPLATE_DIR = Path.home() / ".config/hypr-sm/templates"
+SESSION_DIR = Path.home() / ".local/share/hypr-sm/sessions"
+DEFAULT_TIMEOUT = 20.0   # seconds to wait for each launched window to appear
+POLL = 0.15
+
+
+class SmError(Exception):
+    pass
+
+
+def say(*parts, err=False):
+    """Like print(), but survives our own terminal being closed mid-replace."""
+    try:
+        (sys.stderr if err else sys.stdout).write(" ".join(str(p) for p in parts) + "\n")
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------- hyprctl ----
+
+def _ctl(*args):
+    return subprocess.run(["hyprctl", *args], capture_output=True, text=True)
+
+
+def query(what):
+    r = _ctl("-j", what)
+    if r.returncode != 0:
+        raise SmError(f"hyprctl {what} failed: {r.stderr.strip() or r.stdout.strip()}")
+    return json.loads(r.stdout)
+
+
+def lua_str(s):
+    """Lua long-bracket string, so quotes/backslashes in commands are safe."""
+    n = 0
+    while f"]{'=' * n}]" in s:
+        n += 1
+    eq = "=" * n
+    return f"[{eq}[{s}]{eq}]"
+
+
+def dispatch(expr):
+    r = _ctl("dispatch", expr)
+    out = (r.stdout + r.stderr).strip()
+    if r.returncode != 0 or out != "ok":
+        raise SmError(f"dispatch failed: {expr}: {out or 'no output'}")
+
+
+def wait_until(pred, timeout, what):
+    """Poll: Hyprland state lags dispatches, so never sleep a fixed time."""
+    end = time.monotonic() + timeout
+    while True:
+        val = pred()
+        if val:
+            return val
+        if time.monotonic() >= end:
+            raise SmError(f"timed out waiting for {what}")
+        time.sleep(POLL)
+
+
+def monitors():
+    """Left-to-right. 'primary' = leftmost, 'secondary' = the next one."""
+    ms = sorted(query("monitors"), key=lambda m: (m["x"], m["y"]))
+    if not ms:
+        raise SmError("no monitors reported by hyprctl")
+    return ms
+
+
+def active_ws(mon):
+    for m in query("monitors"):
+        if m["name"] == mon:
+            return m["activeWorkspace"]["name"]
+    return None
+
+
+def focused_monitor():
+    for m in query("monitors"):
+        if m["focused"]:
+            return m["name"]
+    return None
+
+
+def monitor_workspaces(names):
+    """{monitor: numbered workspaces bound to it by workspace rules, ascending}."""
+    out = {n: [] for n in names}
+    for r in query("workspacerules"):
+        ws = str(r.get("workspaceString", ""))
+        if ws.isdigit() and r.get("monitor") in out:
+            out[r["monitor"]].append(int(ws))
+    return {n: sorted(v) for n, v in out.items()}
+
+
+def current_view(mons):
+    """{role: numbered workspace each of the first two monitors is showing}."""
+    active = {m["name"]: m["activeWorkspace"] for m in query("monitors")}
+    view = {}
+    for role, m in zip(("primary", "secondary"), mons):
+        ws = active.get(m["name"])
+        if ws and ws["id"] > 0:
+            view[role] = ws["id"]
+    return view
+
+
+def ws_ref(ws):
+    """Lua for a workspace target. Numbered ones MUST be ids: `name:3` would make
+    a different, named workspace that merely looks like 3."""
+    s = str(ws)
+    return s if s.isdigit() else lua_str(f"name:{s}")
+
+
+# ------------------------------------------------------------ open sessions ---
+# Sessions live on the ordinary numbered workspaces now, so "is it open" can't be
+# read off workspace names. We remember the addresses of the windows we launched
+# (in $XDG_RUNTIME_DIR: gone after logout, like the windows themselves).
+
+STATE_FILE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "hypr-sm-state.json"
+
+
+def load_state():
+    """{slug: {"name", "windows": [addresses]}} for sessions with a window still alive."""
+    try:
+        raw = json.loads(STATE_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+    live = {c["address"] for c in query("clients")}
+    out = {}
+    for slug, sess in raw.items():
+        wins = [a for a in sess.get("windows", []) if a in live]
+        if wins:
+            out[slug] = {**sess, "windows": wins}
+    return out
+
+
+def save_state(state):
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state))
+    tmp.replace(STATE_FILE)
+
+
+# --------------------------------------------------------------- templates ---
+
+def slugify(s):
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-") or "session"
+
+
+def all_files():
+    """[(path, is_saved)]: hand-written templates, then saved snapshots newest first."""
+    def mtime(f):
+        try:
+            return f.stat().st_mtime
+        except OSError:
+            return 0
+    saved = sorted(SESSION_DIR.glob("*.toml"), key=mtime, reverse=True)
+    return [(f, False) for f in sorted(TEMPLATE_DIR.glob("*.toml"))] + [(f, True) for f in saved]
+
+
+def load_template(arg):
+    cand = Path(arg).expanduser()
+    explicit = cand.suffix == ".toml" and cand.is_file()
+    files = [cand] if explicit else [f for f, _ in all_files()]
+    chosen = None
+    for f in files:
+        try:
+            data = tomllib.loads(f.read_text())
+        except (OSError, tomllib.TOMLDecodeError) as e:
+            if explicit:
+                raise SmError(f"cannot read template {f}: {e}")
+            continue   # one broken file must not hide the others
+        if f == cand or f.stem == arg or str(data.get("name", "")).lower() == arg.lower():
+            chosen = (f, data)
+            break
+    if not chosen:
+        names = ", ".join(f.stem for f, _ in all_files()) or "none"
+        raise SmError(f"no template '{arg}' (available: {names})")
+    f, data = chosen
+    wins = data.get("window")
+    if not isinstance(wins, list) or not wins:
+        raise SmError(f"{f.name}: needs at least one [[window]]")
+    for i, w in enumerate(wins, 1):
+        if not isinstance(w.get("cmd"), str) or not w["cmd"].strip():
+            raise SmError(f"{f.name}: window {i} has no cmd")
+        w.setdefault("monitor", "primary")
+        if w["monitor"] not in ("primary", "secondary"):
+            raise SmError(f"{f.name}: window {i} monitor must be primary|secondary")
+        if "workspace" in w and not (isinstance(w["workspace"], int) and w["workspace"] > 0):
+            raise SmError(f"{f.name}: window {i} workspace must be a number like 3")
+        if "floating" in w and not isinstance(w["floating"], bool):
+            raise SmError(f"{f.name}: window {i} floating must be true or false")
+        g = w.get("geometry")
+        if g is not None and (not isinstance(g, dict) or
+                              any(type(g.get(k)) is not int for k in ("x", "y", "w", "h"))):
+            raise SmError(f"{f.name}: window {i} geometry needs integer x, y, w, h")
+    view = data.get("view", {})
+    if not isinstance(view, dict) or any(k not in ("primary", "secondary") or
+                                         not isinstance(v, int) or v < 1 for k, v in view.items()):
+        raise SmError(f"{f.name}: view must look like {{ primary = 1, secondary = 6 }}")
+    data.setdefault("name", f.stem)
+    return f.stem, data
+
+
+def shell_line(win):
+    argv = [os.path.expanduser(a) for a in shlex.split(win["cmd"])]
+    line = "exec " + shlex.join(argv)
+    if win.get("cwd"):
+        line = f"cd {shlex.quote(os.path.expanduser(win['cwd']))} && {line}"
+    return line
+
+
+# --------------------------------------------------------------- snapshots ---
+
+GAME_CLASS = re.compile(r"^steam_app_")
+
+
+def read_cmdline(pid):
+    try:
+        raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return None
+    return [a.decode(errors="replace") for a in raw.split(b"\0") if a] or None
+
+
+def current_clients():
+    """The windows Replace may close. The only place that decides this."""
+    return query("clients")
+
+
+def logical_size(m):
+    return round(m["width"] / m.get("scale", 1)), round(m["height"] / m.get("scale", 1))
+
+
+def restorable(clients, mons, cmdline=read_cmdline):
+    """The open windows that can be saved, and therefore may be closed by Replace.
+
+    One workspace per monitor (leftmost = primary, everything else = secondary).
+    Skipped: scratchpad (special) windows, Steam games (not relaunchable by
+    command line), and windows whose command line can't be read.
+    Returns (items, skipped): items = [(sort_key, client, window, note)] in
+    launch order, skipped = [(label, reason)].
+    """
+    role_of = {m["id"]: ("primary" if i == 0 else "secondary") for i, m in enumerate(mons)}
+    mon_by_id = {m["id"]: m for m in mons}
+    order = {"primary": 0, "secondary": 1}
+    kept, skipped = [], []
+    for c in clients:
+        if not c.get("mapped", True):
+            continue
+        cls = c.get("class") or ""
+        label = cls or c.get("title") or c["address"]
+        if c["workspace"]["name"].startswith("special"):
+            skipped.append((label, "scratchpad"))
+            continue
+        if GAME_CLASS.match(cls):
+            skipped.append((label, "game"))
+            continue
+        argv = cmdline(c["pid"])
+        if not argv:
+            skipped.append((label, "command unreadable"))
+            continue
+        role = role_of.get(c["monitor"], "primary")
+        win = {"monitor": role, "cmd": shlex.join(argv)}
+        if c["workspace"]["id"] > 0:
+            win["workspace"] = c["workspace"]["id"]
+        if c.get("floating"):
+            win["floating"] = True
+        m = mon_by_id.get(c["monitor"])
+        if m and c.get("at") and c.get("size"):
+            sw, sh = logical_size(m)   # monitor-relative, so a moved/resized monitor can rescale
+            win["geometry"] = {"x": c["at"][0] - m["x"], "y": c["at"][1] - m["y"],
+                               "w": c["size"][0], "h": c["size"][1], "sw": sw, "sh": sh}
+        if cls:
+            win["class"] = f"^{re.escape(cls)}$"
+        note = re.sub(r"\s+", " ", f"{cls}: {c.get('title', '')}").strip()[:80]
+        kept.append(((order[role], c["workspace"]["id"], c["at"][0], c["at"][1]), c, win, note))
+    kept.sort(key=lambda k: k[0])   # roughly left-to-right, so dwindle lays out similarly
+    return kept, skipped
+
+
+def snapshot_windows(clients, mons, cmdline=read_cmdline):
+    """restorable() as template [[window]] entries: ([(window, note)], skipped)."""
+    items, skipped = restorable(clients, mons, cmdline)
+    return [(w, n) for _, _, w, n in items], skipped
+
+
+TERMINAL_CLASS = re.compile(r"ghostty|kitty|alacritty|foot|wezterm|konsole|xterm|terminator", re.I)
+
+
+def _children(pid):
+    r = subprocess.run(["pgrep", "-P", str(pid)], capture_output=True, text=True)
+    return [int(x) for x in r.stdout.split()]
+
+
+def _comm(pid):
+    try:
+        return Path(f"/proc/{pid}/comm").read_text().strip()
+    except OSError:
+        return ""
+
+
+def terminal_programs(items, kids=_children, comm=_comm):
+    """Programs running inside terminals that Replace would close.
+
+    A terminal process's children are its shells; their children are whatever
+    is running (or backgrounded) in them. One terminal process can serve many
+    windows, so this is reported per process, not per window.
+    Returns [(class, [program names])] for terminals that have any.
+    """
+    seen, out = set(), []
+    for _, c, _, _ in items:
+        if not TERMINAL_CLASS.search(c.get("class") or "") or c["pid"] in seen:
+            continue
+        seen.add(c["pid"])
+        progs = {comm(p) for shell in kids(c["pid"]) for p in kids(shell)} - {""}
+        if progs:
+            out.append((c["class"], sorted(progs)))
+    return out
+
+
+def closing_summary(items, progs):
+    """Human lines: what will be closed, and what runs inside terminals."""
+    counts = Counter(c.get("class") or "?" for _, c, _, _ in items)
+    head = ", ".join(f"{n}x {cls}" for cls, n in counts.items())
+    warns = [f"{cls} is running: {', '.join(p)} (lost if closed)" for cls, p in progs]
+    return head, warns
+
+
+def close_windows(items, timeout=10.0):
+    """Ask each window to close, then wait until they (and their apps) are gone.
+
+    Returns the addresses that refused to close within `timeout`.
+    """
+    # Our own terminal may be one of the windows; don't die with it.
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    addrs = [c["address"] for _, c, _, _ in items]
+    pids = {c["pid"] for _, c, _, _ in items}
+    for a in addrs:
+        try:
+            dispatch(f"hl.dsp.window.close({{ window = {lua_str('address:' + a)} }})")
+        except SmError as e:
+            say(f"    ! {e}", err=True)
+
+    def remaining():
+        live = {c["address"] for c in current_clients()}
+        return [a for a in addrs if a in live]
+
+    end = time.monotonic() + timeout
+    while remaining() and time.monotonic() < end:
+        time.sleep(POLL)
+    left = remaining()
+
+    # Single-instance apps (Chrome) need a moment to really exit; relaunching
+    # into a dying process yields no window. Bounded, since some processes
+    # legitimately stay resident with zero windows.
+    end = time.monotonic() + 3.0
+    while time.monotonic() < end:
+        owners = {c["pid"] for c in query("clients")}
+        if not any(p not in owners and Path(f"/proc/{p}").exists() for p in pids):
+            break
+        time.sleep(POLL)
+    return left
+
+
+def toml_str(s):
+    return json.dumps(s)   # a JSON string is a valid TOML basic string
+
+
+def toml_val(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, dict):
+        return "{ " + ", ".join(f"{k} = {toml_val(x)}" for k, x in v.items()) + " }"
+    return toml_str(v) if isinstance(v, str) else str(v)
+
+
+def unique_stem(base):
+    taken = {f.stem for f, _ in all_files()}
+    if base not in taken:
+        return base
+    n = 2
+    while f"{base}-{n}" in taken:
+        n += 1
+    return f"{base}-{n}"
+
+
+def render_snapshot(name, wins, now, view=None, kind=None, titles=True):
+    lines = [f"# Saved by hypr-sm on {now:%Y-%m-%d %H:%M}. Same format as templates.",
+             "# Terminals reopen in ~ (which shell belongs to which window isn't knowable).",
+             f"name = {toml_str(name)}"]
+    if kind:
+        lines.append(f"auto = {toml_str(kind)}")   # made by hypr-sm itself, may be pruned/rotated
+    if view:
+        lines.append("view = { " + ", ".join(f"{r} = {n}" for r, n in view.items()) + " }")
+    for win, note in wins:
+        if not titles:
+            note = note.split(":")[0]   # class only: titles can hold tab names, contacts...
+        lines += ["", f"# {note}", "[[window]]"]
+        lines += [f"{k} = {toml_val(v)}" for k, v in win.items()]
+    return "\n".join(lines) + "\n"
+
+
+def write_snapshot(name, wins, now, view=None, kind=None):
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    path = SESSION_DIR / f"{unique_stem(slugify(name))}.toml"
+    path.write_text(render_snapshot(name, wins, now, view, kind))
+    return path
+
+
+KEEP_BEFORE = 5
+
+
+def prune_before(keep=KEEP_BEFORE):
+    """Delete all but the newest `keep` "Before ..." safety snapshots (ours only:
+    marked auto = "before", or the same-shaped files older versions wrote)."""
+    mine = []
+    for f in SESSION_DIR.glob("*.toml"):
+        try:
+            data = tomllib.loads(f.read_text())
+            mine_it = data.get("auto") == "before" or (
+                "auto" not in data and str(data.get("name", "")).startswith("Before "))
+            if mine_it:
+                mine.append((f.stat().st_mtime, f))
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+    for _, f in sorted(mine, reverse=True)[keep:]:
+        f.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------- autosave ---
+
+def write_atomic(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
+
+
+def autosave_once():
+    """Overwrite the rolling autosave. Returns False (writing nothing) when there
+    is nothing worth saving, so a good save is never replaced by an empty desktop."""
+    mons = monitors()
+    wins, _ = snapshot_windows(query("clients"), mons)
+    if not wins:
+        return False
+    write_atomic(SESSION_DIR / "autosave.toml",
+                 render_snapshot("Last session (autosaved)", wins, datetime.now(),
+                                 current_view(mons), kind="autosave", titles=False))
+    return True
+
+
+def rotate_previous():
+    """At login the last login's autosave becomes "Previous session". Otherwise the
+    first tick would overwrite exactly what you'd want back after a reboot."""
+    cur = SESSION_DIR / "autosave.toml"
+    if not cur.is_file():
+        return
+    try:
+        text = cur.read_text().replace('name = "Last session (autosaved)"',
+                                       'name = "Previous session (before login)"', 1)
+        write_atomic(SESSION_DIR / "previous-session.toml", text)
+        cur.unlink()
+    except OSError:
+        pass
+
+
+def cmd_autosave(args):
+    if not args.every:
+        lock = try_lock()
+        if not lock:
+            say("another hypr-sm is running; skipped")
+            return
+        with lock:
+            say("autosaved" if autosave_once() else "nothing to save")
+        return
+    rotate_previous()
+    fails = 0
+    while fails < 5:   # Hyprland gone -> stop instead of spinning forever
+        time.sleep(args.every)
+        lock = try_lock()
+        if not lock:   # an open/replace is mid-flight: its half-closed desktop is not worth saving
+            continue
+        with lock:
+            try:
+                autosave_once()
+                fails = 0
+            except (SmError, OSError, ValueError):
+                fails += 1
+
+
+def cmd_save(args):
+    now = datetime.now()
+    name = (args.name or "").strip() or f"Session {now:%d.%m %H:%M}"
+    mons = monitors()
+    wins, skipped = snapshot_windows(query("clients"), mons)
+    if not wins:
+        raise SmError("nothing to save: no restorable windows are open")
+    say(f"saving '{name}': {len(wins)} window(s)")
+    for win, _ in wins:
+        say(f"  [{win['monitor']} ws {win.get('workspace', '?')}] {win['cmd']}")
+    for label, why in skipped:
+        say(f"  skipped {label}: {why}")
+    if args.dry_run:
+        say("(dry run: nothing written)")
+        return
+    path = write_snapshot(name, wins, now, current_view(mons))
+    extra = f" ({len(skipped)} skipped: {', '.join(l for l, _ in skipped)})" if skipped else ""
+    notify("Session saved", f"{name}: {len(wins)} windows{extra}")
+    say(f"saved to {path}")
+
+
+# ------------------------------------------------------------------- core ----
+
+def notify(title, body=""):
+    if shutil.which("notify-send"):
+        subprocess.run(["notify-send", "-a", "hypr-sm", title, body], check=False)
+
+
+def pick_slug(base, force_new, state):
+    if not force_new or base not in state:
+        return base
+    n = 2
+    while f"{base}-{n}" in state:
+        n += 1
+    return f"{base}-{n}"
+
+
+def target_rect(win, mon):
+    """The window's saved geometry as absolute layout coordinates on `mon`,
+    rescaled if the monitor's size differs from when it was saved."""
+    g = win["geometry"]
+    lw, lh = logical_size(mon)
+    fx = lw / g["sw"] if g.get("sw") else 1.0
+    fy = lh / g["sh"] if g.get("sh") else 1.0
+    return (mon["x"] + round(g["x"] * fx), mon["y"] + round(g["y"] * fy),
+            round(g["w"] * fx), round(g["h"] * fy))
+
+
+def restore_float_state(addr, win, mons_by_id):
+    """Float (exactly placed) or tile the window as it was saved. Tiled sizes are
+    fitted later, once all its neighbours exist."""
+    c = next((x for x in query("clients") if x["address"] == addr), None)
+    if not c:
+        return
+    ref = "window = " + lua_str(f"address:{addr}")
+    want = bool(win.get("floating"))
+    if want != bool(c["floating"]):
+        dispatch('hl.dsp.window.float({ action = "%s", %s })' % ("enable" if want else "disable", ref))
+    if not want:
+        return
+    mon = mons_by_id.get(c["monitor"]) or next(iter(mons_by_id.values()))
+    x, y, w, h = target_rect(win, mon)
+    lw, lh = logical_size(mon)
+    w, h = min(w, lw), min(h, lh)   # keep it on the monitor it lives on
+    x = max(mon["x"], min(x, mon["x"] + lw - w))
+    y = max(mon["y"], min(y, mon["y"] + lh - h))
+    dispatch("hl.dsp.window.resize({ x = %d, y = %d, relative = false, %s })" % (w, h, ref))
+    dispatch("hl.dsp.window.move({ x = %d, y = %d, relative = false, %s })" % (x, y, ref))
+
+
+def launch_and_place(win, ws, claimed, dry, mons_by_id=None):
+    """Launch one window and move it to numbered workspace `ws`. Returns its address."""
+    line = shell_line(win)
+    say(f"  [{win['monitor']}] {line}  ->  workspace {ws}")
+    if dry:
+        return None
+    known = {c["address"] for c in query("clients")} | claimed
+    dispatch(f"hl.dsp.exec_cmd({lua_str(line)})")
+    pat = win.get("class")
+    timeout = float(win.get("timeout", DEFAULT_TIMEOUT))
+
+    def new_window():
+        for c in query("clients"):
+            if c["address"] in known or not c.get("mapped", True):
+                continue
+            if pat and not re.search(pat, c["class"], re.I):
+                continue
+            return c
+        return None
+
+    try:
+        c = wait_until(new_window, timeout, f"a window from `{win['cmd']}`")
+    except SmError as e:
+        say(f"    ! {e}", err=True)
+        notify("hypr-sm", str(e))
+        return None
+    claimed.add(c["address"])
+    dispatch('hl.dsp.window.move({ workspace = %s, follow = false, window = %s })'
+             % (ws_ref(ws), lua_str(f"address:{c['address']}")))
+    wait_until(lambda: any(x["address"] == c["address"] and x["workspace"]["name"] == str(ws)
+                           for x in query("clients")), 5, f"{c['class']} to reach workspace {ws}")
+    if win.get("geometry") and mons_by_id:
+        restore_float_state(c["address"], win, mons_by_id)
+    return c["address"]
+
+
+TOL = 6   # px: close enough for a tiled size
+CUT_SLOP = 8   # px: tiles are separated by gaps, but rects may overlap a hair
+
+
+def find_cut(rects, idxs):
+    """A straight cut separating these rects: (side_by_side, left/top idxs, right/bottom idxs)."""
+    for side_by_side, lo, hi in ((True, 0, 2), (False, 1, 3)):
+        order = sorted(idxs, key=lambda i: rects[i][lo])
+        for k in range(1, len(order)):
+            a, b = order[:k], order[k:]
+            a_end = max(rects[i][lo] + rects[i][hi] for i in a)
+            b_start = min(rects[i][lo] for i in b)
+            if a_end <= b_start + CUT_SLOP:
+                return side_by_side, a, b
+    return None
+
+
+def shape_sig(rects, idxs=None):
+    """Canonical tree shape of a tiling ('L' = one tile), None if not a clean cut layout."""
+    idxs = list(range(len(rects))) if idxs is None else idxs
+    if len(idxs) == 1:
+        return "L"
+    c = find_cut(rects, idxs)
+    if not c:
+        return None
+    side_by_side, a, b = c
+    sa, sb = shape_sig(rects, a), shape_sig(rects, b)
+    return None if sa is None or sb is None else (side_by_side, sa, sb)
+
+
+def plan_tree(rects):
+    """How to build these tiles by repeatedly splitting a window.
+
+    rects: [(x, y, w, h)] of one workspace's tiled windows. Dwindle layouts are
+    guillotine cuts, so: find a straight cut that separates the rects, recurse.
+    Returns [(parent, side_by_side)] indexed by creation order: entry k says
+    "window k is made by splitting window `parent`, side by side or stacked".
+    Entry 0 is (None, None). None when the rects aren't a clean cut layout.
+    """
+    plan = [(None, None)]
+
+    def expand(idxs, rep):
+        # `rep` = the window whose tile currently stands for this whole region
+        if len(idxs) == 1:
+            return True
+        c = find_cut(rects, idxs)
+        if not c:
+            return False
+        side_by_side, a, b = c
+        new = len(plan)
+        plan.append((rep, side_by_side))
+        return expand(a, rep) and expand(b, new)
+
+    return plan if expand(list(range(len(rects))), 0) and len(plan) == len(rects) else None
+
+
+def active_address():
+    r = _ctl("-j", "activewindow")
+    try:
+        return json.loads(r.stdout).get("address")
+    except ValueError:
+        return None
+
+
+def focus_window(addr):
+    """Focus a window and make sure it stuck (focus-follows-mouse can steal it):
+    the next window opens by splitting whichever window is focused."""
+    for _ in range(2):
+        dispatch("hl.dsp.focus({ window = %s })" % lua_str(f"address:{addr}"))
+        try:
+            wait_until(lambda: active_address() == addr, 1.0, "focus")
+            return
+        except SmError:
+            pass
+
+
+def launch_structured(group, ws, mon, mons_by_id, claimed):
+    """Launch one workspace's tiled windows so the tile TREE matches the saved
+    layout (each new window splits the right existing one). Needs that workspace
+    focused, so Replace only. Returns [addresses]; identities are sorted out by
+    fit_tiled's swaps afterwards. Falls back to plain launches for odd layouts."""
+    rects = [target_rect(w, mon) for w in group]
+    plan = plan_tree(rects)
+    addrs = []
+    if plan is None:
+        return [launch_and_place(w, ws, claimed, False, mons_by_id) for w in group]
+    show({mon["name"]: ws}, mon["name"])
+    for k, win in enumerate(group):
+        parent_addr = None
+        if k > 0:
+            parent, side_by_side = plan[k]
+            parent_addr = addrs[parent] if parent < len(addrs) else None
+            if parent_addr:
+                focus_window(parent_addr)
+        addr = launch_and_place(win, ws, claimed, False, mons_by_id)
+        addrs.append(addr)
+        if k == 0 or not addr or not parent_addr:
+            continue
+        by = {}
+
+        def apart():
+            by.update({c["address"]: c for c in query("clients")})
+            p, n = by.get(parent_addr), by.get(addr)
+            if not p or not n:
+                return None
+            (px, py), (pw, ph), (nx, ny), (nw, nh) = p["at"], p["size"], n["at"], n["size"]
+            if px < nx + nw and nx < px + pw and py < ny + nh and ny < py + ph:
+                return None   # layout hasn't settled: still overlapping
+            return abs((nx + nw / 2) - (px + pw / 2)) > abs((ny + nh / 2) - (py + ph / 2))
+
+        def settled():
+            r = apart()
+            return None if r is None else ("side" if r else "stack")
+
+        try:
+            now = wait_until(settled, 3, "the new tile to settle")
+        except SmError:
+            continue
+        if (now == "side") != side_by_side:   # dwindle picked the other direction
+            dispatch('hl.dsp.layout("togglesplit")')
+            time.sleep(0.3)
+    return addrs
+
+
+def fit_tiled(group, mons_by_id):
+    """Best-effort restore of tiled geometry on one workspace.
+
+    group = [(address, window)] of tiled windows we launched there. Only runs when
+    they are the only windows on that workspace (never disturbs someone else's
+    layout). 1) swap windows into the tiles whose centres match the saved ones,
+    2) nudge split ratios until sizes fit. A tiled window can only be resized from
+    its movable edge, whose direction depends on where it sits, so each axis learns
+    its sign from whether the last nudge helped. Returns addresses still off by > TOL.
+    """
+    if len(group) < 2:
+        return []
+    by = {c["address"]: c for c in query("clients")}
+    ws_ids = {by[a]["workspace"]["id"] for a, _ in group if a in by}
+    mine = dict(group)
+    if len(ws_ids) != 1 or any(c["workspace"]["id"] in ws_ids and c["address"] not in mine
+                               and not c["floating"] for c in by.values()):
+        return []   # someone else's tiles are here; leave their layout alone
+    tgt = {}
+    for a, win in group:
+        if a in by:
+            tgt[a] = target_rect(win, mons_by_id.get(by[a]["monitor"]) or next(iter(mons_by_id.values())))
+    if len(tgt) < 2:
+        return []
+
+    # Only touch the layout if its tree SHAPE already matches. Forcing sizes onto a
+    # different shape (e.g. launched without focus control) gives worse than default.
+    order = list(tgt)
+    if shape_sig([tuple(by[a]["at"]) + tuple(by[a]["size"]) for a in order]) != \
+            shape_sig([tgt[a] for a in order]):
+        return order
+
+    def centre(x, y, w, h):
+        return (x + w / 2, y + h / 2)
+
+    # 1) which tile should each window sit in? greedy nearest centres; a tile is
+    # named by the window that occupies it now.
+    slot_c = {a: centre(*by[a]["at"], *by[a]["size"]) for a in tgt}
+    pairs = sorted(((abs(centre(*tgt[t])[0] - sc[0]) + abs(centre(*tgt[t])[1] - sc[1]), t, slot)
+                    for t in tgt for slot, sc in slot_c.items()))
+    want, used = {}, set()
+    for _, t, slot in pairs:
+        if slot not in want and t not in used:
+            want[slot] = t
+            used.add(t)
+    occ = {a: a for a in tgt}      # tile -> window in it
+    where = {a: a for a in tgt}    # window -> its tile
+    for slot in list(tgt):
+        t = want.get(slot)
+        if t is None or occ[slot] == t:
+            continue
+        o = occ[slot]
+        dispatch("hl.dsp.window.swap({ target = %s, window = %s })"
+                 % (lua_str(f"address:{o}"), lua_str(f"address:{t}")))
+        old = where[t]
+        occ[slot], occ[old] = t, o
+        where[t], where[o] = slot, old
+    if any(occ[s] != s for s in occ):
+        time.sleep(0.4)   # swaps have no observable "done"; the loop below re-measures anyway
+
+    # 2) sizes. One nudge at a time, re-measuring in between: neighbours share a
+    # boundary, so moving it for one window usually fixes the other as well (and
+    # nudging both at once would just make them fight).
+    def sizes():
+        return {c["address"]: tuple(c["size"]) for c in query("clients") if c["address"] in tgt}
+
+    sign, prev = {}, {}
+    for _ in range(10):
+        changed = False
+        for a, (_, _, tw, th) in tgt.items():
+            cur = sizes()
+            if a not in cur:
+                continue
+            d = [0, 0]
+            for axis, (wantv, have) in enumerate(((tw, cur[a][0]), (th, cur[a][1]))):
+                err = wantv - have
+                key = (a, axis)
+                if abs(err) <= TOL:
+                    prev.pop(key, None)
+                    continue
+                if key in prev and abs(err) >= abs(prev[key]) - 2:
+                    sign[key] = -sign.get(key, 1)   # last nudge didn't help: wrong edge
+                prev[key] = err
+                d[axis] = err * sign.get(key, 1)
+            if d == [0, 0]:
+                continue
+            dispatch("hl.dsp.window.resize({ x = %d, y = %d, relative = true, window = %s })"
+                     % (d[0], d[1], lua_str(f"address:{a}")))
+            changed = True
+            try:   # wait for the layout to react (a clamped nudge may change nothing)
+                wait_until(lambda: sizes() != cur, 0.8, "resize")
+            except SmError:
+                pass
+        if not changed:
+            break
+    cur = {c["address"]: c for c in query("clients")}
+    return [a for a, (_, _, tw, th) in tgt.items() if a in cur and
+            (abs(cur[a]["size"][0] - tw) > TOL or abs(cur[a]["size"][1] - th) > TOL)]
+
+
+def show(targets, end_focus):
+    """targets: {monitor: workspace}. Check-then-focus (workspace_back_and_forth)."""
+    for mon, ws in targets.items():
+        ws = str(ws)
+        if active_ws(mon) == ws:
+            continue
+        dispatch(f"hl.dsp.focus({{ monitor = {lua_str(mon)} }})")
+        wait_until(lambda: focused_monitor() == mon, 5, f"focus on {mon}")
+        if active_ws(mon) != ws:
+            dispatch(f"hl.dsp.focus({{ workspace = {ws_ref(ws)} }})")
+            wait_until(lambda: active_ws(mon) == ws, 5, f"{mon} to show workspace {ws}")
+    if focused_monitor() != end_focus:
+        dispatch(f"hl.dsp.focus({{ monitor = {lua_str(end_focus)} }})")
+        wait_until(lambda: focused_monitor() == end_focus, 5, f"focus on {end_focus}")
+
+
+def plan_exact(windows, view, cands, mon_of):
+    """Replace: everything is closed, so each window can take its exact workspace.
+
+    Windows without one (hand-written templates) go to the workspace their monitor
+    shows now. Returns [workspace per window].
+    """
+    out = []
+    for w in windows:
+        role = w["monitor"]
+        fallback = view.get(role) or (cands[mon_of[role]] or [1])[0]
+        out.append(w.get("workspace") or fallback)
+    return out
+
+
+def plan_free(windows, cands, mon_of, busy):
+    """Alongside/switch: don't mix with what's open. Each distinct saved workspace
+    (per monitor) gets its own currently-empty numbered workspace on that monitor.
+
+    Returns ([workspace per window], [warnings]).
+    """
+    groups = {}   # role -> sorted distinct saved workspaces (0 = unspecified)
+    for w in windows:
+        groups.setdefault(w["monitor"], set()).add(w.get("workspace", 0))
+    assign, warns = {}, []
+    for role, saved in groups.items():
+        mon = mon_of[role]
+        pool = [n for n in (cands[mon] or list(range(1, 11))) if n not in busy]
+        for i, sw in enumerate(sorted(saved)):
+            if i < len(pool):
+                assign[role, sw] = pool[i]
+            else:
+                assign[role, sw] = pool[-1] if pool else (cands[mon] or [1])[-1]
+                warns.append(f"no free workspace left on {mon}; sharing {assign[role, sw]}")
+    return [assign[w["monitor"], w.get("workspace", 0)] for w in windows], warns
+
+
+def cmd_open(args):
+    stem, tpl = load_template(args.template)
+    ms = monitors()
+    mon_of = {"primary": ms[0]["name"],
+              "secondary": (ms[1]["name"] if len(ms) > 1 else ms[0]["name"])}
+    name_of_id = {m["id"]: m["name"] for m in ms}
+    windows = tpl["window"]
+
+    state = load_state()
+    slug = pick_slug(slugify(stem), args.new, state)
+    roles = [r for r in ("primary", "secondary") if any(w["monitor"] == r for w in windows)]
+    end_focus = mon_of[windows[0]["monitor"]]
+
+    already = slug in state
+    say(f"session '{tpl['name']}' ({slug}), mode={args.mode}"
+          + (", already open" if already and not args.new else ""))
+
+    shows = args.mode in ("replace", "switch")
+    if already and not args.new:
+        # Already running: replace/switch just bring it forward. Never closes anything.
+        by_addr = {c["address"]: c for c in query("clients")}
+        targets = {}
+        for a in state[slug]["windows"]:
+            c = by_addr.get(a)
+            if c and c["monitor"] in name_of_id:
+                targets.setdefault(name_of_id[c["monitor"]], c["workspace"]["name"])
+        if args.dry_run:
+            say("  would just switch to workspaces:", targets)
+            return
+        if shows and targets:
+            show(targets, end_focus if end_focus in targets else next(iter(targets)))
+            say("  switched to the running session")
+        else:
+            say("  already open; nothing to do")
+        return
+
+    cands = monitor_workspaces([m["name"] for m in ms])
+    closing = []
+    if args.mode == "replace":
+        closing, _ = restorable(current_clients(), ms)
+        before_view = current_view(ms)   # what each monitor shows now, before we close things
+        view = dict(before_view)
+        if closing:
+            head, warns = closing_summary(closing, terminal_programs(closing))
+            say(f"  replace closes {len(closing)} window(s): {head}")
+            for w in warns:
+                say(f"    ! {w}")
+            if args.dry_run:
+                say("  (dry run) would save a 'Before' snapshot first, then close them")
+            elif not args.yes:
+                confirm_cli()
+        placed = plan_exact(windows, view, cands, mon_of)
+        for r, n in tpl.get("view", {}).items():
+            view[r] = n   # a snapshot's own view wins over "what's showing now"
+        show_ws = {mon_of[r]: view[r] for r in roles if r in view}
+        for w, n in zip(windows, placed):   # show the workspace of the first window otherwise
+            show_ws.setdefault(mon_of[w["monitor"]], n)
+    else:
+        placed, warns = plan_free(windows, cands, mon_of,
+                                  {c["workspace"]["id"] for c in query("clients")})
+        for w in warns:
+            say(f"    ! {w}")
+        show_ws = {}
+        for w, n in zip(windows, placed):
+            show_ws.setdefault(mon_of[w["monitor"]], n)
+
+    if closing and not args.dry_run:
+        now = datetime.now()
+        snap = write_snapshot(f"Before {tpl['name']} {now:%d.%m %H:%M}",
+                              [(w, n) for _, _, w, n in closing], now, before_view, kind="before")
+        prune_before()
+        say(f"  safety snapshot: {snap}")
+        left = close_windows(closing)
+        if left:
+            say(f"  ! {len(left)} window(s) did not close; continuing anyway", err=True)
+            notify("hypr-sm", f"{len(left)} window(s) did not close")
+
+    claimed, launched, entries = set(), [], []
+    mons_by_id = {m["id"]: m for m in ms}
+    mon_by_name = {m["name"]: m for m in ms}
+    struct = {}   # ws -> tiled windows to launch tree-aware (Replace only: needs focus)
+    if args.mode == "replace" and not args.dry_run:
+        for win, ws in zip(windows, placed):
+            if win.get("geometry") and not win.get("floating"):
+                struct.setdefault(ws, []).append(win)
+        struct = {ws: g for ws, g in struct.items() if len(g) >= 2}
+    in_struct = {id(w) for g in struct.values() for w in g}
+    for win, ws in zip(windows, placed):
+        if id(win) in in_struct:
+            continue
+        addr = launch_and_place(win, ws, claimed, args.dry_run, mons_by_id)
+        if addr:
+            launched.append(addr)
+            entries.append((addr, win, ws))
+    for ws, group in struct.items():
+        mon = mon_by_name[mon_of[group[0]["monitor"]]]
+        for addr, win in zip(launch_structured(group, ws, mon, mons_by_id, claimed), group):
+            if addr:
+                launched.append(addr)
+                entries.append((addr, win, ws))
+    if not args.dry_run:
+        by_ws = {}
+        for addr, win, ws in entries:
+            if win.get("geometry") and not win.get("floating"):
+                by_ws.setdefault(ws, []).append((addr, win))
+        for ws, group in by_ws.items():
+            off = fit_tiled(group, mons_by_id)
+            if off:
+                say(f"  ! workspace {ws}: tiled layout of {len(off)} window(s) not restored exactly "
+                    f"(left as tiled by default)")
+    if args.dry_run:
+        say("  would show:", ", ".join(f"{m} -> {n}" for m, n in show_ws.items())
+            if shows else "(leaves the view alone)")
+        return
+    if launched:
+        state = load_state()
+        state[slug] = {"name": tpl["name"], "windows": launched}
+        save_state(state)
+    if shows:
+        show(show_ws, end_focus if end_focus in show_ws else next(iter(show_ws)))
+    notify("Session opened", tpl["name"])
+    say("done")
+
+
+def confirm_cli():
+    if not sys.stdin.isatty():
+        raise SmError("replace closes windows; re-run with --yes to confirm")
+    if input("  close these windows and replace? [y/N] ").strip().lower() not in ("y", "yes"):
+        raise SmError("cancelled, nothing closed")
+
+
+def fuzzel_pick(labels, prompt):
+    """Show a fuzzel dmenu; return the chosen label, or None on Esc/empty."""
+    r = subprocess.run(["fuzzel", "--dmenu", "--prompt", prompt],
+                       input="\n".join(labels), capture_output=True, text=True)
+    choice = r.stdout.rstrip("\n")
+    return choice if r.returncode == 0 and choice else None
+
+
+def fuzzel_text(prompt):
+    """Free-text prompt. Returns the typed text (may be empty), or None on Esc."""
+    r = subprocess.run(["fuzzel", "--dmenu", "--prompt-only", prompt],
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+SAVE_LABEL = "+ Save current windows as session…"
+DELETE_LABEL = "− Delete a saved session…"
+
+
+def saved_sessions():
+    """[(path, name)] of snapshots in SESSION_DIR, newest first."""
+    out = []
+    for f, saved in all_files():
+        if not saved:
+            continue
+        try:
+            out.append((f, str(tomllib.loads(f.read_text()).get("name", f.stem))))
+        except (OSError, tomllib.TOMLDecodeError):
+            out.append((f, f.stem))   # broken files are exactly what you'd want to delete
+    return out
+
+
+def cmd_delete(args):
+    hits = [(f, n) for f, n in saved_sessions()
+            if args.name in (f.stem, n) or n.lower() == args.name.lower()]
+    if not hits:
+        raise SmError(f"no saved session '{args.name}' (templates can't be deleted here)")
+    if len(hits) > 1:
+        raise SmError(f"'{args.name}' is ambiguous: " + ", ".join(f.stem for f, _ in hits))
+    f, n = hits[0]
+    f.unlink()
+    say(f"deleted '{n}' ({f.name})")
+
+
+def menu_delete():
+    items = {f"{n}  [{f.stem}]": f for f, n in saved_sessions()}
+    if not items:
+        notify("hypr-sm", "no saved sessions to delete")
+        return
+    picked = fuzzel_pick(list(items), "Delete > ")
+    if not picked:
+        return
+    f = items[picked]
+    if fuzzel_pick(["Cancel", f"Yes, delete {picked}"], "Really? > ") != f"Yes, delete {picked}":
+        return
+    f.unlink(missing_ok=True)
+    notify("Session deleted", picked)
+
+
+def cmd_menu(_args):
+    state = load_state()
+    entries = {}   # label -> (stem, name, is_open)
+    for f, saved in all_files():
+        try:
+            data = tomllib.loads(f.read_text())
+        except (OSError, tomllib.TOMLDecodeError):
+            continue   # a broken file must not break the menu
+        name = str(data.get("name", f.stem))
+        is_open = slugify(f.stem) in state
+        if is_open:
+            label = f"● {name}  (already open)"
+        else:
+            label = f"↺ {name}" if saved else f"  {name}"
+        if label in entries:
+            label += f"  [{f.stem}]"
+        entries[label] = (f.stem, name, is_open)
+
+    picked = fuzzel_pick([SAVE_LABEL, *entries, DELETE_LABEL], "Session > ")
+    if not picked:
+        return
+    if picked == DELETE_LABEL:
+        menu_delete()
+        return
+    if picked == SAVE_LABEL:
+        typed = fuzzel_text("Save session as > ")
+        if typed is None:
+            return
+        cmd_save(argparse.Namespace(name=typed, dry_run=False))
+        return
+    stem, name, is_open = entries[picked]
+
+    if is_open:
+        first, second = "Switch to it", "Open a second copy (keep current windows)"
+        outcomes = {first: ("switch", False), second: ("alongside", True)}
+    else:
+        first, second = "Replace current windows (closes them)", "Open alongside (keep current windows)"
+        outcomes = {first: ("replace", False), second: ("alongside", False)}
+    how = fuzzel_pick([first, second], f"{name} > ")
+    if not how:
+        return
+    mode, new = outcomes[how]
+    yes = False
+    if mode == "replace":
+        items, _ = restorable(current_clients(), monitors())
+        if items and not confirm_menu(name, items):
+            return
+        yes = True   # confirmed here (or nothing to close)
+    cmd_open(argparse.Namespace(template=stem, mode=mode, new=new, dry_run=False, yes=yes))
+
+
+def confirm_menu(name, items):
+    """Fuzzel confirm step. Cancel is first, so a reflex Enter is the safe answer."""
+    head, warns = closing_summary(items, terminal_programs(items))
+    labels = ["Cancel",
+              f"Yes, close {len(items)} window(s) and open {name}",
+              f"   closes: {head}",
+              *[f"   ! {w}" for w in warns],
+              "   (a 'Before ...' snapshot is saved first)"]
+    picked = fuzzel_pick(labels, "Replace > ")
+    return bool(picked and picked.startswith("Yes"))
+
+
+def try_lock():
+    """The one-at-a-time lock (open/replace/save/autosave). None if someone holds it."""
+    f = open(Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "hypr-sm.lock", "w")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.close()
+        return None
+    return f
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="hypr-sm", description="Hyprland window sessions")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    op = sub.add_parser("open", help="open a session template")
+    op.add_argument("template")
+    op.add_argument("--mode", choices=("replace", "alongside", "switch"), default="replace")
+    op.add_argument("--new", action="store_true")
+    op.add_argument("--yes", action="store_true", help="don't ask before replace closes windows")
+    op.add_argument("--dry-run", action="store_true")
+    op.set_defaults(fn=cmd_open)
+    mp = sub.add_parser("menu", help="pick a session from a fuzzel menu")
+    mp.set_defaults(fn=cmd_menu)
+    sp = sub.add_parser("save", help="save the windows open right now as a session")
+    sp.add_argument("name", nargs="?", help='default: "Session dd.mm HH:MM"')
+    sp.add_argument("--dry-run", action="store_true")
+    sp.set_defaults(fn=cmd_save)
+    dp = sub.add_parser("delete", help="delete a saved snapshot")
+    dp.add_argument("name")
+    dp.set_defaults(fn=cmd_delete)
+    ap2 = sub.add_parser("autosave", help="write the rolling 'Last session' snapshot")
+    ap2.add_argument("--every", type=int, metavar="SECS", help="keep running, saving every SECS seconds")
+    ap2.set_defaults(fn=cmd_autosave)
+    args = ap.parse_args()
+
+    try:
+        if args.fn is cmd_autosave:   # takes the lock itself, one tick at a time
+            args.fn(args)
+            return 0
+        lock = try_lock()
+        if not lock:
+            say("hypr-sm: another instance is running", err=True)
+            return 1
+        with lock:
+            args.fn(args)
+    except SmError as e:
+        say(f"hypr-sm: {e}", err=True)
+        notify("hypr-sm failed", str(e))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,12 @@
+# Converted from the old browser+terminal.conf ("6:ghostty", "6:firefox").
+name = "Browser + Terminal"
+
+[[window]]
+monitor = "secondary"
+workspace = 6
+cmd = "ghostty"
+
+[[window]]
+monitor = "secondary"
+workspace = 6
+cmd = "firefox"
