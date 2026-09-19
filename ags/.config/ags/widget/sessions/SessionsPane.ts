@@ -5,15 +5,15 @@ import GLib from "gi://GLib"
 import { Gtk } from "ags/gtk4"
 import { appIcon } from "../utils/appIcon"
 import {
-  ClosingInfo,
   OpenMode,
+  Plan,
   SmSession,
-  closingInfo,
   deleteSession,
   duplicateSession,
   listSessions,
-  openSession,
+  openSessionStream,
   persistSession,
+  planSession,
   renameSession,
 } from "./api"
 
@@ -22,6 +22,8 @@ export interface SessionsPaneOpts {
   busy: (on: boolean) => void
   /** Open the editor for this persistent session, or a new one (null). */
   edit: (stem: string | null) => void
+  /** Called after any action finished (the window uses it to refresh the Undo button). */
+  onChanged?: () => void
 }
 
 function clear(box: Gtk.Box) {
@@ -68,7 +70,7 @@ function subtitle(s: SmSession): string {
   return `${n} window${n === 1 ? "" : "s"} · ${ws.length ? `workspace ${ws.join(", ")}` : "auto-placed"}`
 }
 
-export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
+export function createSessionsPane({ status, busy, edit, onChanged }: SessionsPaneOpts) {
   const root = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
   root.add_css_class("sm-sessions")
   const list = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 8 })
@@ -89,14 +91,17 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
 
   let sessions: SmSession[] = []
   let expanded: string | null = null
-  let confirm: { stem: string; info: ClosingInfo } | null = null
+  let confirm: { stem: string; plan: Plan } | null = null
   let deleting: string | null = null
   let naming: { stem: string; mode: NamingMode; text?: string } | null = null
   let query = ""
   let showBefore = false
   let working = false
 
-  async function run(what: string, job: () => Promise<string>, done: string, after?: (out: string) => void) {
+  /** A job may return its own final message (e.g. "opened, but 1 window failed"). */
+  type Outcome = { msg: string; kind?: "info" | "error" } | string | void
+
+  async function run(what: string, job: () => Promise<Outcome | unknown>, done: string, after?: (out: string) => void) {
     if (working) return
     working = true
     busy(true)
@@ -104,8 +109,11 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     render()
     try {
       const out = await job()
-      after?.(out)
-      status(done)
+      after?.(typeof out === "string" ? out : "")
+      if (out && typeof out === "object" && "msg" in (out as object)) {
+        const o = out as { msg: string; kind?: "info" | "error" }
+        status(o.msg, o.kind ?? "info")
+      } else status(done)
     } catch (e) {
       status(`${what} failed: ${reason(e)}`, "error")
     } finally {
@@ -113,21 +121,38 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
       busy(false)
       confirm = null
       await refresh()
+      onChanged?.()
     }
   }
 
   function open(s: SmSession, mode: OpenMode, newCopy = false) {
-    run(`Opening ${s.name}`, () => openSession(s.stem, mode, { newCopy }), `Opened ${s.name}`)
+    run(
+      `Opening ${s.name}`,
+      async () => {
+        const res = await openSessionStream(s.stem, mode, { newCopy }, ev => {
+          if (ev.event === "launching") status(`Opening ${s.name}: ${ev.window} (${ev.i} of ${ev.n})…`)
+        })
+        if (res.failed.length) {
+          const names = res.failed.map(f => f.window).join(", ")
+          return {
+            msg: `Opened ${s.name}, but ${res.failed.length} window${res.failed.length === 1 ? "" : "s"} did not appear: ${names}`,
+            kind: "error" as const,
+          }
+        }
+        return { msg: `Opened ${s.name}` }
+      },
+      `Opened ${s.name}`,
+    )
   }
 
   async function askReplace(s: SmSession) {
     try {
-      const info = await closingInfo()
-      if (!info.count) return open(s, "replace")
-      confirm = { stem: s.stem, info }
+      const plan = await planSession(s.stem, "replace")
+      if (!plan.closing.length) return open(s, "replace")
+      confirm = { stem: s.stem, plan }
       render()
     } catch (e) {
-      status(`Could not check what would close: ${reason(e)}`, "error")
+      status(`Could not work out what would change: ${reason(e)}`, "error")
     }
   }
 
@@ -203,12 +228,21 @@ export function createSessionsPane({ status, busy, edit }: SessionsPaneOpts) {
     box.add_css_class("sm-actions")
 
     if (confirm?.stem === s.stem) {
-      const c = confirm.info
+      const p = confirm.plan
       box.add_css_class("confirming")
-      box.append(label(`Replace closes ${c.count} window${c.count === 1 ? "" : "s"}:`, "sm-strong"))
-      box.append(label(c.head, "sm-dim"))
-      for (const w of c.warnings) box.append(label(`⚠ ${w}`, "sm-warn"))
-      box.append(label("A “Before …” safety snapshot is saved first.", "sm-dim"))
+      box.append(label(`Replace closes ${p.closing.length} window${p.closing.length === 1 ? "" : "s"}:`, "sm-strong"))
+      box.append(label(p.closing_head, "sm-dim"))
+      box.append(label(`Then opens ${p.launching.length} window${p.launching.length === 1 ? "" : "s"}:`, "sm-strong"))
+      const byWs = new Map<number, string[]>()
+      for (const w of p.launching) {
+        const bits = [w.class, w.tabs ? `${w.tabs} tabs` : "", w.cwd ?? ""].filter(Boolean).join(" ")
+        byWs.set(w.workspace, [...(byWs.get(w.workspace) ?? []), bits])
+      }
+      for (const [ws, items] of [...byWs].sort((a, b) => a[0] - b[0])) {
+        box.append(label(`workspace ${ws}: ${items.join(", ")}`, "sm-dim"))
+      }
+      for (const w of p.warnings) box.append(label(`⚠ ${w}`, "sm-warn"))
+      box.append(label("A “Before …” safety snapshot is saved first, and you can undo the Replace afterwards.", "sm-dim"))
       const row = new Gtk.Box({ spacing: 8 })
       const cancel = button("Cancel")
       cancel.connect("clicked", () => {

@@ -169,3 +169,120 @@ export async function writeSession(
 export async function openWindows(): Promise<OpenWindow[]> {
   return JSON.parse(await sm("windows", "--json")).windows
 }
+
+// ── progress, undo, plan ─────────────────────────────────────────────────────
+
+export interface OpenEvent {
+  event: "start" | "launching" | "placed" | "failed" | "done"
+  i?: number
+  n?: number
+  window?: string
+  reason?: string
+  session?: string
+}
+
+export interface OpenResult {
+  opened: number
+  n: number
+  failed: { window: string; reason: string }[]
+}
+
+/** Run a command and hand each stdout line (stderr merged in) to onLine as it arrives. */
+function runStreaming(argv: string[], onLine: (line: string) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+    const stream = new Gio.DataInputStream({ baseStream: proc.get_stdout_pipe()! })
+    const tail: string[] = []
+    const next = () =>
+      stream.read_line_async(GLib.PRIORITY_DEFAULT, null, (_s, res) => {
+        try {
+          const [line] = stream.read_line_finish_utf8(res)
+          if (line === null) {
+            proc.wait_async(null, (_p, r) => {
+              try {
+                proc.wait_finish(r)
+              } catch {
+                /* exit status is read below */
+              }
+              if (proc.get_successful()) resolve()
+              else reject(tail.filter(l => !l.startsWith("@progress")).pop() ?? "hypr-sm failed")
+            })
+            return
+          }
+          onLine(line)
+          tail.push(line)
+          if (tail.length > 20) tail.shift()
+          next()
+        } catch (e) {
+          reject(String(e))
+        }
+      })
+    next()
+  })
+}
+
+function collect(onEvent?: (e: OpenEvent) => void) {
+  let result: OpenResult = { opened: 0, n: 0, failed: [] }
+  return {
+    onLine: (line: string) => {
+      if (!line.startsWith("@progress ")) return
+      try {
+        const ev = JSON.parse(line.slice(10))
+        if (ev.event === "done") result = { opened: ev.opened, n: ev.n, failed: ev.failed ?? [] }
+        onEvent?.(ev)
+      } catch {
+        /* a torn line is not worth failing over */
+      }
+    },
+    result: () => result,
+  }
+}
+
+/** Open a session, reporting each window as it launches. Resolves with the summary. */
+export async function openSessionStream(
+  stem: string,
+  mode: OpenMode,
+  opts: { newCopy?: boolean } = {},
+  onEvent?: (e: OpenEvent) => void,
+): Promise<OpenResult> {
+  const c = collect(onEvent)
+  await runStreaming(
+    [HYPR_SM, "open", stem, "--mode", mode, "--yes", "--progress", ...(opts.newCopy ? ["--new"] : [])],
+    c.onLine,
+  )
+  return c.result()
+}
+
+export interface UndoInfo {
+  available: boolean
+  name: string | null
+  age: number | null
+  closed: number | null
+  stem: string | null
+}
+
+export async function undoInfo(): Promise<UndoInfo> {
+  return JSON.parse(await sm("undo-info"))
+}
+
+/** Put back what the last Replace closed. */
+export async function undoLast(onEvent?: (e: OpenEvent) => void): Promise<OpenResult> {
+  const c = collect(onEvent)
+  await runStreaming([HYPR_SM, "undo", "--progress"], c.onLine)
+  return c.result()
+}
+
+export interface Plan {
+  session: string
+  mode: OpenMode
+  already_open: boolean
+  closing: { class: string; workspace: number }[]
+  closing_head: string
+  launching: { class: string; workspace: number; monitor: string; floating: boolean; tabs: number; cwd: string | null }[]
+  warnings: string[]
+}
+
+/** What opening would do right now; changes nothing. */
+export async function planSession(stem: string, mode: OpenMode): Promise<Plan> {
+  return JSON.parse(await sm("plan", stem, "--mode", mode, "--json"))
+}

@@ -5,6 +5,8 @@
     hypr-sm menu                     (fuzzel fallback picker; SUPER+N normally opens the AGS window)
     hypr-sm save NAME [--windows 0xA,0xB] [--dry-run]   (persist the windows open right now)
     hypr-sm persist STEM NAME        (make a recent session persistent under a name)
+    hypr-sm undo                     (undo the last Replace: reopens what it closed)
+    hypr-sm plan SESSION --json      (what opening would close and launch; changes nothing)
     hypr-sm rename STEM NAME         (rename a persistent session)
     hypr-sm duplicate STEM NAME      (copy any session to a new persistent one)
     hypr-sm delete NAME              (delete a session, persistent or recent)
@@ -64,8 +66,11 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-PERSISTENT_DIR = Path.home() / ".config/hypr-sm/sessions"   # named by the user, kept until deleted
-RECENT_DIR = Path.home() / ".local/share/hypr-sm/recent"    # made by hypr-sm, rotated / pruned
+# The HYPR_SM_* variables exist so tests can run against throwaway folders and a
+# fenced set of windows; nothing sets them in normal use.
+PERSISTENT_DIR = Path(os.environ.get("HYPR_SM_PERSISTENT_DIR") or Path.home() / ".config/hypr-sm/sessions")
+RECENT_DIR = Path(os.environ.get("HYPR_SM_RECENT_DIR") or Path.home() / ".local/share/hypr-sm/recent")
+RUNTIME_DIR = Path(os.environ.get("HYPR_SM_STATE_DIR") or os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 DEFAULT_TIMEOUT = 20.0   # seconds to wait for each launched window to appear
 POLL = 0.15
 
@@ -178,7 +183,7 @@ def ws_ref(ws):
 # read off workspace names. We remember the addresses of the windows we launched
 # (in $XDG_RUNTIME_DIR: gone after logout, like the windows themselves).
 
-STATE_FILE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "hypr-sm-state.json"
+STATE_FILE = RUNTIME_DIR / "hypr-sm-state.json"
 
 
 def load_state():
@@ -365,8 +370,11 @@ def read_cmdline(pid):
 
 
 def current_clients():
-    """The windows Replace may close. The only place that decides this."""
-    return query("clients")
+    """The windows Replace may close. The only place that decides this.
+    HYPR_SM_ONLY_CLASS (a regex) fences it to matching windows, for tests."""
+    clients = query("clients")
+    only = os.environ.get("HYPR_SM_ONLY_CLASS")
+    return [c for c in clients if re.search(only, c.get("class") or "")] if only else clients
 
 
 # ------------------------------------------------- terminal cwd + browser tabs ---
@@ -956,12 +964,35 @@ def restore_float_state(addr, win, mons_by_id):
     dispatch("hl.dsp.window.move({ x = %d, y = %d, relative = false, %s })" % (x, y, ref))
 
 
+class Progress:
+    """Machine-readable progress for the GUI: `@progress {json}` lines on stdout."""
+    enabled = False
+    total = 0
+    index = 0
+    failed = []   # [{"window": label, "reason": text}] for the final summary
+
+
+def progress(**event):
+    if Progress.enabled:
+        try:
+            sys.stdout.write("@progress " + json.dumps(event) + "\n")
+            sys.stdout.flush()
+        except OSError:
+            pass
+
+
+def window_label(win):
+    return clean_class(win.get("class")) or (Path(shlex.split(win["cmd"])[0]).name if win.get("cmd") else "window")
+
+
 def launch_and_place(win, ws, claimed, dry, mons_by_id=None):
     """Launch one window and move it to numbered workspace `ws`. Returns its address."""
     line = shell_line(win)
     say(f"  [{win['monitor']}] {line}  ->  workspace {ws}")
     if dry:
         return None
+    Progress.index += 1
+    progress(event="launching", i=Progress.index, n=Progress.total, window=window_label(win))
     known = {c["address"] for c in query("clients")} | claimed
     dispatch(f"hl.dsp.exec_cmd({lua_str(line)})")
     pat = win.get("class")
@@ -981,6 +1012,8 @@ def launch_and_place(win, ws, claimed, dry, mons_by_id=None):
     except SmError as e:
         say(f"    ! {e}", err=True)
         notify("hypr-sm", str(e))
+        Progress.failed.append({"window": window_label(win), "reason": str(e)})
+        progress(event="failed", i=Progress.index, n=Progress.total, window=window_label(win), reason=str(e))
         return None
     claimed.add(c["address"])
     dispatch('hl.dsp.window.move({ workspace = %s, follow = false, window = %s })'
@@ -989,6 +1022,7 @@ def launch_and_place(win, ws, claimed, dry, mons_by_id=None):
                            for x in query("clients")), 5, f"{c['class']} to reach workspace {ws}")
     if win.get("geometry") and mons_by_id:
         restore_float_state(c["address"], win, mons_by_id)
+    progress(event="placed", i=Progress.index, n=Progress.total, window=window_label(win))
     return c["address"]
 
 
@@ -1268,8 +1302,15 @@ def plan_free(windows, cands, mon_of, busy):
     return [assign[w["monitor"], w.get("workspace", 0)] for w in windows], warns
 
 
+UNDO_FILE = RUNTIME_DIR / "hypr-sm-undo.json"
+UNDO_MAX_AGE = 30 * 60   # seconds the GUI keeps offering "Undo"
+
+
 def cmd_open(args):
     stem, tpl = load_template(args.session)
+    Progress.enabled = bool(getattr(args, "progress", False))
+    Progress.total, Progress.index, Progress.failed = len(tpl["window"]), 0, []
+    progress(event="start", n=Progress.total, session=tpl["name"], mode=args.mode)
     ms = monitors()
     mon_of = {"primary": ms[0]["name"],
               "secondary": (ms[1]["name"] if len(ms) > 1 else ms[0]["name"])}
@@ -1336,10 +1377,13 @@ def cmd_open(args):
 
     if closing and not args.dry_run:
         now = datetime.now()
-        snap = write_snapshot(f"Before {tpl['name']} {now:%d.%m %H:%M}",
+        label = getattr(args, "label", None) or tpl["name"]
+        snap = write_snapshot(f"Before {label} {now:%d.%m %H:%M}",
                               [(w, n) for _, _, w, n in closing], now, before_view, kind="before")
         prune_before()
         say(f"  safety snapshot: {snap}")
+        write_atomic(UNDO_FILE, json.dumps({"stem": snap.stem, "name": label,
+                                            "at": time.time(), "closed": len(closing)}))
         left = close_windows(closing)
         if left:
             say(f"  ! {len(left)} window(s) did not close; continuing anyway", err=True)
@@ -1389,7 +1433,65 @@ def cmd_open(args):
     if shows:
         show(show_ws, end_focus if end_focus in show_ws else next(iter(show_ws)))
     notify("Session opened", tpl["name"])
+    progress(event="done", opened=len(launched), n=Progress.total, failed=Progress.failed)
     say("done")
+
+
+def read_undo():
+    """The last Replace's safety snapshot, if it is still there and recent enough."""
+    try:
+        u = json.loads(UNDO_FILE.read_text())
+    except (OSError, ValueError):
+        return None
+    age = time.time() - u.get("at", 0)
+    exists = any(f.stem == u.get("stem") for f, _ in all_files())
+    return {**u, "age": int(age)} if exists and age <= UNDO_MAX_AGE else None
+
+
+def cmd_undo_info(_args):
+    u = read_undo()
+    print(json.dumps({"available": bool(u), "name": (u or {}).get("name"), "age": (u or {}).get("age"),
+                      "closed": (u or {}).get("closed"), "stem": (u or {}).get("stem")}))
+
+
+def cmd_undo(args):
+    """Put back what the last Replace closed: Replace-open its safety snapshot (which
+    itself takes a snapshot first, so an undo can be undone)."""
+    u = read_undo()
+    if not u:
+        raise SmError("nothing to undo (the last Replace is too old, or its snapshot is gone)")
+    say(f"undoing '{u['name']}': restoring {u['closed']} window(s)")
+    cmd_open(argparse.Namespace(session=u["stem"], mode="replace", new=False, dry_run=False,
+                                yes=True, label=f"undo of {u['name']}",
+                                progress=getattr(args, "progress", False)))
+
+
+def cmd_plan(args):
+    """What opening a session would do right now, as JSON (nothing is changed)."""
+    stem, tpl = load_template(args.session)
+    ms = monitors()
+    mon_of = {"primary": ms[0]["name"], "secondary": (ms[1]["name"] if len(ms) > 1 else ms[0]["name"])}
+    cands = monitor_workspaces([m["name"] for m in ms])
+    windows = tpl["window"]
+    already = slugify(stem) in load_state()
+    closing, head, warns = [], "", []
+    if args.mode == "replace" and not already:
+        closing, _ = restorable(current_clients(), ms)
+        if closing:
+            head, warns = closing_summary(closing, terminal_programs(closing))
+        placed = plan_exact(windows, current_view(ms), cands, mon_of)
+    else:
+        placed, w2 = plan_free(windows, cands, mon_of, {c["workspace"]["id"] for c in query("clients")})
+        warns += w2
+    print(json.dumps({
+        "session": tpl["name"], "mode": args.mode, "already_open": already,
+        "closing": [{"class": c.get("class", ""), "workspace": c["workspace"]["id"]} for _, c, _, _ in closing],
+        "closing_head": head,
+        "launching": [{"class": window_label(w), "workspace": n, "monitor": w["monitor"],
+                       "floating": bool(w.get("floating")), "tabs": len(w.get("tabs", [])),
+                       "cwd": w.get("cwd")} for w, n in zip(windows, placed)],
+        "warnings": warns + template_warnings(tpl),
+    }))
 
 
 def confirm_cli():
@@ -1708,7 +1810,7 @@ def confirm_menu(name, items):
 
 def try_lock():
     """The one-at-a-time lock (open/replace/save/autosave). None if someone holds it."""
-    f = open(Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "hypr-sm.lock", "w")
+    f = open(RUNTIME_DIR / "hypr-sm.lock", "w")
     try:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -1726,7 +1828,18 @@ def main():
     op.add_argument("--new", action="store_true")
     op.add_argument("--yes", action="store_true", help="don't ask before replace closes windows")
     op.add_argument("--dry-run", action="store_true")
+    op.add_argument("--progress", action="store_true", help="print @progress JSON lines (for the GUI)")
     op.set_defaults(fn=cmd_open)
+    ud = sub.add_parser("undo", help="undo the last Replace")
+    ud.add_argument("--progress", action="store_true")
+    ud.set_defaults(fn=cmd_undo)
+    ui = sub.add_parser("undo-info", help="is there a Replace to undo? (JSON)")
+    ui.set_defaults(fn=cmd_undo_info)
+    pl = sub.add_parser("plan", help="what opening a session would do (JSON)")
+    pl.add_argument("session")
+    pl.add_argument("--mode", choices=("replace", "alongside", "switch"), default="replace")
+    pl.add_argument("--json", action="store_true")
+    pl.set_defaults(fn=cmd_plan)
     mp = sub.add_parser("menu", help="pick a session from a fuzzel menu")
     mp.set_defaults(fn=cmd_menu)
     sp = sub.add_parser("save", help="save the windows open right now as a session")
@@ -1772,7 +1885,7 @@ def main():
 
     try:
         if args.fn in (cmd_autosave, cmd_list, cmd_closing, cmd_show, cmd_windows, cmd_write,
-                       cmd_persist, cmd_rename, cmd_duplicate):
+                       cmd_persist, cmd_rename, cmd_duplicate, cmd_undo_info, cmd_plan):
             args.fn(args)   # autosave takes the lock itself, per tick; the others only read
             return 0
         lock = try_lock()

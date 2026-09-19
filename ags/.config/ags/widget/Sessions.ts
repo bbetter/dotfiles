@@ -7,7 +7,7 @@ import { Gtk, Gdk } from "ags/gtk4"
 import { createNowPane } from "./sessions/NowPane"
 import { createSessionsPane } from "./sessions/SessionsPane"
 import { createEditor } from "./sessions/Editor"
-import { WINDOW_TITLE, focusWindow, moveWindow, saveSession } from "./sessions/api"
+import { WINDOW_TITLE, focusWindow, moveWindow, planSession, saveSession, undoInfo, undoLast } from "./sessions/api"
 
 let win: Gtk.Window | null = null
 let refreshAll: () => void = () => {}
@@ -43,8 +43,72 @@ function build(): Gtk.Window {
   const busy = (on: boolean) => {
     spinner.set_spinning(on)
     spinner.set_visible(on)
+    undoBtn.set_sensitive(!on)
   }
   spinner.set_visible(false)
+
+  // Undo for the last Replace: shown while its safety snapshot is still recent.
+  const undoBtn = new Gtk.Button()
+  undoBtn.add_css_class("sm-btn")
+  undoBtn.set_visible(false)
+  const refreshUndo = async () => {
+    try {
+      const u = await undoInfo()
+      undoBtn.set_visible(u.available)
+      if (u.available) undoBtn.set_label(`↩ Undo “${u.name}”`)
+    } catch {
+      undoBtn.set_visible(false)
+    }
+  }
+  // Undo closes the current windows, like Replace, so it asks first (a second click confirms).
+  let undoArmed = 0
+  const disarmUndo = () => {
+    if (undoArmed) GLib.source_remove(undoArmed)
+    undoArmed = 0
+  }
+  undoBtn.connect("clicked", async () => {
+    if (!undoArmed) {
+      try {
+        const u = await undoInfo()
+        const plan = u.stem ? await planSession(u.stem, "replace") : null
+        const n = plan?.closing.length ?? 0
+        status(
+          `Undo closes ${n} window${n === 1 ? "" : "s"} (${plan?.closing_head ?? ""}) and reopens ${plan?.launching.length ?? 0}.` +
+            (plan?.warnings.length ? ` ⚠ ${plan.warnings[0]}` : "") + " Click again to confirm.",
+          "error",
+        )
+      } catch {
+        /* if the preview fails, the second click still works: the snapshot is what matters */
+      }
+      undoBtn.set_label("Confirm undo")
+      undoArmed = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 8, () => {
+        undoArmed = 0
+        refreshUndo()
+        return false
+      })
+      return
+    }
+    disarmUndo()
+    busy(true)
+    status("Undoing…")
+    try {
+      const res = await undoLast(ev => {
+        if (ev.event === "launching") status(`Undoing: ${ev.window} (${ev.i} of ${ev.n})…`)
+      })
+      status(
+        res.failed.length
+          ? `Undone, but ${res.failed.length} window(s) did not appear: ${res.failed.map(f => f.window).join(", ")}`
+          : "Undone: your previous windows are back",
+        res.failed.length ? "error" : "info",
+      )
+    } catch (e) {
+      status(`Undo failed: ${String(e).trim().split("\n").pop()?.replace(/^(Error: )?(hypr-sm: )?/, "")}`, "error")
+    } finally {
+      busy(false)
+      sessions.refresh()
+      refreshUndo()
+    }
+  })
 
   const now = createNowPane({
     selected,
@@ -80,6 +144,7 @@ function build(): Gtk.Window {
   const sessions = createSessionsPane({
     status,
     busy,
+    onChanged: refreshUndo,
     edit: stem => {
       editor
         .load(stem)
@@ -128,6 +193,7 @@ function build(): Gtk.Window {
   bar.add_css_class("sm-status")
   bar.append(spinner)
   bar.append(statusLabel)
+  bar.append(undoBtn)
 
   const outer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL })
   outer.add_css_class("sm-window")
@@ -168,6 +234,7 @@ function build(): Gtk.Window {
   refreshAll = () => {
     now.refresh()
     sessions.refresh()
+    refreshUndo()
   }
   win.connect("notify::visible", () => {
     if (win.visible) refreshAll()
