@@ -22,5 +22,5 @@ hl.on("hyprland.start", function()
     hl.exec_cmd(home .. "/.config/scripts/theme-watcher.sh")
     hl.exec_cmd(home .. "/.config/scripts/swaync-fs-dnd.sh")
     -- Rolling "Last session" snapshot for hypr-sm (rotates to "Previous session" at login).
-    hl.exec_cmd(home .. "/.local/bin/hypr-sm autosave --every 300")
+    hl.exec_cmd(home .. "/.local/bin/hypr-sm autosave --daemon")
 end)

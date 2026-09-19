@@ -20,7 +20,7 @@ export interface SmWindow {
 }
 
 /** persistent = named by the user, kept until deleted; the rest are automatic ("recent"). */
-export type SessionKind = "persistent" | "autosave" | "previous" | "before" | "recent" | "broken"
+export type SessionKind = "persistent" | "autosave" | "previous" | "before" | "history" | "recent" | "broken"
 
 export interface SmSession {
   stem: string
@@ -285,4 +285,22 @@ export interface Plan {
 /** What opening would do right now; changes nothing. */
 export async function planSession(stem: string, mode: OpenMode): Promise<Plan> {
   return JSON.parse(await sm("plan", stem, "--mode", mode, "--json"))
+}
+
+// ── recently deleted (from the local git history of the persistent folder) ──
+
+export interface DeletedSession {
+  id: string
+  stem: string
+  name: string
+  deleted_at: string
+}
+
+export async function listTrash(): Promise<DeletedSession[]> {
+  return JSON.parse(await sm("trash", "--json")).deleted
+}
+
+/** Bring a deleted session back. Resolves with its (possibly new) id. */
+export async function untrashSession(id: string): Promise<string> {
+  return JSON.parse(await sm("untrash", id)).stem
 }

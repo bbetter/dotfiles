@@ -6,6 +6,8 @@
     hypr-sm save NAME [--windows 0xA,0xB] [--dry-run]   (persist the windows open right now)
     hypr-sm persist STEM NAME        (make a recent session persistent under a name)
     hypr-sm undo                     (undo the last Replace: reopens what it closed)
+    hypr-sm trash --json / untrash STEM   (deleted persistent sessions, from the local git history)
+    hypr-sm login-prompt             (used at login: offers to restore the previous session)
     hypr-sm plan SESSION --json      (what opening would close and launch; changes nothing)
     hypr-sm rename STEM NAME         (rename a persistent session)
     hypr-sm duplicate STEM NAME      (copy any session to a new persistent one)
@@ -71,6 +73,31 @@ from pathlib import Path
 PERSISTENT_DIR = Path(os.environ.get("HYPR_SM_PERSISTENT_DIR") or Path.home() / ".config/hypr-sm/sessions")
 RECENT_DIR = Path(os.environ.get("HYPR_SM_RECENT_DIR") or Path.home() / ".local/share/hypr-sm/recent")
 RUNTIME_DIR = Path(os.environ.get("HYPR_SM_STATE_DIR") or os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+CONFIG_FILE = Path(os.environ.get("HYPR_SM_CONFIG") or Path.home() / ".config/hypr-sm/config.toml")
+DEFAULTS = {
+    "autosave": {"every": 300, "history_every": 1800, "history_keep": 48},
+    "safety": {"before_keep": 5},
+    "login_prompt": {"enabled": True, "delay": 25, "max_windows": 3},
+    "backup": {"enabled": True},
+}
+HISTORY_DIR = RECENT_DIR / "history"   # rolling autosave copies, e.g. one every 30 minutes
+
+
+def settings():
+    """~/.config/hypr-sm/config.toml over the defaults. A missing or broken file means defaults."""
+    out = {k: dict(v) for k, v in DEFAULTS.items()}
+    try:
+        user = tomllib.loads(CONFIG_FILE.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return out
+    for section, values in user.items():
+        if section in out and isinstance(values, dict):
+            for k, v in values.items():
+                if k in out[section] and type(v) is type(out[section][k]):
+                    out[section][k] = v
+    return out
+
+
 DEFAULT_TIMEOUT = 20.0   # seconds to wait for each launched window to appear
 POLL = 0.15
 
@@ -221,7 +248,9 @@ def all_files():
         except OSError:
             return 0
     recent = sorted(RECENT_DIR.glob("*.toml"), key=mtime, reverse=True)
-    return ([(f, True) for f in sorted(PERSISTENT_DIR.glob("*.toml"))] + [(f, False) for f in recent])
+    history = sorted(HISTORY_DIR.glob("*.toml"), reverse=True)   # names carry the timestamp
+    return ([(f, True) for f in sorted(PERSISTENT_DIR.glob("*.toml"))]
+            + [(f, False) for f in recent] + [(f, False) for f in history])
 
 
 def file_name(path):
@@ -799,12 +828,10 @@ def write_snapshot(name, wins, now, view=None, kind=None, directory=None):
     return path
 
 
-KEEP_BEFORE = 5
-
-
-def prune_before(keep=KEEP_BEFORE):
+def prune_before(keep=None):
     """Delete all but the newest `keep` "Before ..." safety snapshots (ours only:
     marked auto = "before", or the same-shaped files older versions wrote)."""
+    keep = settings()["safety"]["before_keep"] if keep is None else keep
     mine = []
     for f in RECENT_DIR.glob("*.toml"):
         try:
@@ -843,21 +870,54 @@ def autosave_once():
 
 def rotate_previous():
     """At login the last login's autosave becomes "Previous session". Otherwise the
-    first tick would overwrite exactly what you'd want back after a reboot."""
+    first tick would overwrite exactly what you'd want back after a reboot.
+    Returns True when a previous session was put in place."""
     cur = RECENT_DIR / "autosave.toml"
     if not cur.is_file():
-        return
+        return False
     try:
         text = cur.read_text().replace('name = "Last session (autosaved)"',
                                        'name = "Previous session (before login)"', 1)
         write_atomic(RECENT_DIR / "previous-session.toml", text)
         cur.unlink()
+        return True
     except OSError:
-        pass
+        return False
+
+
+def write_history(now=None):
+    """Copy the rolling autosave into history/, unless nothing changed since the last copy."""
+    now = now or datetime.now()
+    cur = RECENT_DIR / "autosave.toml"
+    try:
+        data = tomllib.loads(cur.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    older = sorted(HISTORY_DIR.glob("*.toml"))
+    if older:
+        try:
+            if tomllib.loads(older[-1].read_text()).get("window") == data.get("window"):
+                return None   # same windows as the newest copy: no point keeping another
+        except (OSError, tomllib.TOMLDecodeError):
+            pass
+    name = f"Autosave {now:%d.%m %H:%M}"
+    body = {"name": name, "view": data.get("view", {}), "window": data.get("window", [])}
+    if not body["view"]:
+        body.pop("view")
+    line = f"name = {toml_str(name)}"
+    text = render_template(body, []).replace(line, line + '\nauto = "history"', 1)
+    path = HISTORY_DIR / f"autosave-{now:%Y%m%d-%H%M}.toml"
+    write_atomic(path, text)
+    for f in sorted(HISTORY_DIR.glob("*.toml"))[:-settings()["autosave"]["history_keep"] or None]:
+        f.unlink(missing_ok=True)
+    return path
 
 
 def cmd_autosave(args):
-    if not args.every:
+    cfg = settings()["autosave"]
+    every = args.every or (cfg["every"] if getattr(args, "daemon", False) else 0)
+    if not every:
         lock = try_lock()
         if not lock:
             say("another hypr-sm is running; skipped")
@@ -865,19 +925,58 @@ def cmd_autosave(args):
         with lock:
             say("autosaved" if autosave_once() else "nothing to save")
         return
-    rotate_previous()
-    fails = 0
+    if rotate_previous() and settings()["login_prompt"]["enabled"]:
+        # a fresh login with a previous session on file: offer to bring it back (own process:
+        # it waits for the desktop to settle and for the user to answer)
+        subprocess.Popen([sys.argv[0], "login-prompt"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    fails, last_history = 0, time.monotonic()
     while fails < 5:   # Hyprland gone -> stop instead of spinning forever
-        time.sleep(args.every)
+        time.sleep(every)
         lock = try_lock()
         if not lock:   # an open/replace is mid-flight: its half-closed desktop is not worth saving
             continue
         with lock:
             try:
-                autosave_once()
+                saved = autosave_once()
                 fails = 0
+                if saved and time.monotonic() - last_history >= settings()["autosave"]["history_every"]:
+                    write_history()
+                    last_history = time.monotonic()
             except (SmError, OSError, ValueError):
                 fails += 1
+
+
+def cmd_login_prompt(args):
+    """At login, offer to restore the previous session (a clickable notification)."""
+    cfg = settings()["login_prompt"]
+    prev = RECENT_DIR / "previous-session.toml"
+    try:
+        wins = tomllib.loads(prev.read_text()).get("window", [])
+    except (OSError, tomllib.TOMLDecodeError):
+        return
+    if not cfg["enabled"] or len(wins) < 2:
+        return   # nothing worth bringing back
+    if not getattr(args, "now", False):
+        time.sleep(cfg["delay"])   # let autostart programs finish appearing
+    items, _ = restorable(current_clients(), monitors())
+    if len(items) > cfg["max_windows"]:
+        return   # you are already busy: don't interrupt
+    if not shutil.which("notify-send"):
+        return
+    names = ", ".join(sorted({clean_class(w.get("class")) or Path(shlex.split(w["cmd"])[0]).name for w in wins}))
+    r = subprocess.run(["notify-send", "-a", "hypr-sm", "-t", "120000", "-A", "restore=Restore", "-A", "no=Not now",
+                        "Restore your previous session?", f"{len(wins)} windows: {names}"],
+                       capture_output=True, text=True)
+    if r.stdout.strip() != "restore":
+        return
+    lock = try_lock()
+    if not lock:
+        notify("hypr-sm", "busy with something else; try again from the session window")
+        return
+    with lock:
+        cmd_open(argparse.Namespace(session="previous-session", mode="replace", new=False,
+                                    dry_run=False, yes=True, label="restoring after login"))
 
 
 def cmd_save(args):
@@ -910,6 +1009,7 @@ def cmd_save(args):
         say("(dry run: nothing written)")
         return
     path = write_snapshot(name, wins, now, current_view(mons), directory=PERSISTENT_DIR)
+    backup_commit(f"save {name}")
     extra = f" ({len(skipped)} skipped: {', '.join(l for l, _ in skipped)})" if skipped else ""
     notify("Session saved", f"{name}: {len(wins)} windows{extra}")
     say(f"saved to {path}")
@@ -1534,7 +1634,10 @@ def cmd_delete(args):
     if len(hits) > 1:
         raise SmError(f"'{args.name}' is ambiguous: " + ", ".join(f.stem for f, _ in hits))
     f, n = hits[0]
+    was_persistent = f.parent == PERSISTENT_DIR
     f.resolve().unlink()
+    if was_persistent:
+        backup_commit(f"delete {n}")
     say(f"deleted '{n}' ({f.name})")
 
 
@@ -1546,6 +1649,8 @@ def clean_class(pattern):
 def session_kind(path, persistent, data):
     if persistent:
         return "persistent"
+    if path.parent == HISTORY_DIR:
+        return "history"
     if path.stem == "autosave":
         return "autosave"
     if path.stem == "previous-session":
@@ -1586,6 +1691,85 @@ def cmd_closing(_args):
     items, _ = restorable(current_clients(), monitors())
     head, warns = closing_summary(items, terminal_programs(items))
     print(json.dumps({"count": len(items), "head": head, "warnings": warns}))
+
+
+def _git(*args):
+    return subprocess.run(["git", "-C", str(PERSISTENT_DIR), "-c", "user.name=hypr-sm",
+                           "-c", "user.email=hypr-sm@localhost", *args], capture_output=True, text=True)
+
+
+def backup_commit(message):
+    """Keep a local git history of the persistent folder: every save/rename/edit/delete
+    is a commit, so nothing you named is ever really lost. Best effort, never fatal."""
+    if not settings()["backup"]["enabled"] or not shutil.which("git") or not PERSISTENT_DIR.is_dir():
+        return
+    try:
+        if not (PERSISTENT_DIR / ".git").exists():
+            _git("init", "-q")
+        _git("add", "-A")
+        _git("commit", "-q", "-m", message)   # "nothing to commit" is fine
+    except OSError:
+        pass
+
+
+def deleted_sessions():
+    """[{id, stem, name, deleted_at}] of persistent sessions deleted since, newest first.
+    One that is identical to a file that exists now (i.e. already restored) is left out;
+    the same content deleted twice is listed once."""
+    if not (PERSISTENT_DIR / ".git").exists():
+        return []
+    log = _git("log", "--diff-filter=D", "--name-only", "--pretty=format:@%H|%cI", "-n", "60").stdout
+    out, bodies, commit, when = [], set(), None, None
+    for line in log.splitlines():
+        if line.startswith("@"):
+            commit, when = line[1:].split("|", 1)
+        elif line.endswith(".toml") and commit:
+            body = _git("show", f"{commit}^:{line}").stdout
+            here = PERSISTENT_DIR / line
+            if body in bodies or (here.exists() and here.read_text() == body):
+                continue
+            bodies.add(body)
+            stem = Path(line).stem
+            try:
+                name = str(tomllib.loads(body).get("name", stem))
+            except tomllib.TOMLDecodeError:
+                name = stem
+            out.append({"id": f"{commit[:8]}-{stem}", "stem": stem, "name": name, "deleted_at": when,
+                        "commit": commit, "file": line})
+    return out
+
+
+def cmd_backup(_args):
+    """Commit the persistent folder now and say how much history there is."""
+    backup_commit("manual backup")
+    if not (PERSISTENT_DIR / ".git").exists():
+        raise SmError("no backup history (git missing, or backup disabled in config.toml)")
+    n = _git("rev-list", "--count", "HEAD").stdout.strip() or "0"
+    say(f"{PERSISTENT_DIR}: {n} commit(s) of history; deleted sessions can be restored (hypr-sm trash)")
+
+
+def cmd_trash(_args):
+    print(json.dumps({"deleted": deleted_sessions()}))
+
+
+def cmd_untrash(args):
+    """Bring back a deleted persistent session (under a new name if its name is taken)."""
+    hit = next((d for d in deleted_sessions() if d["id"] == args.stem), None)
+    if not hit:
+        raise SmError(f"no deleted session '{args.stem}' in the history")
+    body = _git("show", f"{hit['commit']}^:{hit['file']}").stdout
+    data = tomllib.loads(body)
+    name = data.get("name", hit["stem"])
+    try:
+        check_name(name)
+    except SmError:
+        name = f"{name} (restored)"
+        text = re.sub(r"^name\s*=.*$", lambda _m: f"name = {toml_str(name)}", body, count=1, flags=re.M)
+        body = text if tomllib.loads(text).get("name") == name else body
+    stem = unique_stem(hit["stem"])
+    write_atomic(PERSISTENT_DIR / f"{stem}.toml", body)
+    backup_commit(f"restore {name}")
+    print(json.dumps({"stem": stem, "name": name}))
 
 
 def find_file(stem):
@@ -1660,6 +1844,7 @@ def cmd_write(args):
     text = render_template(data, leading_comments(path) if path.exists() else [])
     tomllib.loads(text)   # never write something we couldn't read back
     write_atomic(path, text)
+    backup_commit(f"{'edit' if args.stem else 'create'} {data['name']}")
     print(json.dumps({"stem": path.stem, "path": str(path), "warnings": template_warnings(data)}))
 
 
@@ -1688,6 +1873,7 @@ def cmd_persist(args):
     if persistent:
         raise SmError(f"'{args.stem}' is already persistent (use rename)")
     new_stem = copy_as_persistent(f, args.name)
+    backup_commit(f"make persistent {args.name}")
     f.unlink(missing_ok=True)
     state = load_state()   # keep "already open" attached to the session across the new file name
     if slugify(f.stem) in state:
@@ -1700,6 +1886,7 @@ def cmd_duplicate(args):
     """Copy any session to a new persistent one under a new name; the original stays."""
     f, _ = find_file(args.stem)
     new_stem = copy_as_persistent(f, args.name)
+    backup_commit(f"duplicate as {args.name}")
     print(json.dumps({"stem": new_stem, "path": str(PERSISTENT_DIR / f"{new_stem}.toml")}))
 
 
@@ -1719,6 +1906,7 @@ def cmd_rename(args):
     if tomllib.loads(new).get("name") != name:
         raise SmError("could not rename safely; nothing changed")
     write_atomic(path, new)
+    backup_commit(f"rename to {name}")
     print(json.dumps({"stem": f.stem, "name": name}))
 
 
@@ -1830,6 +2018,17 @@ def main():
     op.add_argument("--dry-run", action="store_true")
     op.add_argument("--progress", action="store_true", help="print @progress JSON lines (for the GUI)")
     op.set_defaults(fn=cmd_open)
+    lg = sub.add_parser("login-prompt", help="offer to restore the previous session (used at login)")
+    lg.add_argument("--now", action="store_true", help="don't wait for the desktop to settle")
+    lg.set_defaults(fn=cmd_login_prompt)
+    bk = sub.add_parser("backup", help="commit the persistent sessions now (local git history)")
+    bk.set_defaults(fn=cmd_backup)
+    tr = sub.add_parser("trash", help="deleted persistent sessions still in the history (JSON)")
+    tr.add_argument("--json", action="store_true")
+    tr.set_defaults(fn=cmd_trash)
+    ut = sub.add_parser("untrash", help="bring back a deleted persistent session")
+    ut.add_argument("stem")
+    ut.set_defaults(fn=cmd_untrash)
     ud = sub.add_parser("undo", help="undo the last Replace")
     ud.add_argument("--progress", action="store_true")
     ud.set_defaults(fn=cmd_undo)
@@ -1880,12 +2079,14 @@ def main():
     dp.set_defaults(fn=cmd_delete)
     ap2 = sub.add_parser("autosave", help="write the rolling 'Last session' snapshot")
     ap2.add_argument("--every", type=int, metavar="SECS", help="keep running, saving every SECS seconds")
+    ap2.add_argument("--daemon", action="store_true", help="keep running; interval and history from config.toml")
     ap2.set_defaults(fn=cmd_autosave)
     args = ap.parse_args()
 
     try:
         if args.fn in (cmd_autosave, cmd_list, cmd_closing, cmd_show, cmd_windows, cmd_write,
-                       cmd_persist, cmd_rename, cmd_duplicate, cmd_undo_info, cmd_plan):
+                       cmd_persist, cmd_rename, cmd_duplicate, cmd_undo_info, cmd_plan,
+                       cmd_login_prompt, cmd_trash, cmd_untrash, cmd_backup):
             args.fn(args)   # autosave takes the lock itself, per tick; the others only read
             return 0
         lock = try_lock()

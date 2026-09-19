@@ -5,16 +5,19 @@ import GLib from "gi://GLib"
 import { Gtk } from "ags/gtk4"
 import { appIcon } from "../utils/appIcon"
 import {
+  DeletedSession,
   OpenMode,
   Plan,
   SmSession,
   deleteSession,
   duplicateSession,
   listSessions,
+  listTrash,
   openSessionStream,
   persistSession,
   planSession,
   renameSession,
+  untrashSession,
 } from "./api"
 
 export interface SessionsPaneOpts {
@@ -52,6 +55,15 @@ const reason = (e: unknown) =>
   String(e).trim().split("\n").pop()!.replace(/^(Error: )?(hypr-sm: )?/, "")
 
 type NamingMode = "rename" | "persist" | "duplicate"
+
+/** "3 hours ago" from an ISO timestamp. */
+function ago(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
+  if (mins < 2) return "just now"
+  if (mins < 120) return `${mins} minutes ago`
+  const hours = Math.round(mins / 60)
+  return hours < 48 ? `${hours} hours ago` : `${Math.round(hours / 24)} days ago`
+}
 
 /** Does a session match the search text (name, or any window's class or command)? */
 function matches(s: SmSession, q: string): boolean {
@@ -96,6 +108,9 @@ export function createSessionsPane({ status, busy, edit, onChanged }: SessionsPa
   let naming: { stem: string; mode: NamingMode; text?: string } | null = null
   let query = ""
   let showBefore = false
+  let showHistory = false
+  let showTrash = false
+  let trash: DeletedSession[] = []
   let working = false
 
   /** A job may return its own final message (e.g. "opened, but 1 window failed"). */
@@ -381,8 +396,10 @@ export function createSessionsPane({ status, busy, edit, onChanged }: SessionsPa
     clear(list)
     const shown = query ? sessions.filter(s => matches(s, query)) : sessions
     const persistent = shown.filter(s => s.persistent)
-    const recent = shown.filter(s => !s.persistent && s.kind !== "before")
+    const recent = shown.filter(s => !s.persistent && s.kind !== "before" && s.kind !== "history")
     const before = shown.filter(s => s.kind === "before")
+    const history = shown.filter(s => s.kind === "history")
+    const gone = query ? trash.filter(d => d.name.toLowerCase().includes(query)) : trash
 
     if (query && !shown.length) list.append(label(`No session matches “${query}”.`, "sm-dim", "sm-hint"))
     if (!query || persistent.length) list.append(label("PERSISTENT", "sm-group"))
@@ -407,12 +424,54 @@ export function createSessionsPane({ status, busy, edit, onChanged }: SessionsPa
       list.append(toggle)
       if (open) before.forEach(s => list.append(sessionCard(s)))
     }
+    if (history.length) {
+      const open = showHistory || !!query
+      const toggle = button(`${open ? "▾" : "▸"} Autosave history (${history.length})`, "sm-flat")
+      toggle.connect("clicked", () => {
+        showHistory = !showHistory
+        render()
+      })
+      list.append(toggle)
+      if (open) history.forEach(s => list.append(sessionCard(s)))
+    }
+    if (gone.length) {
+      const open = showTrash || !!query
+      const toggle = button(`${open ? "▾" : "▸"} Recently deleted (${gone.length})`, "sm-flat")
+      toggle.connect("clicked", () => {
+        showTrash = !showTrash
+        render()
+      })
+      list.append(toggle)
+      if (open) {
+        for (const d of gone) {
+          const row = new Gtk.Box({ spacing: 8 })
+          row.add_css_class("sm-session")
+          const texts = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 1, hexpand: true })
+          texts.append(label(d.name, "sm-session-name"))
+          texts.append(label(`deleted ${ago(d.deleted_at)}`, "sm-dim"))
+          const restore = button("Restore", "sm-primary")
+          restore.connect("clicked", () =>
+            run(
+              `Restoring ${d.name}`,
+              () => untrashSession(d.id),
+              `Restored “${d.name}”`,
+              stem => {
+                expanded = stem
+              },
+            ),
+          )
+          row.append(texts)
+          row.append(restore)
+          list.append(row)
+        }
+      }
+    }
     list.set_sensitive(!working)
   }
 
   async function refresh() {
     try {
-      sessions = await listSessions()
+      ;[sessions, trash] = await Promise.all([listSessions(), listTrash().catch(() => [] as DeletedSession[])])
     } catch (e) {
       status(`Could not list sessions: ${reason(e)}`, "error")
     }
