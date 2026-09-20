@@ -14,7 +14,7 @@ _TODO_
 |---|---|
 | Compositor | **Hyprland** — native Lua config (`~/.config/hypr/*.lua`, no `hyprland.conf`) |
 | Bar + sidebar | **AGS** (Aylur's GTK Shell / Astal, GTK4) |
-| Launcher | **vicinae** (`SUPER+SPACE`); **fuzzel** for dmenu prompts |
+| Launcher | **vicinae** (`SUPER+SPACE`); menus (theme, keybinds, clipboard, browser) use `ags-pick`, an AGS overlay (fuzzel is its fallback) |
 | Terminal | **ghostty** |
 | Notifications | **swaync** |
 | Lock / idle | **hyprlock** + **hypridle** |
@@ -56,6 +56,36 @@ a CLI command (`hypr-sm --help`).
   ever open/switch, never close windows. Each persistent session also gets a launcher entry.
 - Tests (`tests/hypr-sm`, stdlib only): `python3 -m unittest discover -s tests/hypr-sm`; see its README for the
   opt-in live and GUI tests.
+
+## Session services (systemd)
+
+The long-running helpers are systemd user units instead of a pile of `exec_cmd`s,
+so they restart on failure, log to the journal and start in order.
+`hypr/.config/hypr/autostart.lua` hands the session environment to systemd and
+(re)starts `hyprland-session.target`; the units live in `hypr/.config/hypr/systemd/`
+(`install.sh` links them with `systemctl --user link`; they are not stowed because
+`~/.config/systemd/user` also holds units that are not in this repo).
+
+```bash
+systemctl --user status hyprland-session.target 'hypr-*'
+journalctl --user -u hypr-ags -f            # AGS output / crashes
+systemctl --user restart hypr-ags           # after editing widgets
+```
+
+`swaync`, `hypridle` and `vicinae` use the distro-packaged units. `wall shuffle`
+stays an `exec_cmd` (it manages its own daemon). No polkit agent is installed:
+install one (e.g. `hyprpolkitagent`) and add it to autostart.
+
+## Idle and sessions
+
+`hypridle.conf` calls `lock.sh` / `before-sleep.sh`, which take a `hypr-sm autosave`
+snapshot before locking or sleeping, so a shutdown while locked keeps the latest windows.
+
+## Menus (`ags-pick`)
+
+`ags-pick` is a dmenu replacement (lines on stdin, chosen line on stdout) that shows an
+AGS overlay (`widget/Picker.ts`, styled from the wal palette) and falls back to fuzzel when
+AGS is not running. Options: `-p PROMPT`, `--with-nth N`, `--index`; exit status 1 = cancelled.
 
 ## Layout
 

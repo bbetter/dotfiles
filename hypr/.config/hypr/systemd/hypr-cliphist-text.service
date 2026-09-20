@@ -1,0 +1,10 @@
+[Unit]
+Description=Clipboard history: text
+# The packaged cliphist.service is text-only and Requisite=graphical-session.target.
+PartOf=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/wl-paste --type text --watch cliphist store
+Restart=on-failure
+RestartSec=2

@@ -12,6 +12,7 @@ import { CalendarPopup } from "./widget/CalendarPopup"
 import { PopupBackdrop } from "./widget/PopupBackdrop"
 import { closeSidebar, openSidebar, toggleSidebar } from "./widget/sidebar/state"
 import { toggleSessions } from "./widget/Sessions"
+import { showPicker } from "./widget/Picker"
 
 const startTime = Date.now()
 
@@ -51,6 +52,16 @@ app.start({
         res("ok")
       } catch (e) {
         res(`sessions failed: ${e}`) // always answer, or the caller hangs
+      }
+      return
+    }
+
+    // dmenu-style picker (see widget/Picker.ts). Answered later, when the user decides.
+    if (argv[0] === "picker") {
+      try {
+        showPicker(argv[1], argv[2] ?? "", Number(argv[3]) || 1, res)
+      } catch (e) {
+        res(`picker failed: ${e}`) // always answer, or the caller hangs
       }
       return
     }

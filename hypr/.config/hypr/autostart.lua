@@ -1,26 +1,31 @@
 -- ============================
 -- AUTOSTART
 -- ============================
+--
+-- Long-running helpers are systemd user units, so they restart on failure, log to
+-- the journal (`journalctl --user -u 'hypr-*'`) and start in a defined order.
+-- Units: ./systemd/*  (linked into ~/.config/systemd/user by install.sh).
+--   status : systemctl --user status hyprland-session.target 'hypr-*'
+--   restart: systemctl --user restart hypr-ags   (AGS, e.g. after editing widgets)
+-- The packaged swaync / hypridle / vicinae units are reused; the rest are ours.
 
 local home = os.getenv("HOME")
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
-    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
-    hl.exec_cmd("wl-paste --type text --watch cliphist store")
-    hl.exec_cmd("wl-paste --type image --watch cliphist store")
-    hl.exec_cmd("ags run " .. home .. "/.config/ags")
-    hl.exec_cmd("swaync")
-    hl.exec_cmd("hypridle")
-    hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
-    hl.exec_cmd("hyprsunset -t 6000")
+    -- Hand this session's environment (WAYLAND_DISPLAY, HYPRLAND_INSTANCE_SIGNATURE,
+    -- PATH and the hl.env() values from env.lua) to systemd and D-Bus, then (re)start
+    -- the session target. "restart", not "start": after a Hyprland crash the old
+    -- services would otherwise keep a dead compositor's socket. The three packaged
+    -- units are not PartOf our target, so they are listed explicitly.
+    hl.exec_cmd([[sh -c 'dbus-update-activation-environment --systemd --all;
+        systemctl --user restart hyprland-session.target swaync.service hypridle.service vicinae.service']])
+
+    -- Not a unit on purpose: `wall` manages its own daemon and wallpaper engines, and
+    -- a unit would kill them whenever the session target restarts.
     -- No monitor arg: `wall` shuffles every monitor independently, or (when
     -- `wall mirror` is on) the primary only and fans out. Matches the theme mode.
     hl.exec_cmd("wall shuffle 900")
-    hl.exec_cmd("vicinae server")
-    hl.exec_cmd("snappy-switcher --daemon")
-    hl.exec_cmd(home .. "/.config/scripts/theme-watcher.sh")
-    hl.exec_cmd(home .. "/.config/scripts/swaync-fs-dnd.sh")
-    -- Rolling "Last session" snapshot for hypr-sm (rotates to "Previous session" at login).
-    hl.exec_cmd(home .. "/.local/bin/hypr-sm autosave --daemon")
+
+    -- No polkit authentication agent is installed (the old polkit-kde line pointed at a
+    -- file that does not exist). Install e.g. `hyprpolkitagent` and add it here.
 end)

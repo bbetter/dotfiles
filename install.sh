@@ -30,6 +30,14 @@ done
 echo "stowing: ${PACKAGES[*]}"
 stow -v -R "${PACKAGES[@]}"
 
+# Session units (hyprland-session.target, hypr-*.service). Linked, not stowed:
+# ~/.config/systemd/user also holds units that are not in this repo, and the
+# backup loop above would move that whole directory aside.
+if command -v systemctl >/dev/null; then
+  echo "linking hypr systemd user units..."
+  systemctl --user link "$HOME"/.config/hypr/systemd/* || echo "note: could not link units (no user systemd bus?)"
+fi
+
 if command -v wal >/dev/null; then
   echo "seeding generated theme files..."
   "$HOME/.config/scripts/apply-theme.sh" || true

@@ -1,0 +1,10 @@
+[Unit]
+Description=Mute swaync pop-ups while a window is fullscreen
+PartOf=hyprland-session.target
+After=swaync.service
+
+[Service]
+Type=simple
+ExecStart=%h/.config/scripts/swaync-fs-dnd.sh
+Restart=on-failure
+RestartSec=2

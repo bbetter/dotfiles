@@ -1,0 +1,13 @@
+[Unit]
+Description=AGS shell (bar, sidebar, popups, sessions window)
+PartOf=hyprland-session.target
+After=swaync.service
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ags run %h/.config/ags
+# `ags request reload` (theme fallback) quits cleanly: Restart=always brings it back.
+Restart=always
+RestartSec=1

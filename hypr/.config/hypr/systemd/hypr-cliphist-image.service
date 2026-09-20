@@ -1,0 +1,9 @@
+[Unit]
+Description=Clipboard history: images
+PartOf=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/wl-paste --type image --watch cliphist store
+Restart=on-failure
+RestartSec=2

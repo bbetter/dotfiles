@@ -1,0 +1,9 @@
+[Unit]
+Description=Re-theme the desktop when the wallpaper changes
+PartOf=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/scripts/theme-watcher.sh
+Restart=on-failure
+RestartSec=2

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Show Hyprland keybinds in a fuzzel menu.
+# Show Hyprland keybinds in the AGS picker (key column + action).
 # The config is now Lua (binds.lua), and Lua binds show up in `hyprctl binds`
 # only as opaque `__lua <index>` entries, so we parse binds.lua directly.
 
@@ -9,8 +9,8 @@ BINDS="$HOME/.config/hypr/binds.lua"
 
 {
     # Workspace binds come from a `for i = 1, 9` loop, not literal hl.bind lines.
-    printf '%-28s  %s\n' "SUPER + 1..9 / 0"         "focus workspace N"
-    printf '%-28s  %s\n' "SUPER + SHIFT + 1..9 / 0" "move window to workspace N"
+    printf '%s\t%s\n' "SUPER + 1..9 / 0"         "focus workspace N"
+    printf '%s\t%s\n' "SUPER + SHIFT + 1..9 / 0" "move window to workspace N"
 
     grep -E '^\s*hl\.bind\(' "$BINDS" | grep -v '" \.\. i,' | while IFS= read -r line; do
         body=${line#*hl.bind(}
@@ -31,6 +31,6 @@ BINDS="$HOME/.config/hypr/binds.lua"
             | sed -E 's/[)"'"'"']+[[:space:]]*$//; s/[[:space:]]+$//' \
             | sed -E 's/["'"'"']//g')
 
-        printf '%-28s  %s\n' "$keyspec" "$action"
+        printf '%s\t%s\n' "$keyspec" "$action"
     done
-} | fuzzel --dmenu -p "keybind " || true
+} | ags-pick -p "Keybinds" >/dev/null || true

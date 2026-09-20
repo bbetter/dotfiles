@@ -31,7 +31,7 @@ $WAL_THEMES"
 # ================================
 # 4. меню
 # ================================
-CHOICE=$(echo "$OPTIONS" | fuzzel --dmenu --prompt "Theme > ")
+CHOICE=$(echo "$OPTIONS" | ags-pick -p "Theme")
 
 [ -z "$CHOICE" ] && exit 0
 

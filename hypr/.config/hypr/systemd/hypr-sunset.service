@@ -1,0 +1,11 @@
+[Unit]
+Description=hyprsunset blue-light filter (6000 K)
+# The packaged hyprsunset.service Requires=graphical-session.target, which is
+# never active without uwsm, and it does not pass -t.
+PartOf=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/hyprsunset -t 6000
+Restart=on-failure
+RestartSec=2

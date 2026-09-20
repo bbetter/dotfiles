@@ -1,0 +1,11 @@
+[Unit]
+Description=hypr-sm rolling session autosave (and the login "restore?" prompt)
+PartOf=hyprland-session.target
+After=swaync.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/hypr-sm autosave --daemon
+# No Restart=: every daemon start counts as a fresh login (it rotates the autosave
+# into "Previous session" and offers to restore it), which must not fire on a crash
+# in the middle of a session. The daemon exits by itself when Hyprland is gone.

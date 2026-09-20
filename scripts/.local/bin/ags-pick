@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# dmenu-style picker on the AGS shell: lines on stdin -> the chosen line on stdout.
+#
+#   ags-pick [-p PROMPT] [--with-nth N] [--index] < lines
+#
+#   -p, --prompt PROMPT   label shown next to the search box
+#   --with-nth N          hide the first N-1 tab-separated columns (cliphist: 2); the
+#                         full original line is still what gets printed
+#   --index               print the 0-based index of the choice instead of the line
+#
+# Exit status: 0 chosen, 1 cancelled (Esc) or nothing to choose from.
+# When AGS is not running (or predates the picker) it falls back to fuzzel, so the
+# menus keep working while the shell is being restarted.
+
+prompt="" nth=1 want_index=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -p | --prompt) prompt="${2-}"; shift 2 ;;
+    --prompt=*) prompt="${1#*=}"; shift ;;
+    --with-nth) nth="${2-1}"; shift 2 ;;
+    --with-nth=*) nth="${1#*=}"; shift ;;
+    --index) want_index=1; shift ;;
+    *) echo "ags-pick: unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+prompt="${prompt%% }"; prompt="${prompt%>}"; prompt="${prompt%% }" # "Theme > " -> "Theme"
+
+tmp=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/ags-pick.XXXXXX") || exit 1
+trap 'rm -f "$tmp"' EXIT
+cat > "$tmp"
+[ -s "$tmp" ] || exit 1
+
+reply=$(ags request picker "$tmp" "$prompt" "$nth" 2>/dev/null)
+case "$reply" in
+  ok$'\t'*)
+    idx=${reply#ok$'\t'}
+    if [ "$want_index" = 1 ]; then echo "$idx"; else sed -n "$((idx + 1))p" "$tmp"; fi
+    exit 0
+    ;;
+  cancel) exit 1 ;;
+esac
+
+# No usable answer: AGS is down or too old. Same list, fuzzel.
+fz=(--dmenu -p "${prompt:+$prompt > }")
+[ "$want_index" = 1 ] && fz+=(--index)
+out=$(fuzzel "${fz[@]}" < "$tmp") || exit 1
+[ -n "$out" ] && echo "$out"

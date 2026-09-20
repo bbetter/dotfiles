@@ -1,0 +1,8 @@
+[Unit]
+Description=Hyprland desktop session (started by autostart.lua)
+# swaync / hypridle / vicinae are the distro-packaged units; the hypr-* ones live
+# next to this file. See autostart.lua for how the session is (re)started.
+Wants=hypr-ags.service swaync.service hypridle.service vicinae.service \
+      hypr-sunset.service hypr-snappy.service \
+      hypr-cliphist-text.service hypr-cliphist-image.service \
+      hypr-theme-watcher.service hypr-fs-dnd.service hypr-sm-autosave.service

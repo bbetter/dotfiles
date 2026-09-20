@@ -219,17 +219,26 @@ vicinae theme set wal 2>/dev/null || true  # re-apply the regenerated vicinae th
 # ================================
 # reload ags — live CSS swap, no restart
 # ================================
+# AGS normally runs as the hypr-ags user unit (hypr/autostart.lua); a hand-started
+# instance is still handled the old way.
+AGS_UNIT=hypr-ags.service
 if ags list 2>/dev/null | grep -q "^ags$"; then
   if [ "$(ags request css 2>/dev/null)" != "ok" ]; then
     # running instance predates the `css` handler — fall back to a restart
-    ags request reload 2>/dev/null || true
-    for i in $(seq 1 30); do
-      ags list 2>/dev/null | grep -q "^ags$" || break
-      sleep 0.1
-    done
-    ags run "$HOME/.config/ags" &
-    disown
+    if systemctl --user is-active --quiet "$AGS_UNIT"; then
+      systemctl --user restart "$AGS_UNIT"
+    else
+      ags request reload 2>/dev/null || true
+      for i in $(seq 1 30); do
+        ags list 2>/dev/null | grep -q "^ags$" || break
+        sleep 0.1
+      done
+      ags run "$HOME/.config/ags" &
+      disown
+    fi
   fi
+elif systemctl --user cat "$AGS_UNIT" >/dev/null 2>&1; then
+  systemctl --user start "$AGS_UNIT"
 else
   ags run "$HOME/.config/ags" &
   disown

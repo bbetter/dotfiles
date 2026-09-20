@@ -90,6 +90,13 @@ end
 hl.bind(mainMod .. " + 0",         hl.dsp.focus({ workspace = 10 }))
 hl.bind(mainMod .. " + SHIFT + 0", hl.dsp.window.move({ workspace = 10 }))
 
+-- One-hand access to the right monitor (HDMI-A-1, workspaces 6-10): SUPER+CTRL+1..5
+-- mirrors SUPER+1..5 for the left one. Avoid ALT+SHIFT combos here (layout toggle).
+for i = 1, 5 do
+    hl.bind(mainMod .. " + CTRL + " .. i,           hl.dsp.focus({ workspace = i + 5 }))
+    hl.bind(mainMod .. " + CTRL + SHIFT + " .. i,   hl.dsp.window.move({ workspace = i + 5 }))
+end
+
 -- Scroll through workspaces with mouse wheel
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
@@ -157,7 +164,7 @@ hl.bind(mainMod .. " + F10",            hl.dsp.exec_cmd(home .. "/.config/ags/sc
 -- CLIPBOARD
 -- ==================================================
 
-hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"))
+hl.bind(mainMod .. " + V", hl.dsp.exec_cmd(home .. "/.config/hypr/clipboard-pick.sh"))
 
 -- ==================================================
 -- MOUSE
@@ -166,6 +173,9 @@ hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("cliphist list | fuzzel --dmenu | cli
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 hl.bind("mouse:276",               hl.dsp.window.drag(),   { mouse = true })
+-- Force focus onto the window under the cursor (see focus-under-cursor.sh; needed because
+-- mouse_move_focuses_monitor=false keeps focus on a fullscreen game across monitors).
+hl.bind(mainMod .. " + mouse:274", hl.dsp.exec_cmd(home .. "/.config/hypr/focus-under-cursor.sh"))
 
 -- ==================================================
 -- HELP

@@ -1855,3 +1855,60 @@ popover > contents {
     &:hover, &:selected { background: rgba($primary, 0.22); }
   }
 }
+
+/* ==================================================
+   PICKER (ags-pick: the shell's dmenu replacement)
+   Nested under .pk-box for the same reason as .sm-window: the global reset
+   sets every node to 13px, so a nested selector is needed to win.
+   ================================================== */
+.PickerWindow {
+  background: transparent;
+  color: $fg;
+}
+
+.pk-box {
+  background: $bg-popup;
+  border-radius: 14px;
+  border: 1px solid rgba($primary, 0.30);
+  padding: 12px;
+  color: $fg;
+
+  label { font-size: 14px; }
+
+  .pk-prompt {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: $primary;
+    padding-left: 4px;
+  }
+
+  .pk-entry {
+    padding: 8px 12px;
+    border-radius: 9px;
+    background: rgba($fg, 0.07);
+    border: 1px solid rgba($primary, 0.45);
+    caret-color: $primary;
+    color: $fg;
+    font-size: 15px;
+
+    text { font-size: 15px; color: $fg; }
+  }
+
+  .pk-list { padding-top: 6px; }
+
+  .pk-row {
+    padding: 0 12px;
+    min-height: 34px;
+    border-radius: 9px;
+
+    &.selected { background: rgba($primary, 0.26); }
+    &:hover { background: rgba($fg, 0.07); }
+    &.selected:hover { background: rgba($primary, 0.32); }
+  }
+
+  .pk-text { color: $fg; }
+  .pk-key { font-family: monospace; font-size: 13px; color: $primary; }
+  .pk-dim { color: rgba($fg, 0.78); }
+  .pk-empty { padding: 8px 12px; font-size: 13px; color: rgba($fg, 0.52); }
+}
