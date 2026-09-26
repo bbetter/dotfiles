@@ -1,4 +1,6 @@
 import { createBinding, createComputed } from "gnim"
+import { createPoll } from "ags/time"
+import { execAsync } from "ags/process"
 import { Gtk, Gdk } from "ags/gtk4"
 import AstalNetwork from "gi://AstalNetwork"
 import { toggleNetworkPopup } from "../NetworkPopup"
@@ -51,13 +53,32 @@ export function NetworkIndicator({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     return { text: "󰤭", tooltip: "No network connection" }
   })
 
+  // No AstalNetwork API for Tailscale (it's not a NetworkManager device),
+  // so poll `tailscale status --json` like ThunderbirdUnread does.
+  const tailscaleUp = createPoll<boolean>(false, 3_000, async (prev) => {
+    try {
+      const out = await execAsync(["tailscale", "status", "--json"])
+      return JSON.parse(out).BackendState === "Running"
+    } catch {
+      return prev
+    }
+  })
+
   const btn = (
     <button
       class="network"
       tooltipText={state.as(s => s.tooltip)}
       onClicked={() => toggleNetworkPopup(btn)}
     >
-      <label label={state.as(s => s.text)} />
+      <box spacing={4} valign={Gtk.Align.CENTER}>
+        <label label={state.as(s => s.text)} />
+        <image
+          iconName="network-vpn-symbolic"
+          pixelSize={12}
+          visible={tailscaleUp}
+          tooltipText="Tailscale connected"
+        />
+      </box>
     </button>
   ) as Gtk.Button
 

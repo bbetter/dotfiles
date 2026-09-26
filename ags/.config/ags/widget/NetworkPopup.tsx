@@ -1,6 +1,7 @@
 import { Gtk, Gdk, Astal } from "ags/gtk4"
 import { execAsync } from "ags/process"
 import AstalNetwork from "gi://AstalNetwork"
+import GLib from "gi://GLib"
 import { createPopup, PopupHandle } from "./BasePopup"
 
 function strengthBar(s: number): string {
@@ -169,6 +170,42 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
         wifi.set_enabled(wifiSwitch.get_active())
     })
 
+    // Tailscale on/off switch — Astal has no API for this (it's not a
+    // NetworkManager device), so we poll `tailscale status --json` and
+    // toggle via `tailscale up`/`tailscale down`. Requires a one-time
+    // `sudo tailscale set --operator=$USER` so those run without sudo.
+    const tailscaleLabel = new Gtk.Label({ halign: Gtk.Align.END, hexpand: true })
+    tailscaleLabel.add_css_class("network-popup-value")
+    tailscaleLabel.set_label("…")
+
+    const tailscaleSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER })
+    tailscaleSwitch.add_css_class("network-switch")
+    let tailscaleSyncing = false
+
+    function syncTailscaleSwitch() {
+        execAsync(["tailscale", "status", "--json"])
+            .then((out: string) => {
+                let running = false
+                try { running = JSON.parse(out).BackendState === "Running" } catch { }
+                tailscaleLabel.set_label(running ? "Connected" : "Stopped")
+                if (tailscaleSwitch.get_active() !== running) {
+                    tailscaleSyncing = true
+                    tailscaleSwitch.set_active(running)
+                    tailscaleSyncing = false
+                }
+            })
+            .catch(() => tailscaleLabel.set_label("Unavailable"))
+    }
+
+    tailscaleSwitch.connect("notify::active", () => {
+        if (tailscaleSyncing) return
+        const desired = tailscaleSwitch.get_active()
+        tailscaleSwitch.set_sensitive(false)
+        execAsync(["tailscale", desired ? "up" : "down"])
+            .catch(() => { })
+            .then(() => { tailscaleSwitch.set_sensitive(true); syncTailscaleSwitch() })
+    })
+
     const apContainer = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 })
     apContainer.add_css_class("network-ap-list")
     const pw = makePwSection()
@@ -224,6 +261,11 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
                 {scanBtn}
                 {wifiSwitch}
             </box>
+            <box spacing={8} class="network-popup-card network-popup-row">
+                <label label="Tailscale" class="network-popup-label" />
+                {tailscaleLabel}
+                {tailscaleSwitch}
+            </box>
             {apContainer}
             {pw.widget}
         </box>
@@ -243,8 +285,15 @@ export function NetworkPopup(gdkmonitor: Gdk.Monitor) {
     win.connect("notify::visible", () => {
         if (win.visible) {
             searchEntry.grab_focus()
+            syncTailscaleSwitch()
         }
     })
+
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
+        if (win.visible) syncTailscaleSwitch()
+        return true
+    })
+    syncTailscaleSwitch()
 
     _handles.set(gdkmonitor, handle)
     return win
