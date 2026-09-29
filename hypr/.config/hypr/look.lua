@@ -70,11 +70,11 @@ hl.config({
         force_default_wallpaper     = 0,
         disable_hyprland_logo       = true,
         vrr                         = 1,
-        -- Hovering the cursor onto another monitor was silently changing which
-        -- monitor/workspace counts as "active", so a game launched here could
-        -- spawn over there if the mouse drifted mid-load. Only a click changes
-        -- the active monitor now.
-        mouse_move_focuses_monitor  = false,
+        -- Reverted 2026-09-29 (was false): this had traded away normal hover-to-focus
+        -- to avoid a game spawning on the wrong monitor if the cursor drifted mid-load,
+        -- but plain mouse-moves-focuses-window was worth more day to day. If the
+        -- wrong-monitor-spawn problem resurfaces, the old value/reasoning is in git history.
+        mouse_move_focuses_monitor  = true,
     },
 
     -- HDR disabled (2026-08-01): tested with two genuinely HDR-capable paths (Pragmata's native

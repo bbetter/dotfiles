@@ -173,9 +173,6 @@ hl.bind(mainMod .. " + V", hl.dsp.exec_cmd(home .. "/.config/hypr/clipboard-pick
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 hl.bind("mouse:276",               hl.dsp.window.drag(),   { mouse = true })
--- Force focus onto the window under the cursor (see focus-under-cursor.sh; needed because
--- mouse_move_focuses_monitor=false keeps focus on a fullscreen game across monitors).
-hl.bind(mainMod .. " + mouse:274", hl.dsp.exec_cmd(home .. "/.config/hypr/focus-under-cursor.sh"))
 
 -- ==================================================
 -- HELP

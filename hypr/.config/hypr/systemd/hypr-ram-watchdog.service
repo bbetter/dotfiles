@@ -1,0 +1,9 @@
+[Unit]
+Description=Warn via swaync before low memory/swap thrashing freezes the desktop
+PartOf=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/scripts/ram-watchdog.sh
+Restart=on-failure
+RestartSec=2
