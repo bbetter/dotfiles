@@ -6,6 +6,7 @@ import { SidebarPeripherals } from "./sidebar/Peripherals"
 import { SidebarJarvis } from "./sidebar/Jarvis"
 import { SidebarAiUsage } from "./sidebar/AiUsage"
 import { SystemUsage } from "./sidebar/SystemUsage"
+import { SelfUsage } from "./sidebar/SelfUsage"
 import { SidebarNotificationList } from "./sidebar/Notifications"
 import { SidebarPower } from "./sidebar/Power"
 import { SidebarToggles } from "./sidebar/Toggles"
@@ -64,6 +65,7 @@ export function Sidebar(gdkmonitor: Gdk.Monitor) {
           {SidebarAudio()}
           {SidebarNotificationList()}
           {SystemUsage()}
+          {SelfUsage()}
           {SidebarMedia()}
           {SidebarPeripherals()}
           {SidebarJarvis()}
