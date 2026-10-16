@@ -110,6 +110,12 @@ hl.bind(mainMod .. " + ALT + right", hl.dsp.window.move({ monitor = "r" }))
 hl.bind(mainMod .. " + ALT + h",     hl.dsp.window.move({ monitor = "l" }))
 hl.bind(mainMod .. " + ALT + l",     hl.dsp.window.move({ monitor = "r" }))
 
+-- Jump focus straight to a monitor's currently active workspace (whatever it
+-- is) instead of a fixed workspace number — handy to snap to the other
+-- screen while a fullscreen game keeps running on this one.
+hl.bind(mainMod .. " + ALT + 1", hl.dsp.focus({ monitor = "DP-2" }))
+hl.bind(mainMod .. " + ALT + 2", hl.dsp.focus({ monitor = "HDMI-A-1" }))
+
 -- ==================================================
 -- WALLPAPERS
 -- ==================================================
