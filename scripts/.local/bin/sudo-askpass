@@ -1,0 +1,7 @@
+#!/bin/bash
+# sudo's askpass helper: sudo calls this (passing a prompt string as $1) when
+# it can't read a password from a terminal — exactly the case for Claude
+# Code's `!`-prefixed commands, which run without a real tty attached. Pops a
+# native GTK dialog on screen instead; whatever's typed goes to stdout, which
+# is the password sudo reads. Never touches the chat/terminal transcript.
+exec zenity --password --title="sudo${1:+: $1}" 2>/dev/null

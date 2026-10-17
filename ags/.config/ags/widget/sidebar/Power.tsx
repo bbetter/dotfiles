@@ -13,7 +13,7 @@ interface PowerAction {
 const ACTIONS: PowerAction[] = [
   { icon: "󰌾", label: "Lock",      cmd: ["loginctl", "lock-session"], preClose: true },
   { icon: "󰤄", label: "Suspend",   cmd: ["systemctl", "suspend"],     preClose: true },
-  { icon: "󰩈", label: "Log out",   cmd: ["hyprctl", "dispatch", "exit"] },
+  { icon: "󰩈", label: "Log out",   cmd: ["hyprctl", "dispatch", "hl.dsp.exit()"] },
   { icon: "󰜉", label: "Reboot",    cmd: ["systemctl", "reboot"],      confirm: true },
   { icon: "󰐥", label: "Shut down", cmd: ["systemctl", "poweroff"],    confirm: true },
 ]

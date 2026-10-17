@@ -16,7 +16,7 @@ local fileManager = "thunar"
 hl.bind(mainMod .. " + SHIFT + ESCAPE", hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind(mainMod .. " + Q",         hl.dsp.window.close())
 -- No exit bind on purpose: SUPER+SHIFT+Q sat next to close-window and one slip
--- killed the session. Log out via the AGS sidebar power row (or `hyprctl dispatch exit`).
+-- killed the session. Log out via the AGS sidebar power row (or `hyprctl dispatch 'hl.dsp.exit()'`).
 hl.bind(mainMod .. " + W",         hl.dsp.exec_cmd(home .. "/.config/hypr/toggle-ags.sh"))
 hl.bind(mainMod .. " + grave",     hl.dsp.exec_cmd(home .. "/.config/hypr/toggle-ags-sidebar.sh"))
 

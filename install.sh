@@ -7,7 +7,7 @@ set -euo pipefail
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DOTFILES_DIR"
 
-PACKAGES=(hypr ags ghostty swaync swaylock cava mpv neofetch scripts)
+PACKAGES=(hypr ags ghostty swaync swaylock ly cava mpv neofetch scripts)
 
 command -v stow >/dev/null || { echo "need stow: sudo pacman -S --needed stow" >&2; exit 1; }
 

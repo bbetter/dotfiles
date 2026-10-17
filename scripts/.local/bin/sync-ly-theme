@@ -1,0 +1,12 @@
+#!/bin/bash
+# Copies the generated, wal-themed ly config into /etc/ly/config.ini.
+# Run as root via sudo (see /etc/sudoers.d/90-ly-theme-sync), called from
+# gen-theme.sh after it renders ~/.config/ly/config.ini from the template.
+set -euo pipefail
+
+# Hardcoded, not $HOME: sudo runs this as root, so $HOME would resolve to
+# /root unless the caller passes -E.
+src="/home/andrii/.config/ly/config.ini"
+[ -f "$src" ] || { echo "sync-ly-theme: $src missing, nothing to sync" >&2; exit 1; }
+
+install -m 644 -o root -g root "$src" /etc/ly/config.ini

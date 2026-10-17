@@ -178,6 +178,15 @@ generate "$HOME/.config/swaylock/config.template" \
 generate "$HOME/.config/hypr/hyprlock.template.conf" \
   "$HOME/.config/hypr/hyprlock.conf"
 
+# ly greeter — themed to match hyprlock. Lives in /etc, so the rendered file
+# is synced there via a narrow NOPASSWD sudoers rule (see
+# /etc/sudoers.d/90-ly-theme-sync); harmless no-op if that isn't set up yet.
+generate "$HOME/.config/ly/config.ini.template" \
+  "$HOME/.config/ly/config.ini"
+if [ -f "$HOME/.config/ly/config.ini" ]; then
+  sudo -n "$HOME/.local/bin/sync-ly-theme" 2>/dev/null || true
+fi
+
 generate "$HOME/.config/fastfetch/config.template.jsonc" \
   "$HOME/.config/fastfetch/config.jsonc"
 
