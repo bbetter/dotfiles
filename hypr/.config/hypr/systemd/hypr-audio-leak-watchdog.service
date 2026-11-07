@@ -1,0 +1,9 @@
+[Unit]
+Description=Warn via swaync when audio leaks to a non-headphone sink after hours
+PartOf=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/scripts/audio-leak-watchdog.sh
+Restart=on-failure
+RestartSec=2
