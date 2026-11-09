@@ -29,7 +29,7 @@ cyan = "__SUCCESS__"
 [colors.text]
 danger = "__ERROR__"
 success = "__SPECIAL__"
-selection = { background = "__PRIMARY__", foreground = "#__BG__" }
+selection = { background = "__PRIMARY__", foreground = "#ffffff" }
 
 [colors.input]
 border_focus = "__PRIMARY__"
@@ -38,3 +38,11 @@ border_error = "__ERROR__"
 [colors.loading]
 bar = "__PRIMARY__"
 spinner = "__FG_CSS__"
+
+# List hover/selection. vicinae-dark derives these from the border colour at very low
+# opacity (0.10 / 0.15), which is barely distinguishable on the dark background.
+[colors.list.item.hover]
+background = { name = "colors.core.accent", opacity = 0.35 }
+
+[colors.list.item.selection]
+background = { name = "colors.core.accent", opacity = 0.55 }

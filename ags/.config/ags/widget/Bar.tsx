@@ -9,6 +9,7 @@ import { Clock } from "./bar/Clock"
 import { WindowTitle } from "./bar/WindowTitle"
 import { SidebarToggle } from "./bar/SidebarToggle"
 import { Language } from "./bar/Language"
+import { Tray } from "./bar/Tray"
 import { ThunderbirdUnread } from "./bar/Thunderbird"
 
 export default function Bar(gdkmonitor: Gdk.Monitor) {
@@ -46,6 +47,7 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
           <NetworkIndicator gdkmonitor={gdkmonitor} />
           <Language />
           <RecordingStatus />
+          <Tray />
           <SidebarToggle gdkmonitor={gdkmonitor} />
         </box>
       </centerbox>

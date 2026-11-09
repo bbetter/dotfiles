@@ -1,6 +1,8 @@
 # Hyprland config (native Lua)
 
-- Hyprland 0.56 loads `hyprland.lua` directly. There is **no** `hyprland.conf`.
+- Full picture of the desktop (AGS shell, services, keybinds, known issues): `SETUP.md`.
+  Read it before changing bar, sidebar or startup behaviour.
+- Hyprland 0.57 loads `hyprland.lua` directly. There is **no** `hyprland.conf`.
   `hyprland.lua` `dofile()`s `env`, `autostart`, `monitors`, `workspaces`, `look`,
   `plugins`, `input`, `windows`, `binds` (in that order).
 - API is `hl.*`: `hl.config{}`, `hl.bind`, `hl.dsp.*`, `hl.animation{}`, `hl.curve`,

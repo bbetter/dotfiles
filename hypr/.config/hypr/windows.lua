@@ -29,6 +29,18 @@ hl.window_rule({ match = { class = "^(xdg-desktop-portal-hyprland)$" }, no_blur 
 -- JetBrains dialogs
 hl.window_rule({ match = { class = "^(jetbrains-.*)$", title = "^(win.*)$" }, float = true, center = true })
 
+-- JetBrains Toolbox (XWayland/Java): the window opens parked at x=-440, off-screen.
+-- Absolute moves are ignored for it, so nudge it relatively once it has opened.
+-- Workaround from hyprwm/Hyprland discussion #16266; the tiling problem there is not addressed.
+hl.on("window.open", function(w)
+    if w.class == "jetbrains-toolbox" then
+        hl.timer(function()
+            hl.dispatch(hl.dsp.window.move({ direction = "r", window = w }))
+            hl.dispatch(hl.dsp.window.move({ direction = "u", window = w }))
+        end, { timeout = 50, type = "oneshot" })
+    end
+end)
+
 -- Picture-in-Picture
 hl.window_rule({
     match = { title = "^(Picture-in-Picture)$" },
