@@ -37,7 +37,7 @@ Our own services are user units in `hypr/.config/hypr/systemd/`, linked by insta
 - `hypr-ags.service`: the AGS shell (bar, sidebar, popups)
 - `hypr-sm-autosave.service`, `hypr-snappy.service`, `hypr-sunset.service`,
   `hypr-theme-watcher.service`, `hypr-fs-dnd.service`, `hypr-cliphist-*.service`,
-  `hypr-ram-watchdog.service`, `hypr-audio-leak-watchdog.service`
+  `hypr-ram-watchdog.service`
 
 Useful commands:
 

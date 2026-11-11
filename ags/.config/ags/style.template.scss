@@ -197,6 +197,32 @@ $green-bg:  #5c8a5d;
   &:hover {
     background: rgba($secondary, 0.2);
   }
+
+  // Quiet hours, headphones connected, sound on speakers (set from Audio.tsx).
+  // Fixed red, not $error: the wallpaper palette's error can be teal.
+  &.audio-leak {
+    $audio-leak-red: #f0616d;
+    background: rgba($audio-leak-red, 0.18);
+    color: $audio-leak-red;
+
+    &:hover {
+      background: rgba($audio-leak-red, 0.28);
+    }
+  }
+}
+
+// Quick mute button shown beside the audio pill during the leak state
+.audio-mute-quick {
+  padding: 3px 10px;
+  margin: 3px 6px 3px 0;
+  border-radius: 8px;
+  background: rgba(#f0616d, 0.22);
+  color: #f0616d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  &:hover {
+    background: rgba(#f0616d, 0.36);
+  }
 }
 
 /* ==================================================
