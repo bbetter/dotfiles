@@ -1,6 +1,7 @@
 import { Gtk, Gdk, Astal } from "ags/gtk4"
 import AstalWp from "gi://AstalWp"
 import { createPopup, PopupHandle } from "./BasePopup"
+import { headsetModes, HeadsetMode } from "./utils/headsetMode"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Volume slider section — imperative (Gtk.Scale + Gtk.Adjustment)
@@ -95,8 +96,17 @@ function makeSliderSection(label: string): SliderSection {
     }
 }
 
+// Headset rows get a dongle/cable tag, since both entries share one description.
+function rowLabel(ep: AstalWp.Endpoint, modes: Map<number, HeadsetMode>): string {
+    const base = ep.get_description() ?? ep.get_name() ?? "Unknown"
+    const mode = modes.get(ep.get_serial())
+    if (!mode) return base
+    return `${base} · ${mode === "dongle" ? "Dongle" : "Cable"}`
+}
+
 function buildDeviceRows(
     endpoints: AstalWp.Endpoint[],
+    modes: Map<number, HeadsetMode>,
     container: Gtk.Box,
     onSelect: (ep: AstalWp.Endpoint) => void,
 ) {
@@ -120,7 +130,7 @@ function buildDeviceRows(
         icon.set_label(ep.get_is_default() ? "▶" : " ")
         icon.add_css_class("audio-device-row-icon")
         const name = new Gtk.Label({ halign: Gtk.Align.START, hexpand: true, ellipsize: 3 })
-        name.set_label(ep.get_description() ?? ep.get_name() ?? "Unknown")
+        name.set_label(rowLabel(ep, modes))
         name.add_css_class("audio-device-row-name")
         row.append(icon)
         row.append(name)
@@ -156,14 +166,14 @@ export function AudioPopup(gdkmonitor: Gdk.Monitor) {
         const spk = audio?.get_default_speaker() ?? null
         outSection.bind(spk)
         const all = audio?.get_speakers() ?? []
-        buildDeviceRows(all, outDevices, ep => { ep.set_is_default(true) })
+        buildDeviceRows(all, headsetModes("sinks"), outDevices, ep => { ep.set_is_default(true) })
     }
 
     function refreshMics() {
         const mic = audio?.get_default_microphone() ?? null
         inSection.bind(mic)
         const all = audio?.get_microphones() ?? []
-        buildDeviceRows(all, inDevices, ep => { ep.set_is_default(true) })
+        buildDeviceRows(all, headsetModes("sources"), inDevices, ep => { ep.set_is_default(true) })
     }
 
     if (audio) {

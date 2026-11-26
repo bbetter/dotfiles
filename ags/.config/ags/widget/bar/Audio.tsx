@@ -2,6 +2,7 @@ import { createBinding, createComputed, createExternal } from "gnim"
 import { Gtk, Gdk } from "ags/gtk4"
 import GLib from "gi://GLib"
 import Wp from "gi://AstalWp"
+import { exec } from "ags/process"
 import { toggleAudioPopup } from "../AudioPopup"
 import { bindActiveClass } from "../utils/popupActiveClass"
 
@@ -10,6 +11,12 @@ import { bindActiveClass } from "../utils/popupActiveClass"
 // field: the Jieli earbuds dongle shows up as "USB Composite Device ...".
 // Update if the earbuds/dongle change.
 const HEADPHONE_RE = /jieli|usb composite device/i
+
+// The headset shows up twice: once as the wireless dongle, once as the USB cable
+// (charging/wired mode). Both descriptions are identical, so the mode comes from
+// the USB serial embedded in the PipeWire sink name. Update if the headset changes.
+const DONGLE_SERIAL = "4250325437333805"
+const CABLE_SERIAL = "4150353030343319"
 
 // Quiet hours: 22:00 → 08:00, wraps midnight.
 const QUIET_START_HOUR = 22
@@ -118,6 +125,26 @@ export function Audio({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     }
   })
 
+  // Dongle vs cable, only while the default output is the headset. Re-read on each
+  // default-output change (event-driven, no polling).
+  const headphoneMode = createExternal<"dongle" | "cable" | null>(null, (set) => {
+    const audio = wp.audio
+    // Sink name only: AstalWp's description is filled asynchronously, so gating on it
+    // here can miss the headset at startup. A non-headset sink simply matches no serial.
+    const refresh = () => {
+      let mode: "dongle" | "cable" | null = null
+      try {
+        const sink = exec("pactl get-default-sink").trim()
+        if (sink.includes(CABLE_SERIAL)) mode = "cable"
+        else if (sink.includes(DONGLE_SERIAL)) mode = "dongle"
+      } catch { /* pactl unavailable: no mode tag */ }
+      set(mode)
+    }
+    refresh()
+    const sig = audio.connect("notify::default-speaker", refresh)
+    return () => audio.disconnect(sig)
+  })
+
   // Red = quiet hours + headphones plugged in + sound going to speakers instead.
   const leak = createComputed(
     () => quietHours() && headphonesConnected() && !outputIsHeadphones(),
@@ -129,12 +156,15 @@ export function Audio({ gdkmonitor }: { gdkmonitor: Gdk.Monitor }) {
     const pct = Math.round(v * 100)
     const device = outputIsHeadphones() ? "Headphones" : "Speakers"
     const icon = outputIsHeadphones() ? ICON_HEADPHONES : ICON_SPEAKER
+    const mode = headphoneMode()
+    const modeTag = mode === "dongle" ? " Dongle" : mode === "cable" ? " Cable" : ""
+    const modeTip = mode ? ` (${mode === "dongle" ? "wireless dongle" : "USB cable"})` : ""
     const warn = leak()
       ? "\n⚠ Headphones connected, sound on speakers (quiet hours)"
       : ""
     return {
-      label: mute() ? `${icon} ${ICON_MUTED}` : `${icon} ${pct}%`,
-      tooltip: `Output: ${device}\nVolume: ${pct}%${warn}`,
+      label: mute() ? `${icon}${modeTag} ${ICON_MUTED}` : `${icon}${modeTag} ${pct}%`,
+      tooltip: `Output: ${device}${modeTip}\nVolume: ${pct}%${warn}`,
     }
   })
 
